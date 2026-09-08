@@ -1,6 +1,7 @@
-from validaciones import validar_operando
+from validaciones import validar_operando, validar_divisor
 from suma import suma
 from multiplicacion import multiplicacion
+from division import division
 
 print("Iniciando calculadora...")
 print("Seleccione una operación:")
@@ -27,10 +28,13 @@ match operador:
     case '+':
         resultado = suma(op1, op2)
     case '-':
-            resultado = op1 - op2 # MODIFICAR
+        resultado = op1 - op2 # MODIFICAR
     case '*':
-            resultado = multiplicacion(op1, op2) # MODIFICAR
+        resultado = multiplicacion(op1, op2) # MODIFICAR
     case '/':
-            resultado = op1 / op2 # MODIFICAR
+        if not validar_divisor(op2): 
+            exit(3)
+        else:
+            resultado = division(op1,op2)
 
 print(f"El resultado de la operación es {resultado}")
