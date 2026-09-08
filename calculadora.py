@@ -1,5 +1,6 @@
 from validaciones import validar_operando
 from suma import suma
+from multiplicacion import multiplicacion
 
 print("Iniciando calculadora...")
 print("Seleccione una operación:")
@@ -28,7 +29,7 @@ match operador:
     case '-':
             resultado = op1 - op2 # MODIFICAR
     case '*':
-            resultado = op1 * op2 # MODIFICAR
+            resultado = multiplicacion(op1, op2) # MODIFICAR
     case '/':
             resultado = op1 / op2 # MODIFICAR
 
