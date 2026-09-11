@@ -3,6 +3,7 @@ from suma import suma
 from multiplicacion import multiplicacion
 from division import division
 from resta import resta
+from potencia import potencia
 
 print("Iniciando calculadora...")
 print("Seleccione una operación:")
@@ -10,9 +11,10 @@ print("- Suma (+)")
 print("- Resta (-)")
 print("- Multiplicación (*)")
 print("- División (/)")
+print("- Potencia (^)")
 
 operador = input("Ingrese el operador: ")
-if operador not in ['+', '-', '*', '/']:
+if operador not in ['+', '-', '*', '/', '^']:
     print("Operador no válido.")
     exit(1)
 
@@ -33,9 +35,11 @@ match operador:
     case '*':
         resultado = multiplicacion(op1, op2)
     case '/':
-        if not validar_divisor(op2): 
+        if not validar_divisor(op2):
             exit(3)
         else:
-            resultado = division(op1,op2)
+            resultado = division(op1, op2)
+    case '^':
+        resultado = potencia(op1, op2)
 
 print(f"El resultado de hacer {op1} {operador} {op2} es {resultado}")
