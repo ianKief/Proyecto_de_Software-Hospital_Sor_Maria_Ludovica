@@ -1,9 +1,9 @@
-from validaciones import validar_operando, validar_divisor
-from suma import suma
-from multiplicacion import multiplicacion
-from division import division
-from resta import resta
-from potencia import potencia
+from calculadora.validaciones import validar_operando, validar_divisor
+from calculadora.suma import suma
+from calculadora.multiplicacion import multiplicacion
+from calculadora.division import division
+from calculadora.resta import resta
+from calculadora.potencia import potencia
 
 print("Iniciando calculadora...")
 print("Seleccione una operación:")
