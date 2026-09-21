@@ -1,0 +1,40 @@
+{% extends "layout.html" %}
+
+{% block content %}
+    <h1>Usuarios</h1>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Nombre</th>
+                <th>Apellido</th>
+                <th>Correo electrónico</th>
+                <th>DNI</th>
+                <th>Rol</th>
+                <th>Activo</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for u in users %}
+            <tr>
+                <td>{{ u.nombre }}</td>
+                <td>{{ u.apellido }}</td>
+                <td>{{ u.email }}</td>
+                <td>{{ u.dni }}</td>
+                <td>{{ u.rol }}</td>
+                <td>
+                    {% if u.activo %}
+                        <span class="badge si">Sí</span>
+                    {% else %}
+                        <span class="badge no">No</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="6">No hay usuarios para mostrar.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}
