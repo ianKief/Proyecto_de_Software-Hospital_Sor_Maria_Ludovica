@@ -2,7 +2,7 @@ from flask import render_template
 
 def not_found_error(e):
     return render_template(
-        "error.html",
+        "errors/error.html",
         error_code=404,
         error_title="Página no encontrada",
         error_description="El recurso que estás buscando no existe o fue movido."
@@ -10,7 +10,7 @@ def not_found_error(e):
 
 def unauthorized_error(e):
     return render_template(
-        "error.html",
+        "errors/error.html",
         error_code=401,
         error_title="No autorizado",
         error_description="No tenés permisos para acceder a esta sección."
@@ -18,7 +18,7 @@ def unauthorized_error(e):
 
 def internal_server_error(e):
     return render_template(
-        "error.html",
+        "errors/error.html",
         error_code=500,
         error_title="Error interno del servidor",
         error_description="Ocurrió un problema en el servidor. Intentalo de nuevo más tarde."
