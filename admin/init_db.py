@@ -5,7 +5,9 @@ from src.web import create_app
 from src.core.db import db
 from src.core.auth.models import Role, Permission
 from src.core.users.models import User
+from src.core.pedidos.models import Pedido, SolicitudPedido, Autorizacion
 import bcrypt
+
 
 def ensure_database_exists(db_url):
     parsed = urlparse(db_url)
