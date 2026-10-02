@@ -33,5 +33,5 @@ def crear_pedido():
 
     return jsonify({
         "mensaje": "Solicitud de creación de pedido recibida",
-        "datos": data,
+        "pedido": resultado,
     }), 201

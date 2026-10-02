@@ -1,10 +1,17 @@
-from datetime import date, datetime
+from datetime import datetime
 
 
 PERIODICIDADES_VALIDAS = {
     "diaria",
     "semanal",
     "mensual",
+}
+
+TIPOS_COMIDA_VALIDOS = {
+    "desayuno",
+    "almuerzo",
+    "merienda",
+    "cena",
 }
 
 
@@ -15,11 +22,12 @@ def validar_pedido(data):
         "periodicidad",
         "fecha_desde",
         "fecha_hasta",
-        "personas",
+        "detalle",
     ]
 
     faltantes = [
-        campo for campo in campos_requeridos
+        campo
+        for campo in campos_requeridos
         if campo not in data
     ]
 
@@ -55,17 +63,58 @@ def validar_pedido(data):
             "error": "fecha_hasta no puede ser anterior a fecha_desde",
         }
 
-    if not isinstance(data["personas"], list) or not data["personas"]:
+    detalle = data["detalle"]
+
+    if not isinstance(detalle, dict):
         return False, {
-            "error": "personas debe ser una lista no vacía",
+            "error": "detalle debe ser un objeto",
         }
 
-    if not all(isinstance(persona_id, int) for persona_id in data["personas"]):
+    tipos_desconocidos = set(detalle) - TIPOS_COMIDA_VALIDOS
+
+    if tipos_desconocidos:
         return False, {
-            "error": "Los identificadores de personas deben ser enteros",
+            "error": "Se recibieron tipos de comida inválidos",
+            "tipos_invalidos": sorted(tipos_desconocidos),
+        }
+
+    for tipo_comida in TIPOS_COMIDA_VALIDOS:
+        personas = detalle.get(tipo_comida, [])
+
+        if not isinstance(personas, list):
+            return False, {
+                "error": f"{tipo_comida} debe ser una lista",
+            }
+
+        if any(
+            not isinstance(persona_id, int) or persona_id <= 0
+            for persona_id in personas
+        ):
+            return False, {
+                "error": (
+                    f"Los identificadores de personas de {tipo_comida} "
+                    "deben ser enteros positivos"
+                ),
+            }
+
+        if len(personas) != len(set(personas)):
+            return False, {
+                "error": (
+                    f"No se puede repetir una persona en {tipo_comida}"
+                ),
+            }
+
+    if not any(detalle.get(tipo) for tipo in TIPOS_COMIDA_VALIDOS):
+        return False, {
+            "error": "Debe existir al menos una persona en alguna comida",
         }
 
     return True, {
+        "periodicidad": data["periodicidad"],
         "fecha_desde": fecha_desde,
         "fecha_hasta": fecha_hasta,
+        "detalle": {
+            tipo: detalle.get(tipo, [])
+            for tipo in TIPOS_COMIDA_VALIDOS
+        },
     }
