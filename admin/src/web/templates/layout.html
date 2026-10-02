@@ -1,17 +1,39 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Sistema de Alimentación - Admin</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
+    <a href="#main-content" class="skip-link sr-only" style="position: absolute; left: -9999px; z-index: 999; padding: 1em; background-color: #fff; color: #000; text-decoration: none;">Saltar al contenido principal</a>
+
     <header>
-        <nav>
-            <a href="{{ url_for('main.home') }}">Home</a>
-        </nav>
+        <div class="container flex-center" style="justify-content: space-between;">
+            <div>
+                <strong>Hospital Sor María Ludovica</strong>
+            </div>
+            <nav aria-label="Navegación principal">
+                <ul class="nav-links flex" style="gap: 1rem;">
+                    <li><a href="{{ url_for('main.home') }}">Inicio</a></li>
+                    {% if session.get('user') %}
+                        <li><a href="{{ url_for('users.user_index') }}">Usuarios</a></li>
+                        <li><a href="{{ url_for('auth.logout') }}">Cerrar Sesión ({{ session.get('user') }})</a></li>
+                    {% else %}
+                        <li><a href="{{ url_for('auth.login') }}">Iniciar Sesión</a></li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
     </header>
+
     {% block content %}{% endblock %}
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2026 - Sistema de Alimentación</p>
+        </div>
+    </footer>
 </body>
 </html>
