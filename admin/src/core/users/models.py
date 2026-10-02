@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from src.core.db import db
+from src.core.auth.models import Role
 
 class User(db.Model):
     __tablename__ = 'users'
