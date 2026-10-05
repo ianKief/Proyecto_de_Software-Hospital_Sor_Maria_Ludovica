@@ -1,7 +1,10 @@
+from datetime import date
+
 from flask import Blueprint, jsonify, request, session
 
 from src.core.db import db
 from src.core.food_types.models import FoodType
+from src.core.menu_types.models import MenuType
 from src.core.personnel.models import Personal
 from src.core.pedidos.models import Pedido, SolicitudPedido
 from src.core.quotas.models import Cupo
@@ -272,11 +275,197 @@ def listar_pedidos():
             "error": "No autorizado",
         }), 403
 
+    usuario = _obtener_usuario_autenticado()
+
+    if not usuario:
+        return jsonify({
+            "error": "Usuario no autenticado",
+        }), 401
+
+    if not usuario.activo:
+        return jsonify({
+            "error": "El usuario se encuentra desactivado",
+        }), 403
+
+    if not usuario.sector_id:
+        return jsonify({
+            "error": "El Jefe de Servicio no tiene un sector asociado",
+        }), 400
+
+    # El sector SIEMPRE sale del usuario autenticado.
+    query = Pedido.query.filter_by(
+        sector_id=usuario.sector_id,
+    )
+
+    # Filtro por rango de fechas.
+    fecha_desde_param = request.args.get("fecha_desde")
+    fecha_hasta_param = request.args.get("fecha_hasta")
+
+    if fecha_desde_param:
+        try:
+            fecha_desde = date.fromisoformat(fecha_desde_param)
+        except ValueError:
+            return jsonify({
+                "error": "fecha_desde debe tener formato YYYY-MM-DD",
+            }), 400
+
+        query = query.filter(Pedido.fecha >= fecha_desde)
+
+    if fecha_hasta_param:
+        try:
+            fecha_hasta = date.fromisoformat(fecha_hasta_param)
+        except ValueError:
+            return jsonify({
+                "error": "fecha_hasta debe tener formato YYYY-MM-DD",
+            }), 400
+
+        query = query.filter(Pedido.fecha <= fecha_hasta)
+
+    if (
+        fecha_desde_param
+        and fecha_hasta_param
+        and fecha_desde > fecha_hasta
+    ):
+        return jsonify({
+            "error": "fecha_hasta no puede ser anterior a fecha_desde",
+        }), 400
+
+    # Filtro por estado.
+    estado = request.args.get("estado")
+
+    estados_validos = {
+        "confirmado",
+        "autorizado",
+        "rechazado",
+    }
+
+    if estado:
+        if estado not in estados_validos:
+            return jsonify({
+                "error": "Estado inválido",
+                "valores_permitidos": sorted(estados_validos),
+            }), 400
+
+        query = query.filter(Pedido.estado == estado)
+
+    # Filtro por tipo de comida.
+    tipo_comida = request.args.get("tipo_comida")
+
+    if tipo_comida:
+        food_type = FoodType.query.filter(
+            db.func.lower(FoodType.nombre) == tipo_comida.lower()
+        ).first()
+
+        if not food_type:
+            return jsonify({
+                "error": "Tipo de comida inexistente",
+            }), 400
+
+        query = query.filter(
+            Pedido.solicitudes.any(
+                SolicitudPedido.tipo_comida_id == food_type.id
+            )
+        )
+
+    # Filtro por tipo de menú.
+    tipo_menu = request.args.get("tipo_menu")
+
+    if tipo_menu:
+        menu_type = MenuType.query.filter(
+            db.func.lower(MenuType.nombre) == tipo_menu.lower()
+        ).first()
+
+        if not menu_type:
+            return jsonify({
+                "error": "Tipo de menú inexistente",
+            }), 400
+
+        query = query.filter(
+            Pedido.solicitudes.any(
+                SolicitudPedido.tipo_menu_id == menu_type.id
+            )
+        )
+
+    # Paginación.
+    try:
+        pagina = int(request.args.get("pagina", 1))
+        por_pagina = int(request.args.get("por_pagina", 25))
+    except ValueError:
+        return jsonify({
+            "error": "pagina y por_pagina deben ser números enteros",
+        }), 400
+
+    if pagina < 1:
+        return jsonify({
+            "error": "pagina debe ser mayor o igual a 1",
+        }), 400
+
+    if por_pagina < 1:
+        return jsonify({
+            "error": "por_pagina debe ser mayor o igual a 1",
+        }), 400
+
+    # El TP fija un máximo de 25.
+    por_pagina = min(por_pagina, 25)
+
+    total = query.count()
+
+    pedidos = (
+        query
+        .order_by(Pedido.fecha.desc(), Pedido.id.desc())
+        .offset((pagina - 1) * por_pagina)
+        .limit(por_pagina)
+        .all()
+    )
+
+    resultado = []
+
+    for pedido in pedidos:
+        solicitudes = pedido.solicitudes
+
+        totales_comida = {
+            "desayuno": 0,
+            "almuerzo": 0,
+            "merienda": 0,
+            "cena": 0,
+        }
+
+        totales_menu = {
+            "General": 0,
+            "Vegetariano": 0,
+            "Celiaco": 0,
+        }
+
+        for solicitud in solicitudes:
+            if solicitud.food_type:
+                nombre_comida = solicitud.food_type.nombre.lower()
+
+                if nombre_comida in totales_comida:
+                    totales_comida[nombre_comida] += 1
+
+            if solicitud.menu_type:
+                nombre_menu = solicitud.menu_type.nombre
+
+                if nombre_menu in totales_menu:
+                    totales_menu[nombre_menu] += 1
+
+        resultado.append({
+            "id": pedido.id,
+            "sector_id": pedido.sector_id,
+            "fecha": pedido.fecha.isoformat(),
+            "estado": pedido.estado,
+            "creado_por": pedido.creado_por,
+            "totales": {
+                "por_comida": totales_comida,
+                "por_menu": totales_menu,
+            },
+        })
+
     return jsonify({
-        "pedidos": [],
-        "pagina": 1,
-        "por_pagina": 25,
-        "total": 0,
+        "pedidos": resultado,
+        "pagina": pagina,
+        "por_pagina": por_pagina,
+        "total": total,
     }), 200
 
 
