@@ -1,7 +1,9 @@
 from datetime import datetime, timezone
 
 from src.core.db import db
-
+from src.core.food_types.models import FoodType
+from src.core.menu_types.models import MenuType
+from src.core.personnel.models import Personal
 
 class Pedido(db.Model):
     """Representa un pedido de comidas de un sector para una fecha."""
@@ -66,11 +68,14 @@ class Pedido(db.Model):
 
 
 class SolicitudPedido(db.Model):
-    """Representa una solicitud nominada de una comida dentro de un pedido."""
+    """Representa una solicitud nominada dentro de un pedido."""
 
     __tablename__ = "solicitudes_pedido"
 
-    id = db.Column(db.Integer, primary_key=True)
+    id = db.Column(
+        db.Integer,
+        primary_key=True,
+    )
 
     pedido_id = db.Column(
         db.Integer,
@@ -78,21 +83,23 @@ class SolicitudPedido(db.Model):
         nullable=False,
     )
 
-    # Referencia al personal.
     person_id = db.Column(
         db.Integer,
+        db.ForeignKey("personnel.id"),
         nullable=False,
     )
 
     # Tipo de comida: desayuno, almuerzo, merienda o cena.
     tipo_comida_id = db.Column(
         db.Integer,
+        db.ForeignKey("food_types.id"),
         nullable=False,
     )
 
     # Tipo de menú que tenía la persona al momento del pedido.
     tipo_menu_id = db.Column(
         db.Integer,
+        db.ForeignKey("menu_types.id"),
         nullable=False,
     )
 
@@ -112,6 +119,18 @@ class SolicitudPedido(db.Model):
         back_populates="solicitudes",
     )
 
+    persona = db.relationship(
+        "Personal",
+    )
+
+    food_type = db.relationship(
+        "FoodType",
+    )
+
+    menu_type = db.relationship(
+        "MenuType",
+    )
+
     autorizacion = db.relationship(
         "Autorizacion",
         back_populates="solicitud",
@@ -124,14 +143,13 @@ class SolicitudPedido(db.Model):
             "pedido_id",
             "person_id",
             "tipo_comida_id",
-            name="uq_solicitud_persona_comida",
+            name="uq_solicitud_pedido_persona_comida",
         ),
         db.CheckConstraint(
             "condicion IN ('regular', 'excepcion')",
             name="ck_solicitud_condicion",
         ),
     )
-
 
 class Autorizacion(db.Model):
     """Representa la autorización individual de una solicitud."""
