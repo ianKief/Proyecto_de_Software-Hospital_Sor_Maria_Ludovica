@@ -1,6 +1,26 @@
 {% extends "layout.html" %}
 
 {% block content %}
-    <h1>¡Hola mundo!</h1>
-    <a href="{{url_for('users.user_index')}}">Usuarios</a>
+<main id="main-content" class="container mx-auto px-4 py-12 flex-grow flex items-center justify-center" tabindex="-1">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center max-w-3xl w-full">
+        <h1 class="text-3xl font-bold text-gray-900 mb-4">Bienvenido al Sistema de Alimentación</h1>
+        <p class="text-gray-600 mb-8 text-lg">Panel de administración central del Hospital Sor María Ludovica.</p>
+        
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg mx-auto">
+            {% if session.get('user') %}
+            <a href="{{url_for('users.user_index')}}" class="flex items-center justify-center p-4 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 font-medium transition-colors border border-blue-100">
+                Gestión de Usuarios
+            </a>
+            <!-- Este es un módulo futuro de ejemplo -->
+            <a href="#" class="flex items-center justify-center p-4 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 font-medium transition-colors border border-green-100">
+                Menú y Viandas
+            </a>
+            {% else %}
+            <a href="{{url_for('auth.login')}}" class="btn btn-primary sm:col-span-2">
+                Iniciar Sesión
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</main>
 {% endblock %}
