@@ -188,3 +188,35 @@ if __name__ == '__main__':
             print("  Pass : admin123")
         else:
             print("El administrador ya estaba creado.")
+
+        print("Creando usuario de Servicio de Alimentación...")
+        alimentacion_role = Role.query.filter_by(
+            name="Servicio de Alimentación"
+        ).first()
+
+        if not User.query.filter_by(
+            email="alimentacion@hospital.com"
+        ).first():
+            hashed_password = bcrypt.hashpw(
+                b"alimentacion123",
+                bcrypt.gensalt(),
+            ).decode("utf-8")
+
+            alimentacion = User(
+                email="alimentacion@hospital.com",
+                nombre="Servicio",
+                apellido="Alimentación",
+                dni="00000001",
+                password=hashed_password,
+                activo=True,
+                role_id=alimentacion_role.id,
+            )
+
+            db.session.add(alimentacion)
+            db.session.commit()
+
+            print("Usuario de Servicio de Alimentación creado:")
+            print("  Email: alimentacion@hospital.com")
+            print("  Pass : alimentacion123")
+        else:
+            print("El usuario de Servicio de Alimentación ya estaba creado.")

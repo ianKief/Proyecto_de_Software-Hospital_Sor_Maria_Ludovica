@@ -5,6 +5,7 @@ from src.web.controllers.routes import bp
 from src.web.controllers.users import users_bp
 from src.web.controllers.auth import auth_bp
 from src.web.controllers.pedidos import pedidos_bp
+from src.web.controllers.authorizations import authorizations_bp
 import os
 from .config import config
 from src.core.db import db
@@ -36,6 +37,7 @@ def create_app(env="development", static_folder=None):
     app.register_blueprint(users_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(pedidos_bp)
+    app.register_blueprint(authorizations_bp)
 
     register_error_handlers(app)
     return app
