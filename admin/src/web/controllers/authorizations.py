@@ -134,7 +134,9 @@ def listar_autorizaciones():
             "error": "Usuario no válido",
         }), 401
 
-    query = Pedido.query
+    query = Pedido.query.filter(
+        Pedido.estado.in_(["confirmado", "autorizado"])
+    )
 
     fecha_desde_param = request.args.get("fecha_desde")
     fecha_hasta_param = request.args.get("fecha_hasta")
