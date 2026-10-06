@@ -16,7 +16,8 @@ class User(db.Model):
     role_id = db.Column(db.Integer, db.ForeignKey('roles.id'), nullable=False)
     role = db.relationship('Role')
     
+    # TODO: Descomentar e implementar relación cuando el compañero termine el módulo de Sectores
     # sector_id = db.Column(db.Integer, db.ForeignKey('sectors.id'), nullable=True)
-    
+    # sector = db.relationship('Sector')
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
