@@ -1,4 +1,5 @@
-from datetime import date
+from calendar import monthrange
+from datetime import date, timedelta
 
 from flask import Blueprint, jsonify, request, session
 
@@ -18,6 +19,54 @@ pedidos_bp = Blueprint(
     __name__,
     url_prefix="/api/requests",
 )
+
+def _generar_fechas_pedido(periodicidad, fecha_desde, fecha_hasta):
+    """Genera las fechas de los pedidos según la periodicidad indicada."""
+
+    fechas = []
+
+    if periodicidad == "diaria":
+        fecha = fecha_desde
+
+        while fecha <= fecha_hasta:
+            fechas.append(fecha)
+            fecha += timedelta(days=1)
+
+    elif periodicidad == "semanal":
+        fecha = fecha_desde
+
+        while fecha <= fecha_hasta:
+            fechas.append(fecha)
+            fecha += timedelta(days=7)
+
+    elif periodicidad == "mensual":
+        fecha = fecha_desde
+        dia_original = fecha_desde.day
+
+        while fecha <= fecha_hasta:
+            fechas.append(fecha)
+
+            if fecha.month == 12:
+                siguiente_anio = fecha.year + 1
+                siguiente_mes = 1
+            else:
+                siguiente_anio = fecha.year
+                siguiente_mes = fecha.month + 1
+
+            ultimo_dia = monthrange(
+                siguiente_anio,
+                siguiente_mes,
+            )[1]
+
+            siguiente_dia = min(dia_original, ultimo_dia)
+
+            fecha = date(
+                siguiente_anio,
+                siguiente_mes,
+                siguiente_dia,
+            )
+
+    return fechas
 
 
 def _obtener_usuario_autenticado():
@@ -159,17 +208,6 @@ def crear_pedido():
     if not es_valido:
         return jsonify(resultado), 400
 
-    # La semántica de cargas semanales/mensuales todavía no está
-    # definida explícitamente en el TP. Por ahora persistimos pedidos
-    # de una fecha puntual.
-    if resultado["fecha_desde"] != resultado["fecha_hasta"]:
-        return jsonify({
-            "error": (
-                "La creación de pedidos con rango de fechas "
-                "todavía no está implementada"
-            ),
-        }), 400
-
     usuario = _obtener_usuario_autenticado()
 
     if not usuario:
@@ -198,36 +236,52 @@ def crear_pedido():
         return jsonify({
             "error": "El sector del usuario se encuentra inactivo",
         }), 400
-
-    fecha = resultado["fecha_desde"]
-
-    pedido_existente = Pedido.query.filter_by(
-        sector_id=sector.id,
-        fecha=fecha,
-    ).first()
-
-    if pedido_existente:
-        return jsonify({
-            "error": "Ya existe un pedido para ese sector y fecha",
-            "request_id": pedido_existente.id,
-        }), 409
-
-    pedido = Pedido(
-        sector_id=sector.id,
-        fecha=fecha,
-        estado="confirmado",
-        creado_por=usuario.id,
+    
+    fechas = _generar_fechas_pedido(
+        resultado["periodicidad"],
+        resultado["fecha_desde"],
+        resultado["fecha_hasta"],
     )
 
-    try:
-        db.session.add(pedido)
-        db.session.flush()
-
-        _crear_solicitudes(
-            pedido=pedido,
-            detalle=resultado["detalle"],
-            sector_id=sector.id,
+    pedidos_existentes = (
+        Pedido.query
+        .filter(
+            Pedido.sector_id == sector.id,
+            Pedido.fecha.in_(fechas),
         )
+        .all()
+    )
+
+    if pedidos_existentes:
+        return jsonify({
+            "error": "Ya existe un pedido para una o más fechas del período",
+            "request_ids": [
+                pedido.id
+                for pedido in pedidos_existentes
+            ],
+        }), 409
+
+    pedidos_creados = []
+
+    try:
+        for fecha in fechas:
+            pedido = Pedido(
+                sector_id=sector.id,
+                fecha=fecha,
+                estado="confirmado",
+                creado_por=usuario.id,
+            )
+
+            db.session.add(pedido)
+            db.session.flush()
+
+            _crear_solicitudes(
+                pedido=pedido,
+                detalle=resultado["detalle"],
+                sector_id=sector.id,
+            )
+
+            pedidos_creados.append(pedido)
 
         db.session.commit()
 
@@ -242,28 +296,32 @@ def crear_pedido():
         db.session.rollback()
 
         return jsonify({
-            "error": "No se pudo crear el pedido",
+            "error": "No se pudieron crear los pedidos",
         }), 500
 
     return jsonify({
-        "mensaje": "Pedido creado correctamente",
-        "pedido": {
-            "id": pedido.id,
-            "sector_id": pedido.sector_id,
-            "fecha": pedido.fecha.isoformat(),
-            "estado": pedido.estado,
-            "creado_por": pedido.creado_por,
-            "solicitudes": [
-                {
-                    "id": solicitud.id,
-                    "person_id": solicitud.person_id,
-                    "tipo_comida_id": solicitud.tipo_comida_id,
-                    "tipo_menu_id": solicitud.tipo_menu_id,
-                    "condicion": solicitud.condicion,
-                }
-                for solicitud in pedido.solicitudes
-            ],
-        },
+        "mensaje": "Pedidos creados correctamente",
+        "periodicidad": resultado["periodicidad"],
+        "pedidos": [
+            {
+                "id": pedido.id,
+                "sector_id": pedido.sector_id,
+                "fecha": pedido.fecha.isoformat(),
+                "estado": pedido.estado,
+                "creado_por": pedido.creado_por,
+                "solicitudes": [
+                    {
+                        "id": solicitud.id,
+                        "person_id": solicitud.person_id,
+                        "tipo_comida_id": solicitud.tipo_comida_id,
+                        "tipo_menu_id": solicitud.tipo_menu_id,
+                        "condicion": solicitud.condicion,
+                    }
+                    for solicitud in pedido.solicitudes
+                ],
+            }
+            for pedido in pedidos_creados
+        ],
     }), 201
 
 
