@@ -36,4 +36,18 @@ def create_app(env="development", static_folder=None):
     app.register_blueprint(auth_bp)
 
     register_error_handlers(app)
+
+    @app.cli.command("reset-db")
+    def reset_db():
+        """Destruye la base de datos, la vuelve a crear y corre los seeds."""
+        db.drop_all()
+        print("Tablas destruidas correctamente.")
+        
+        # Corremos los scripts de inicializacion existentes
+        import subprocess
+        import sys
+        subprocess.run([sys.executable, "init_db.py"])
+        subprocess.run([sys.executable, "-m", "src.core.seeds.seed_permissions"])
+        print("¡Base de datos reseteada y poblada exitosamente!")
+
     return app
