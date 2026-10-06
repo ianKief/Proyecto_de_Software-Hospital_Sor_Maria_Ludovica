@@ -8,6 +8,7 @@ from src.core.menu_types.models import MenuType
 from src.core.personnel.models import Personal
 from src.core.pedidos.models import Pedido, SolicitudPedido
 from src.core.quotas.models import Cupo
+from src.core.sectors.models import Sector
 from src.core.users.models import User
 from src.web.helpers.pedidos_validaciones import validar_pedido
 
@@ -475,12 +476,143 @@ def consultar_pedido(request_id):
 
     if session.get("role") != "Jefe de Servicio":
         return jsonify({
-            "error": "No autorizado",
+            "error": "No autorizado"
         }), 403
 
+    usuario = _obtener_usuario_autenticado()
+
+    if usuario is None or not usuario.activo:
+        return jsonify({
+            "error": "Usuario no válido"
+        }), 401
+
+    if usuario.sector_id is None:
+        return jsonify({
+            "error": "El usuario no tiene un sector asignado"
+        }), 403
+
+    pedido = Pedido.query.get(request_id)
+
+    if pedido is None:
+        return jsonify({
+            "error": "Pedido no encontrado"
+        }), 404
+
+    # Un Jefe de Servicio solo puede consultar pedidos de su sector.
+    if pedido.sector_id != usuario.sector_id:
+        return jsonify({
+            "error": "No autorizado para consultar este pedido"
+        }), 403
+
+    sector = db.session.get(Sector, pedido.sector_id)
+
+    solicitudes = (
+        SolicitudPedido.query
+        .filter_by(pedido_id=pedido.id)
+        .all()
+    )
+
+    detalle = []
+
+    # Totales por tipo de comida
+    totales_comida = {
+        "desayuno": {
+            "solicitadas": 0,
+            "autorizadas": 0
+        },
+        "almuerzo": {
+            "solicitadas": 0,
+            "autorizadas": 0
+        },
+        "merienda": {
+            "solicitadas": 0,
+            "autorizadas": 0
+        },
+        "cena": {
+            "solicitadas": 0,
+            "autorizadas": 0
+        }
+    }
+
+    # Totales por tipo de menú
+    totales_menu = {}
+
+    for solicitud in solicitudes:
+        nombre_comida = solicitud.food_type.nombre.lower()
+        nombre_menu = solicitud.menu_type.nombre
+
+        autorizada = (
+            solicitud.autorizacion is not None
+            and solicitud.autorizacion.autorizada
+        )
+
+        if nombre_comida not in totales_comida:
+            totales_comida[nombre_comida] = {
+                "solicitadas": 0,
+                "autorizadas": 0
+            }
+
+        totales_comida[nombre_comida]["solicitadas"] += 1
+
+        if autorizada:
+            totales_comida[nombre_comida]["autorizadas"] += 1
+
+        if nombre_menu not in totales_menu:
+            totales_menu[nombre_menu] = {
+                "solicitadas": 0,
+                "autorizadas": 0
+            }
+
+        totales_menu[nombre_menu]["solicitadas"] += 1
+
+        if autorizada:
+            totales_menu[nombre_menu]["autorizadas"] += 1
+
+        detalle.append({
+            "solicitud_id": solicitud.id,
+            "persona": {
+                "id": solicitud.persona.id,
+                "dni": solicitud.persona.dni,
+                "nombre": solicitud.persona.nombre,
+                "apellido": solicitud.persona.apellido
+            },
+            "tipo_comida": {
+                "id": solicitud.tipo_comida_id,
+                "nombre": solicitud.food_type.nombre
+            },
+            "tipo_menu": {
+                "id": solicitud.tipo_menu_id,
+                "nombre": solicitud.menu_type.nombre
+            },
+            "condicion": solicitud.condicion,
+            "autorizacion": {
+                "autorizada": (
+                    solicitud.autorizacion.autorizada
+                    if solicitud.autorizacion is not None
+                    else None
+                ),
+                "usuario_id": (
+                    solicitud.autorizacion.usuario_id
+                    if solicitud.autorizacion is not None
+                    else None
+                )
+            }
+        })
+
     return jsonify({
-        "mensaje": "Consulta de pedido recibida",
-        "request_id": request_id,
+        "id": pedido.id,
+        "fecha": pedido.fecha.isoformat(),
+        "estado": pedido.estado,
+        "sector": {
+            "id": pedido.sector_id,
+            "nombre": sector.nombre if sector else None
+        },
+        "creado_por": pedido.creado_por,
+        "totales": {
+            "por_comida": totales_comida,
+            "por_menu": totales_menu
+        },
+        "solicitudes": detalle
     }), 200
 
 
