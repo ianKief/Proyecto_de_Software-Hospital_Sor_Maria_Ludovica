@@ -632,17 +632,121 @@ def modificar_pedido(request_id):
             "error": "El cuerpo de la solicitud es obligatorio",
         }), 400
 
+    usuario = _obtener_usuario_autenticado()
+
+    if usuario is None or not usuario.activo:
+        return jsonify({
+            "error": "Usuario no válido",
+        }), 401
+
+    if usuario.sector_id is None:
+        return jsonify({
+            "error": "El Jefe de Servicio no tiene un sector asignado",
+        }), 403
+
+    pedido = Pedido.query.get(request_id)
+
+    if pedido is None:
+        return jsonify({
+            "error": "Pedido no encontrado",
+        }), 404
+
+    if pedido.sector_id != usuario.sector_id:
+        return jsonify({
+            "error": "No autorizado para modificar este pedido",
+        }), 403
+
+    if pedido.estado != "confirmado":
+        return jsonify({
+            "error": "Solo se pueden modificar pedidos confirmados",
+        }), 409
+
     es_valido, resultado = validar_pedido(data)
 
     if not es_valido:
         return jsonify(resultado), 400
 
-    return jsonify({
-        "mensaje": "Solicitud de modificación de pedido recibida",
-        "request_id": request_id,
-        "pedido": resultado,
-    }), 200
+    if resultado["fecha_desde"] != resultado["fecha_hasta"]:
+        return jsonify({
+            "error": (
+                "La modificación de pedidos con rango de fechas "
+                "todavía no está implementada"
+            ),
+        }), 400
 
+    nueva_fecha = resultado["fecha_desde"]
+
+    pedido_existente = Pedido.query.filter(
+        Pedido.sector_id == pedido.sector_id,
+        Pedido.fecha == nueva_fecha,
+        Pedido.id != pedido.id,
+    ).first()
+
+    if pedido_existente:
+        return jsonify({
+            "error": "Ya existe un pedido para ese sector y fecha",
+            "request_id": pedido_existente.id,
+        }), 409
+
+    try:
+        solicitudes_actuales = (
+            SolicitudPedido.query
+            .filter_by(pedido_id=pedido.id)
+            .all()
+        )
+
+        for solicitud in solicitudes_actuales:
+            if solicitud.autorizacion is not None:
+                db.session.delete(solicitud.autorizacion)
+
+            db.session.delete(solicitud)
+
+        pedido.fecha = nueva_fecha
+
+        db.session.flush()
+
+        _crear_solicitudes(
+            pedido=pedido,
+            detalle=resultado["detalle"],
+            sector_id=usuario.sector_id,
+        )
+
+        db.session.commit()
+
+    except ValueError as exc:
+        db.session.rollback()
+
+        return jsonify({
+            "error": str(exc),
+        }), 400
+
+    except Exception:
+        db.session.rollback()
+
+        return jsonify({
+            "error": "No se pudo modificar el pedido",
+        }), 500
+
+    return jsonify({
+        "mensaje": "Pedido modificado correctamente",
+        "pedido": {
+            "id": pedido.id,
+            "sector_id": pedido.sector_id,
+            "fecha": pedido.fecha.isoformat(),
+            "estado": pedido.estado,
+            "creado_por": pedido.creado_por,
+            "solicitudes": [
+                {
+                    "id": solicitud.id,
+                    "person_id": solicitud.person_id,
+                    "tipo_comida_id": solicitud.tipo_comida_id,
+                    "tipo_menu_id": solicitud.tipo_menu_id,
+                    "condicion": solicitud.condicion,
+                }
+                for solicitud in pedido.solicitudes
+            ],
+        },
+    }), 200
 
 @pedidos_bp.route("/<int:request_id>", methods=["DELETE"])
 def eliminar_pedido(request_id):
