@@ -679,6 +679,18 @@ files = [
 windows-terminal = ["colorama (>=0.4.6)"]
 
 [[package]]
+name = "pytailwindcss"
+version = "0.3.1"
+description = "Standalone Tailwind CSS CLI, installable via pip. Use Tailwind CSS without Node.js."
+optional = false
+python-versions = ">=3.11"
+groups = ["main"]
+files = [
+    {file = "pytailwindcss-0.3.1-py3-none-any.whl", hash = "sha256:31583c5bb7fac66c6e6535992e51630e36788cf6e569f4d294e98962fa034535"},
+    {file = "pytailwindcss-0.3.1.tar.gz", hash = "sha256:e83c65985f078ff91500f74bca595f615e54059d5afc90b233382e118b509b4d"},
+]
+
+[[package]]
 name = "pytest"
 version = "9.1.1"
 description = "pytest: simple powerful testing with Python"
