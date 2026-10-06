@@ -6,6 +6,9 @@ from src.core.db import db
 from src.core.auth.models import Role, Permission
 from src.core.users.models import User
 import bcrypt
+from src.core.sectors.models import Sector
+from src.core.personnel.models import PersonnelType, MenuType, Personnel
+from src.core.quotas.models import Quota
 
 def ensure_database_exists(db_url):
     parsed = urlparse(db_url)
@@ -42,6 +45,18 @@ if __name__ == '__main__':
         for role_name in roles:
             if not Role.query.filter_by(name=role_name).first():
                 db.session.add(Role(name=role_name))
+
+        print("Cargando tipos de personal base...")
+        personnel_types = ["Personal Fijo", "Residente", "Eventual"]
+        for pt_name in personnel_types:
+            if not PersonnelType.query.filter_by(nombre=pt_name).first():
+                db.session.add(PersonnelType(nombre=pt_name))
+
+        print("Cargando tipos de menú base...")
+        menu_types = ["General", "Vegetariano", "Celiaco"]
+        for mt_name in menu_types:
+            if not MenuType.query.filter_by(nombre=mt_name).first():
+                db.session.add(MenuType(nombre=mt_name))
         
         db.session.commit()
 
