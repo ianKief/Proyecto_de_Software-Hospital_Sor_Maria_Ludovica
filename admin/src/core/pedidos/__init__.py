@@ -316,3 +316,102 @@ def listar_pedidos(
     )
 
     return pedidos, total
+
+def consultar_pedido(usuario, pedido_id):
+    """Obtiene el detalle de un pedido del sector del usuario."""
+    if not usuario.activo:
+        raise ValueError("Usuario no válido")
+
+    if usuario.sector_id is None:
+        raise PermissionError("El usuario no tiene un sector asignado")
+
+    pedido = Pedido.query.get(pedido_id)
+
+    if pedido is None:
+        raise LookupError("Pedido no encontrado")
+
+    if pedido.sector_id != usuario.sector_id:
+        raise PermissionError(
+            "No autorizado para consultar este pedido"
+        )
+
+    solicitudes = (
+        SolicitudPedido.query
+        .filter_by(pedido_id=pedido.id)
+        .all()
+    )
+
+    totales_comida = {
+        "desayuno": {"solicitadas": 0, "autorizadas": 0},
+        "almuerzo": {"solicitadas": 0, "autorizadas": 0},
+        "merienda": {"solicitadas": 0, "autorizadas": 0},
+        "cena": {"solicitadas": 0, "autorizadas": 0},
+    }
+
+    totales_menu = {}
+
+    detalle = []
+
+    for solicitud in solicitudes:
+        nombre_comida = solicitud.food_type.nombre.lower()
+        nombre_menu = solicitud.menu_type.nombre
+
+        autorizada = (
+            solicitud.autorizacion is not None
+            and solicitud.autorizacion.autorizada
+        )
+
+        if nombre_comida not in totales_comida:
+            totales_comida[nombre_comida] = {
+                "solicitadas": 0,
+                "autorizadas": 0,
+            }
+
+        totales_comida[nombre_comida]["solicitadas"] += 1
+
+        if autorizada:
+            totales_comida[nombre_comida]["autorizadas"] += 1
+
+        if nombre_menu not in totales_menu:
+            totales_menu[nombre_menu] = {
+                "solicitadas": 0,
+                "autorizadas": 0,
+            }
+
+        totales_menu[nombre_menu]["solicitadas"] += 1
+
+        if autorizada:
+            totales_menu[nombre_menu]["autorizadas"] += 1
+
+        detalle.append({
+            "solicitud_id": solicitud.id,
+            "persona": {
+                "id": solicitud.persona.id,
+                "dni": solicitud.persona.dni,
+                "nombre": solicitud.persona.nombre,
+                "apellido": solicitud.persona.apellido,
+            },
+            "tipo_comida": {
+                "id": solicitud.tipo_comida_id,
+                "nombre": solicitud.food_type.nombre,
+            },
+            "tipo_menu": {
+                "id": solicitud.tipo_menu_id,
+                "nombre": solicitud.menu_type.nombre,
+            },
+            "condicion": solicitud.condicion,
+            "autorizacion": {
+                "autorizada": (
+                    solicitud.autorizacion.autorizada
+                    if solicitud.autorizacion is not None
+                    else None
+                ),
+                "usuario_id": (
+                    solicitud.autorizacion.usuario_id
+                    if solicitud.autorizacion is not None
+                    else None
+                ),
+            },
+        })
+
+    return pedido, solicitudes, totales_comida, totales_menu, detalle
