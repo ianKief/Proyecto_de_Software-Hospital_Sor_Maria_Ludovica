@@ -3,7 +3,13 @@ from datetime import date
 from flask import Blueprint, jsonify, request, session
 
 from src.core.pedidos.models import Pedido, SolicitudPedido, Autorizacion
-from src.core.authorizations import (listar_autorizaciones as listar_autorizaciones_core,consultar_autorizacion as consultar_autorizacion_core, armar_detalle_pedido,autorizar_pedido as autorizar_pedido_core,)
+from src.core.authorizations import (
+    listar_autorizaciones as listar_autorizaciones_core,
+    consultar_autorizacion as consultar_autorizacion_core,
+    armar_detalle_pedido,
+    autorizar_pedido as autorizar_pedido_core,
+    rechazar_pedido as rechazar_pedido_core,
+)
 from src.core.users.models import User
 
 
@@ -190,30 +196,23 @@ def rechazar_pedido(request_id):
             "error": "Usuario no válido",
         }), 401
 
-    pedido = _obtener_pedido(request_id)
+    try:
+        pedido = rechazar_pedido_core(
+            usuario=usuario,
+            pedido_id=request_id,
+        )
 
-    if pedido is None:
+    except LookupError as exc:
         return jsonify({
-            "error": "Pedido no encontrado",
+            "error": str(exc),
         }), 404
 
-    if pedido.estado == "autorizado":
+    except RuntimeError as exc:
         return jsonify({
-            "error": "El pedido ya fue autorizado",
+            "error": str(exc),
         }), 409
 
-    if pedido.estado == "rechazado":
-        return jsonify({
-            "error": "El pedido ya fue rechazado",
-        }), 409
-
-    pedido.estado = "rechazado"
-
-    try:
-        db.session.commit()
     except Exception:
-        db.session.rollback()
-
         return jsonify({
             "error": "No se pudo rechazar el pedido",
         }), 500

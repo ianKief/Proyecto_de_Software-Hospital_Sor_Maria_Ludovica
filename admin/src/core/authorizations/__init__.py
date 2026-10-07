@@ -257,3 +257,25 @@ def autorizar_pedido(usuario, pedido_id, solicitudes_data):
     except Exception:
         db.session.rollback()
         raise
+
+def rechazar_pedido(usuario, pedido_id):
+    """Rechaza un pedido."""
+    pedido = Pedido.query.get(pedido_id)
+
+    if pedido is None:
+        raise LookupError("Pedido no encontrado")
+
+    if pedido.estado == "autorizado":
+        raise RuntimeError("El pedido ya fue autorizado")
+
+    if pedido.estado == "rechazado":
+        raise RuntimeError("El pedido ya fue rechazado")
+
+    try:
+        pedido.estado = "rechazado"
+        db.session.commit()
+        return pedido
+
+    except Exception:
+        db.session.rollback()
+        raise
