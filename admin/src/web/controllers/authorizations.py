@@ -3,7 +3,7 @@ from datetime import date
 from flask import Blueprint, jsonify, request, session
 
 from src.core.pedidos.models import Pedido, SolicitudPedido, Autorizacion
-from src.core.authorizations import (listar_autorizaciones as listar_autorizaciones_core, consultar_autorizacion as consultar_autorizacion_core, armar_detalle_pedido)
+from src.core.authorizations import (listar_autorizaciones as listar_autorizaciones_core,consultar_autorizacion as consultar_autorizacion_core, armar_detalle_pedido,autorizar_pedido as autorizar_pedido_core,)
 from src.core.users.models import User
 
 
@@ -124,7 +124,7 @@ def consultar_autorizacion(request_id):
 
 @authorizations_bp.route("/<int:request_id>", methods=["PUT"])
 def autorizar_pedido(request_id):
-    """Autoriza individualmente las solicitudes nominadas de un pedido."""
+    """Autoriza individualmente las solicitudes nominadas."""
 
     if not _es_servicio_alimentacion():
         return jsonify({
@@ -138,18 +138,6 @@ def autorizar_pedido(request_id):
             "error": "Usuario no válido",
         }), 401
 
-    pedido = _obtener_pedido(request_id)
-
-    if pedido is None:
-        return jsonify({
-            "error": "Pedido no encontrado",
-        }), 404
-
-    if pedido.estado in {"autorizado", "rechazado"}:
-        return jsonify({
-            "error": "El pedido ya fue autorizado o rechazado",
-        }), 409
-
     data = request.get_json(silent=True)
 
     if not data or not isinstance(data.get("solicitudes"), list):
@@ -157,76 +145,31 @@ def autorizar_pedido(request_id):
             "error": "Debe indicar la lista de solicitudes a autorizar",
         }), 400
 
-    solicitudes = {
-        solicitud.id: solicitud
-        for solicitud in SolicitudPedido.query.filter_by(
-            pedido_id=pedido.id
-        ).all()
-    }
-
-    autorizaciones = data["solicitudes"]
-
     try:
-        for item in autorizaciones:
-            solicitud_id = item.get("solicitud_id")
-            autorizada = item.get("autorizada")
+        pedido = autorizar_pedido_core(
+            usuario=usuario,
+            pedido_id=request_id,
+            solicitudes_data=data["solicitudes"],
+        )
 
-            if not isinstance(solicitud_id, int):
-                return jsonify({
-                    "error": "solicitud_id debe ser un entero",
-                }), 400
+    except LookupError as exc:
+        return jsonify({"error": str(exc)}), 404
 
-            if not isinstance(autorizada, bool):
-                return jsonify({
-                    "error": "autorizada debe ser booleano",
-                }), 400
+    except RuntimeError as exc:
+        return jsonify({"error": str(exc)}), 409
 
-            solicitud = solicitudes.get(solicitud_id)
-
-            if solicitud is None:
-                return jsonify({
-                    "error": (
-                        f"La solicitud {solicitud_id} "
-                        "no pertenece al pedido"
-                    ),
-                }), 400
-
-            if solicitud.autorizacion is None:
-                solicitud.autorizacion = Autorizacion(
-                    solicitud_id=solicitud.id,
-                    autorizada=autorizada,
-                    usuario_id=usuario.id,
-                )
-            else:
-                solicitud.autorizacion.autorizada = autorizada
-                solicitud.autorizacion.usuario_id = usuario.id
-
-        db.session.flush()
-
-        for solicitud in solicitudes.values():
-            if solicitud.autorizacion is None:
-                solicitud.autorizacion = Autorizacion(
-                    solicitud_id=solicitud.id,
-                    autorizada=False,
-                    usuario_id=usuario.id,
-                )
-
-        pedido.estado = "autorizado"
-
-        db.session.commit()
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
 
     except Exception:
-        db.session.rollback()
-
         return jsonify({
             "error": "No se pudo autorizar el pedido",
         }), 500
 
     return jsonify({
         "mensaje": "Pedido autorizado correctamente",
-        "pedido": _armar_detalle_pedido(pedido),
+        "pedido": armar_detalle_pedido(pedido),
     }), 200
-
 
 @authorizations_bp.route(
     "/<int:request_id>/reject",

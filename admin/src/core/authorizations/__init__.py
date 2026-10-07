@@ -186,3 +186,74 @@ def consultar_autorizacion(request_id):
         raise LookupError("Pedido no encontrado")
 
     return armar_detalle_pedido(pedido)
+
+def autorizar_pedido(usuario, pedido_id, solicitudes_data):
+    """Autoriza las solicitudes nominadas de un pedido."""
+    pedido = Pedido.query.get(pedido_id)
+
+    if pedido is None:
+        raise LookupError("Pedido no encontrado")
+
+    if pedido.estado in {"autorizado", "rechazado"}:
+        raise RuntimeError(
+            "El pedido ya fue autorizado o rechazado"
+        )
+
+    solicitudes = {
+        solicitud.id: solicitud
+        for solicitud in SolicitudPedido.query.filter_by(
+            pedido_id=pedido.id
+        ).all()
+    }
+
+    try:
+        for item in solicitudes_data:
+            solicitud_id = item.get("solicitud_id")
+            autorizada = item.get("autorizada")
+
+            if not isinstance(solicitud_id, int):
+                raise ValueError(
+                    "solicitud_id debe ser un entero"
+                )
+
+            if not isinstance(autorizada, bool):
+                raise ValueError(
+                    "autorizada debe ser booleano"
+                )
+
+            solicitud = solicitudes.get(solicitud_id)
+
+            if solicitud is None:
+                raise ValueError(
+                    f"La solicitud {solicitud_id} "
+                    "no pertenece al pedido"
+                )
+
+            if solicitud.autorizacion is None:
+                solicitud.autorizacion = Autorizacion(
+                    solicitud_id=solicitud.id,
+                    autorizada=autorizada,
+                    usuario_id=usuario.id,
+                )
+            else:
+                solicitud.autorizacion.autorizada = autorizada
+                solicitud.autorizacion.usuario_id = usuario.id
+
+        db.session.flush()
+
+        for solicitud in solicitudes.values():
+            if solicitud.autorizacion is None:
+                solicitud.autorizacion = Autorizacion(
+                    solicitud_id=solicitud.id,
+                    autorizada=False,
+                    usuario_id=usuario.id,
+                )
+
+        pedido.estado = "autorizado"
+        db.session.commit()
+
+        return pedido
+
+    except Exception:
+        db.session.rollback()
+        raise
