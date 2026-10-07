@@ -2,11 +2,8 @@ from datetime import date
 
 from flask import Blueprint, jsonify, request, session
 
-from src.core.db import db
-from src.core.food_types.models import FoodType
-from src.core.menu_types.models import MenuType
 from src.core.pedidos.models import Pedido, SolicitudPedido, Autorizacion
-from src.core.sectors.models import Sector
+from src.core.authorizations import (listar_autorizaciones as listar_autorizaciones_core, consultar_autorizacion as consultar_autorizacion_core, armar_detalle_pedido)
 from src.core.users.models import User
 
 
@@ -37,87 +34,6 @@ def _obtener_pedido(request_id):
     return Pedido.query.get(request_id)
 
 
-def _armar_detalle_pedido(pedido):
-    """Construye el detalle del pedido con cantidades pedidas y autorizadas."""
-
-    solicitudes = (
-        SolicitudPedido.query
-        .filter_by(pedido_id=pedido.id)
-        .all()
-    )
-
-    totales_comida = {}
-    totales_menu = {}
-    detalle = []
-
-    for solicitud in solicitudes:
-        nombre_comida = solicitud.food_type.nombre
-        nombre_menu = solicitud.menu_type.nombre
-
-        autorizada = (
-            solicitud.autorizacion is not None
-            and solicitud.autorizacion.autorizada
-        )
-
-        if nombre_comida not in totales_comida:
-            totales_comida[nombre_comida] = {
-                "solicitadas": 0,
-                "autorizadas": 0,
-            }
-
-        if nombre_menu not in totales_menu:
-            totales_menu[nombre_menu] = {
-                "solicitadas": 0,
-                "autorizadas": 0,
-            }
-
-        totales_comida[nombre_comida]["solicitadas"] += 1
-        totales_menu[nombre_menu]["solicitadas"] += 1
-
-        if autorizada:
-            totales_comida[nombre_comida]["autorizadas"] += 1
-            totales_menu[nombre_menu]["autorizadas"] += 1
-
-        detalle.append({
-            "solicitud_id": solicitud.id,
-            "persona": {
-                "id": solicitud.persona.id,
-                "dni": solicitud.persona.dni,
-                "nombre": solicitud.persona.nombre,
-                "apellido": solicitud.persona.apellido,
-            },
-            "tipo_comida": {
-                "id": solicitud.tipo_comida_id,
-                "nombre": solicitud.food_type.nombre,
-            },
-            "tipo_menu": {
-                "id": solicitud.tipo_menu_id,
-                "nombre": solicitud.menu_type.nombre,
-            },
-            "condicion": solicitud.condicion,
-            "autorizada": (
-                solicitud.autorizacion.autorizada
-                if solicitud.autorizacion is not None
-                else None
-            ),
-        })
-
-    return {
-        "id": pedido.id,
-        "fecha": pedido.fecha.isoformat(),
-        "sector": {
-            "id": pedido.sector_id,
-        },
-        "estado": pedido.estado,
-        "creado_por": pedido.creado_por,
-        "totales": {
-            "por_comida": totales_comida,
-            "por_menu": totales_menu,
-        },
-        "solicitudes": detalle,
-    }
-
-
 @authorizations_bp.route("", methods=["GET"])
 def listar_autorizaciones():
     """Lista pedidos para revisión del Servicio de Alimentación."""
@@ -134,132 +50,55 @@ def listar_autorizaciones():
             "error": "Usuario no válido",
         }), 401
 
-    query = Pedido.query
-
     fecha_desde_param = request.args.get("fecha_desde")
     fecha_hasta_param = request.args.get("fecha_hasta")
-    estado = request.args.get("estado")
-    sector_id = request.args.get("sector_id")
-    tipo_comida = request.args.get("tipo_comida")
-    tipo_menu = request.args.get("tipo_menu")
 
-    if fecha_desde_param:
-        try:
-            fecha_desde = date.fromisoformat(fecha_desde_param)
-        except ValueError:
-            return jsonify({
-                "error": "fecha_desde debe tener formato YYYY-MM-DD",
-            }), 400
+    try:
+        fecha_desde = (
+            date.fromisoformat(fecha_desde_param)
+            if fecha_desde_param
+            else None
+        )
+        fecha_hasta = (
+            date.fromisoformat(fecha_hasta_param)
+            if fecha_hasta_param
+            else None
+        )
+        sector_id = request.args.get("sector_id")
+        sector_id = int(sector_id) if sector_id else None
 
-        query = query.filter(Pedido.fecha >= fecha_desde)
+        pagina = request.args.get("pagina", 1, type=int)
+        por_pagina = request.args.get("por_pagina", 25, type=int)
 
-    if fecha_hasta_param:
-        try:
-            fecha_hasta = date.fromisoformat(fecha_hasta_param)
-        except ValueError:
-            return jsonify({
-                "error": "fecha_hasta debe tener formato YYYY-MM-DD",
-            }), 400
-
-        query = query.filter(Pedido.fecha <= fecha_hasta)
-
-    if (
-        fecha_desde_param
-        and fecha_hasta_param
-        and fecha_desde > fecha_hasta
-    ):
+    except ValueError:
         return jsonify({
-            "error": "fecha_hasta no puede ser anterior a fecha_desde",
+            "error": "Los parámetros no tienen un formato válido",
         }), 400
 
-    estados_validos = {
-        "confirmado",
-        "autorizado",
-        "rechazado",
-    }
-
-    if estado:
-        if estado not in estados_validos:
-            return jsonify({
-                "error": "Estado inválido",
-                "valores_permitidos": sorted(estados_validos),
-            }), 400
-
-        query = query.filter(Pedido.estado == estado)
-    else:
-        query = query.filter(
-            Pedido.estado.in_(["confirmado", "autorizado"])
+    try:
+        pedidos, total = listar_autorizaciones_core(
+            fecha_desde=fecha_desde,
+            fecha_hasta=fecha_hasta,
+            estado=request.args.get("estado"),
+            sector_id=sector_id,
+            tipo_comida=request.args.get("tipo_comida"),
+            tipo_menu=request.args.get("tipo_menu"),
+            pagina=pagina,
+            por_pagina=por_pagina,
         )
 
-    if sector_id:
-        try:
-            sector_id = int(sector_id)
-        except ValueError:
-            return jsonify({
-                "error": "sector_id debe ser un entero",
-            }), 400
-
-        query = query.filter(Pedido.sector_id == sector_id)
-
-    if tipo_comida:
-        food_type = FoodType.query.filter(
-            db.func.lower(FoodType.nombre) == tipo_comida.lower()
-        ).first()
-
-        if not food_type:
-            return jsonify({
-                "error": "Tipo de comida inexistente",
-            }), 400
-
-        query = query.filter(
-            Pedido.solicitudes.any(
-                SolicitudPedido.tipo_comida_id == food_type.id
-            )
-        )
-
-    if tipo_menu:
-        menu_type = MenuType.query.filter(
-            db.func.lower(MenuType.nombre) == tipo_menu.lower()
-        ).first()
-
-        if not menu_type:
-            return jsonify({
-                "error": "Tipo de menú inexistente",
-            }), 400
-
-        query = query.filter(
-            Pedido.solicitudes.any(
-                SolicitudPedido.tipo_menu_id == menu_type.id
-            )
-        )
-
-    pagina = request.args.get("pagina", 1, type=int)
-    por_pagina = request.args.get("por_pagina", 25, type=int)
-
-    if pagina < 1 or por_pagina < 1:
+    except ValueError as exc:
         return jsonify({
-            "error": "pagina y por_pagina deben ser valores positivos",
+            "error": str(exc),
         }), 400
-
-    por_pagina = min(por_pagina, 25)
-
-    total = query.count()
-
-    pedidos = (
-        query
-        .order_by(Pedido.fecha.desc(), Pedido.id.desc())
-        .offset((pagina - 1) * por_pagina)
-        .limit(por_pagina)
-        .all()
-    )
 
     return jsonify({
         "pedidos": [
-            _armar_detalle_pedido(pedido)
+            armar_detalle_pedido(pedido)
             for pedido in pedidos
         ],
         "pagina": pagina,
-        "por_pagina": por_pagina,
+        "por_pagina": min(por_pagina, 25),
         "total": total,
     }), 200
 
