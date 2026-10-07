@@ -487,3 +487,48 @@ def modificar_pedido(usuario, pedido_id, resultado):
     except Exception:
         db.session.rollback()
         raise
+
+def eliminar_pedido(usuario, pedido_id):
+    """Elimina un pedido confirmado del sector del usuario."""
+    if usuario is None or not usuario.activo:
+        raise ValueError("Usuario no válido")
+
+    if usuario.sector_id is None:
+        raise PermissionError(
+            "El Jefe de Servicio no tiene un sector asignado"
+        )
+
+    pedido = Pedido.query.get(pedido_id)
+
+    if pedido is None:
+        raise LookupError("Pedido no encontrado")
+
+    if pedido.sector_id != usuario.sector_id:
+        raise PermissionError(
+            "No autorizado para eliminar este pedido"
+        )
+
+    if pedido.estado != "confirmado":
+        raise RuntimeError(
+            "Solo se pueden eliminar pedidos confirmados"
+        )
+
+    try:
+        solicitudes = (
+            SolicitudPedido.query
+            .filter_by(pedido_id=pedido.id)
+            .all()
+        )
+
+        for solicitud in solicitudes:
+            if solicitud.autorizacion is not None:
+                db.session.delete(solicitud.autorizacion)
+
+            db.session.delete(solicitud)
+
+        db.session.delete(pedido)
+        db.session.commit()
+
+    except Exception:
+        db.session.rollback()
+        raise
