@@ -6,6 +6,7 @@ from src.core.food_types.models import FoodType
 from src.core.personnel.models import Personal
 from src.core.quotas.models import Cupo
 from src.core.pedidos.models import Pedido, SolicitudPedido
+from src.core.menu_types.models import MenuType
 
 
 def _generar_fechas_pedido(periodicidad, fecha_desde, fecha_hasta):
@@ -227,3 +228,91 @@ def crear_pedidos(usuario, resultado):
     except Exception:
         db.session.rollback()
         raise
+
+def listar_pedidos(
+    usuario,
+    fecha_desde=None,
+    fecha_hasta=None,
+    estado=None,
+    tipo_comida=None,
+    tipo_menu=None,
+    pagina=1,
+    por_pagina=25,
+):
+    """Lista los pedidos del sector del Jefe de Servicio."""
+    if not usuario.activo:
+        raise ValueError("El usuario se encuentra desactivado")
+
+    if not usuario.sector_id:
+        raise ValueError(
+            "El Jefe de Servicio no tiene un sector asociado"
+        )
+
+    query = Pedido.query.filter_by(
+        sector_id=usuario.sector_id
+    )
+
+    if fecha_desde:
+        query = query.filter(Pedido.fecha >= fecha_desde)
+
+    if fecha_hasta:
+        query = query.filter(Pedido.fecha <= fecha_hasta)
+
+    if fecha_desde and fecha_hasta and fecha_desde > fecha_hasta:
+        raise ValueError(
+            "fecha_hasta no puede ser anterior a fecha_desde"
+        )
+
+    estados_validos = {
+        "confirmado",
+        "autorizado",
+        "rechazado",
+    }
+
+    if estado:
+        if estado not in estados_validos:
+            raise ValueError("Estado inválido")
+
+        query = query.filter(Pedido.estado == estado)
+
+    if tipo_comida:
+        food_type = FoodType.query.filter(
+            db.func.lower(FoodType.nombre) == tipo_comida.lower()
+        ).first()
+
+        if not food_type:
+            raise ValueError("Tipo de comida inexistente")
+
+        query = query.filter(
+            Pedido.solicitudes.any(
+                SolicitudPedido.tipo_comida_id == food_type.id
+            )
+        )
+
+    if tipo_menu:
+        menu_type = MenuType.query.filter(
+            db.func.lower(MenuType.nombre) == tipo_menu.lower()
+        ).first()
+
+        if not menu_type:
+            raise ValueError("Tipo de menú inexistente")
+
+        query = query.filter(
+            Pedido.solicitudes.any(
+                SolicitudPedido.tipo_menu_id == menu_type.id
+            )
+        )
+
+    por_pagina = min(por_pagina, 25)
+
+    total = query.count()
+
+    pedidos = (
+        query
+        .order_by(Pedido.fecha.desc(), Pedido.id.desc())
+        .offset((pagina - 1) * por_pagina)
+        .limit(por_pagina)
+        .all()
+    )
+
+    return pedidos, total

@@ -3,9 +3,7 @@ from datetime import date
 from flask import Blueprint, jsonify, request, session
 
 from src.core.db import db
-from src.core.food_types.models import FoodType
-from src.core.menu_types.models import MenuType
-from src.core.pedidos import crear_pedidos
+from src.core.pedidos import crear_pedidos, listar_pedidos
 from src.core.pedidos.models import Pedido, SolicitudPedido
 from src.core.sectors.models import Sector
 from src.core.users.models import User
@@ -115,117 +113,22 @@ def listar_pedidos():
             "error": "Usuario no autenticado",
         }), 401
 
-    if not usuario.activo:
-        return jsonify({
-            "error": "El usuario se encuentra desactivado",
-        }), 403
-
-    if not usuario.sector_id:
-        return jsonify({
-            "error": "El Jefe de Servicio no tiene un sector asociado",
-        }), 400
-
-    # El sector SIEMPRE sale del usuario autenticado.
-    query = Pedido.query.filter_by(
-        sector_id=usuario.sector_id,
-    )
-
-    # Filtro por rango de fechas.
-    fecha_desde_param = request.args.get("fecha_desde")
-    fecha_hasta_param = request.args.get("fecha_hasta")
-
-    if fecha_desde_param:
-        try:
-            fecha_desde = date.fromisoformat(fecha_desde_param)
-        except ValueError:
-            return jsonify({
-                "error": "fecha_desde debe tener formato YYYY-MM-DD",
-            }), 400
-
-        query = query.filter(Pedido.fecha >= fecha_desde)
-
-    if fecha_hasta_param:
-        try:
-            fecha_hasta = date.fromisoformat(fecha_hasta_param)
-        except ValueError:
-            return jsonify({
-                "error": "fecha_hasta debe tener formato YYYY-MM-DD",
-            }), 400
-
-        query = query.filter(Pedido.fecha <= fecha_hasta)
-
-    if (
-        fecha_desde_param
-        and fecha_hasta_param
-        and fecha_desde > fecha_hasta
-    ):
-        return jsonify({
-            "error": "fecha_hasta no puede ser anterior a fecha_desde",
-        }), 400
-
-    # Filtro por estado.
-    estado = request.args.get("estado")
-
-    estados_validos = {
-        "confirmado",
-        "autorizado",
-        "rechazado",
-    }
-
-    if estado:
-        if estado not in estados_validos:
-            return jsonify({
-                "error": "Estado inválido",
-                "valores_permitidos": sorted(estados_validos),
-            }), 400
-
-        query = query.filter(Pedido.estado == estado)
-
-    # Filtro por tipo de comida.
-    tipo_comida = request.args.get("tipo_comida")
-
-    if tipo_comida:
-        food_type = FoodType.query.filter(
-            db.func.lower(FoodType.nombre) == tipo_comida.lower()
-        ).first()
-
-        if not food_type:
-            return jsonify({
-                "error": "Tipo de comida inexistente",
-            }), 400
-
-        query = query.filter(
-            Pedido.solicitudes.any(
-                SolicitudPedido.tipo_comida_id == food_type.id
-            )
-        )
-
-    # Filtro por tipo de menú.
-    tipo_menu = request.args.get("tipo_menu")
-
-    if tipo_menu:
-        menu_type = MenuType.query.filter(
-            db.func.lower(MenuType.nombre) == tipo_menu.lower()
-        ).first()
-
-        if not menu_type:
-            return jsonify({
-                "error": "Tipo de menú inexistente",
-            }), 400
-
-        query = query.filter(
-            Pedido.solicitudes.any(
-                SolicitudPedido.tipo_menu_id == menu_type.id
-            )
-        )
-
-    # Paginación.
     try:
+        fecha_desde = request.args.get("fecha_desde")
+        fecha_hasta = request.args.get("fecha_hasta")
+
+        if fecha_desde:
+            fecha_desde = date.fromisoformat(fecha_desde)
+
+        if fecha_hasta:
+            fecha_hasta = date.fromisoformat(fecha_hasta)
+
         pagina = int(request.args.get("pagina", 1))
         por_pagina = int(request.args.get("por_pagina", 25))
+
     except ValueError:
         return jsonify({
-            "error": "pagina y por_pagina deben ser números enteros",
+            "error": "Los parámetros de fecha, página y paginación no son válidos",
         }), 400
 
     if pagina < 1:
@@ -238,18 +141,22 @@ def listar_pedidos():
             "error": "por_pagina debe ser mayor o igual a 1",
         }), 400
 
-    # El TP fija un máximo de 25.
-    por_pagina = min(por_pagina, 25)
+    try:
+        pedidos, total = listar_pedidos(
+            usuario=usuario,
+            fecha_desde=fecha_desde,
+            fecha_hasta=fecha_hasta,
+            estado=request.args.get("estado"),
+            tipo_comida=request.args.get("tipo_comida"),
+            tipo_menu=request.args.get("tipo_menu"),
+            pagina=pagina,
+            por_pagina=por_pagina,
+        )
 
-    total = query.count()
-
-    pedidos = (
-        query
-        .order_by(Pedido.fecha.desc(), Pedido.id.desc())
-        .offset((pagina - 1) * por_pagina)
-        .limit(por_pagina)
-        .all()
-    )
+    except ValueError as exc:
+        return jsonify({
+            "error": str(exc),
+        }), 400
 
     resultado = []
 
@@ -297,7 +204,7 @@ def listar_pedidos():
     return jsonify({
         "pedidos": resultado,
         "pagina": pagina,
-        "por_pagina": por_pagina,
+        "por_pagina": min(por_pagina, 25),
         "total": total,
     }), 200
 
