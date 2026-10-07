@@ -1,14 +1,12 @@
-from calendar import monthrange
-from datetime import date, timedelta
+from datetime import date
 
 from flask import Blueprint, jsonify, request, session
 
 from src.core.db import db
 from src.core.food_types.models import FoodType
 from src.core.menu_types.models import MenuType
-from src.core.personnel.models import Personal
+from src.core.pedidos import crear_pedidos
 from src.core.pedidos.models import Pedido, SolicitudPedido
-from src.core.quotas.models import Cupo
 from src.core.sectors.models import Sector
 from src.core.users.models import User
 from src.web.helpers.pedidos_validaciones import validar_pedido
@@ -20,54 +18,6 @@ pedidos_bp = Blueprint(
     url_prefix="/api/requests",
 )
 
-def _generar_fechas_pedido(periodicidad, fecha_desde, fecha_hasta):
-    """Genera las fechas de los pedidos según la periodicidad indicada."""
-
-    fechas = []
-
-    if periodicidad == "diaria":
-        fecha = fecha_desde
-
-        while fecha <= fecha_hasta:
-            fechas.append(fecha)
-            fecha += timedelta(days=1)
-
-    elif periodicidad == "semanal":
-        fecha = fecha_desde
-
-        while fecha <= fecha_hasta:
-            fechas.append(fecha)
-            fecha += timedelta(days=7)
-
-    elif periodicidad == "mensual":
-        fecha = fecha_desde
-        dia_original = fecha_desde.day
-
-        while fecha <= fecha_hasta:
-            fechas.append(fecha)
-
-            if fecha.month == 12:
-                siguiente_anio = fecha.year + 1
-                siguiente_mes = 1
-            else:
-                siguiente_anio = fecha.year
-                siguiente_mes = fecha.month + 1
-
-            ultimo_dia = monthrange(
-                siguiente_anio,
-                siguiente_mes,
-            )[1]
-
-            siguiente_dia = min(dia_original, ultimo_dia)
-
-            fecha = date(
-                siguiente_anio,
-                siguiente_mes,
-                siguiente_dia,
-            )
-
-    return fechas
-
 
 def _obtener_usuario_autenticado():
     """Obtiene el usuario autenticado a partir de la sesión."""
@@ -78,114 +28,6 @@ def _obtener_usuario_autenticado():
         return None
 
     return User.query.get(user_id)
-
-
-def _obtener_tipos_comida():
-    """Devuelve los tipos de comida indexados por nombre normalizado."""
-
-    tipos = FoodType.query.all()
-
-    return {
-        tipo.nombre.lower(): tipo
-        for tipo in tipos
-    }
-
-
-def _crear_solicitudes(
-    pedido,
-    detalle,
-    sector_id,
-):
-    """Crea las solicitudes nominadas de un pedido."""
-
-    tipos_comida = _obtener_tipos_comida()
-
-    regular_actual = {}
-
-    for nombre_comida, personas_ids in detalle.items():
-
-        if not personas_ids:
-            continue
-
-        food_type = tipos_comida.get(nombre_comida)
-
-        if not food_type:
-            raise ValueError(
-                f"No existe el tipo de comida '{nombre_comida}'"
-            )
-
-        cupo = Cupo.query.filter_by(
-            sector_id=sector_id,
-            tipo_comida_id=food_type.id,
-        ).first()
-
-        if not cupo:
-            raise ValueError(
-                f"No existe un cupo configurado para {nombre_comida}"
-            )
-
-        regular_actual[nombre_comida] = (
-            SolicitudPedido.query
-            .join(Pedido)
-            .filter(
-                Pedido.sector_id == sector_id,
-                Pedido.fecha == pedido.fecha,
-                SolicitudPedido.tipo_comida_id == food_type.id,
-                SolicitudPedido.condicion == "regular",
-            )
-            .count()
-        )
-
-        for person_id in personas_ids:
-
-            persona = Personal.query.get(person_id)
-
-            if not persona:
-                raise ValueError(
-                    f"La persona {person_id} no existe"
-                )
-
-            if not persona.activo:
-                raise ValueError(
-                    f"La persona {person_id} se encuentra inactiva"
-                )
-
-            tipo_personal = persona.personnel_type
-
-            if not tipo_personal:
-                raise ValueError(
-                    f"La persona {person_id} no tiene tipo de personal"
-                )
-
-            if tipo_personal.nombre == "Personal Fijo":
-                if persona.sector_id != sector_id:
-                    raise ValueError(
-                        f"La persona {person_id} no pertenece "
-                        "al sector del Jefe de Servicio"
-                    )
-
-            elif tipo_personal.nombre != "Residente":
-                raise ValueError(
-                    f"La persona {person_id} tiene un tipo de personal "
-                    f"no contemplado: {tipo_personal.nombre}"
-                )
-
-            if regular_actual[nombre_comida] < cupo.cantidad:
-                condicion = "regular"
-                regular_actual[nombre_comida] += 1
-            else:
-                condicion = "excepcion"
-
-            solicitud = SolicitudPedido(
-                pedido=pedido,
-                person_id=persona.id,
-                tipo_comida_id=food_type.id,
-                tipo_menu_id=persona.menu_type_id,
-                condicion=condicion,
-            )
-
-            db.session.add(solicitud)
-
 
 @pedidos_bp.route("", methods=["POST"])
 def crear_pedido():
@@ -215,86 +57,18 @@ def crear_pedido():
             "error": "Usuario no autenticado",
         }), 401
 
-    if not usuario.activo:
-        return jsonify({
-            "error": "El usuario se encuentra desactivado",
-        }), 403
-
-    if not usuario.sector_id:
-        return jsonify({
-            "error": "El Jefe de Servicio no tiene un sector asociado",
-        }), 400
-
-    sector = usuario.sector
-
-    if not sector:
-        return jsonify({
-            "error": "El sector del usuario no existe",
-        }), 400
-
-    if not sector.activo:
-        return jsonify({
-            "error": "El sector del usuario se encuentra inactivo",
-        }), 400
-    
-    fechas = _generar_fechas_pedido(
-        resultado["periodicidad"],
-        resultado["fecha_desde"],
-        resultado["fecha_hasta"],
-    )
-
-    pedidos_existentes = (
-        Pedido.query
-        .filter(
-            Pedido.sector_id == sector.id,
-            Pedido.fecha.in_(fechas),
-        )
-        .all()
-    )
-
-    if pedidos_existentes:
-        return jsonify({
-            "error": "Ya existe un pedido para una o más fechas del período",
-            "request_ids": [
-                pedido.id
-                for pedido in pedidos_existentes
-            ],
-        }), 409
-
-    pedidos_creados = []
-
     try:
-        for fecha in fechas:
-            pedido = Pedido(
-                sector_id=sector.id,
-                fecha=fecha,
-                estado="confirmado",
-                creado_por=usuario.id,
-            )
-
-            db.session.add(pedido)
-            db.session.flush()
-
-            _crear_solicitudes(
-                pedido=pedido,
-                detalle=resultado["detalle"],
-                sector_id=sector.id,
-            )
-
-            pedidos_creados.append(pedido)
-
-        db.session.commit()
+        pedidos_creados = crear_pedidos(
+            usuario=usuario,
+            resultado=resultado,
+        )
 
     except ValueError as exc:
-        db.session.rollback()
-
         return jsonify({
             "error": str(exc),
         }), 400
 
     except Exception:
-        db.session.rollback()
-
         return jsonify({
             "error": "No se pudieron crear los pedidos",
         }), 500
