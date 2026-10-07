@@ -3,7 +3,7 @@ from datetime import date
 from flask import Blueprint, jsonify, request, session
 
 from src.core.db import db
-from src.core.pedidos import (crear_pedidos,listar_pedidos,consultar_pedido as consultar_pedido_core,)
+from src.core.pedidos import (crear_pedidos,listar_pedidos,consultar_pedido as consultar_pedido_core,modificar_pedido,)
 from src.core.pedidos.models import Pedido, SolicitudPedido
 from src.core.sectors.models import Sector
 from src.core.users.models import User
@@ -270,7 +270,6 @@ def consultar_pedido(request_id):
         "solicitudes": detalle,
     }), 200
 
-
 @pedidos_bp.route("/<int:request_id>", methods=["PUT"])
 def modificar_pedido(request_id):
     """Modifica un pedido existente."""
@@ -294,90 +293,39 @@ def modificar_pedido(request_id):
             "error": "Usuario no válido",
         }), 401
 
-    if usuario.sector_id is None:
-        return jsonify({
-            "error": "El Jefe de Servicio no tiene un sector asignado",
-        }), 403
-
-    pedido = Pedido.query.get(request_id)
-
-    if pedido is None:
-        return jsonify({
-            "error": "Pedido no encontrado",
-        }), 404
-
-    if pedido.sector_id != usuario.sector_id:
-        return jsonify({
-            "error": "No autorizado para modificar este pedido",
-        }), 403
-
-    if pedido.estado != "confirmado":
-        return jsonify({
-            "error": "Solo se pueden modificar pedidos confirmados",
-        }), 409
-
     es_valido, resultado = validar_pedido(data)
 
     if not es_valido:
         return jsonify(resultado), 400
 
-    if resultado["fecha_desde"] != resultado["fecha_hasta"]:
+    try:
+        pedido = modificar_pedido(
+            usuario=usuario,
+            pedido_id=request_id,
+            resultado=resultado,
+        )
+
+    except PermissionError as exc:
         return jsonify({
-            "error": (
-                "La modificación de pedidos con rango de fechas "
-                "todavía no está implementada"
-            ),
-        }), 400
+            "error": str(exc),
+        }), 403
 
-    nueva_fecha = resultado["fecha_desde"]
-
-    pedido_existente = Pedido.query.filter(
-        Pedido.sector_id == pedido.sector_id,
-        Pedido.fecha == nueva_fecha,
-        Pedido.id != pedido.id,
-    ).first()
-
-    if pedido_existente:
+    except LookupError as exc:
         return jsonify({
-            "error": "Ya existe un pedido para ese sector y fecha",
-            "request_id": pedido_existente.id,
+            "error": str(exc),
+        }), 404
+
+    except RuntimeError as exc:
+        return jsonify({
+            "error": str(exc),
         }), 409
 
-    try:
-        solicitudes_actuales = (
-            SolicitudPedido.query
-            .filter_by(pedido_id=pedido.id)
-            .all()
-        )
-
-        for solicitud in solicitudes_actuales:
-            if solicitud.autorizacion is not None:
-                db.session.delete(solicitud.autorizacion)
-
-            db.session.delete(solicitud)
-
-        pedido.fecha = nueva_fecha
-
-        db.session.flush()
-
-        _crear_solicitudes(
-            pedido=pedido,
-            detalle=resultado["detalle"],
-            sector_id=usuario.sector_id,
-        )
-
-        db.session.commit()
-
     except ValueError as exc:
-        db.session.rollback()
-
         return jsonify({
             "error": str(exc),
         }), 400
 
     except Exception:
-        db.session.rollback()
-
         return jsonify({
             "error": "No se pudo modificar el pedido",
         }), 500
@@ -402,6 +350,7 @@ def modificar_pedido(request_id):
             ],
         },
     }), 200
+
 
 @pedidos_bp.route("/<int:request_id>", methods=["DELETE"])
 def eliminar_pedido(request_id):

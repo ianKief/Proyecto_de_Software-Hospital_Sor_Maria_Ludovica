@@ -415,3 +415,75 @@ def consultar_pedido(usuario, pedido_id):
         })
 
     return pedido, solicitudes, totales_comida, totales_menu, detalle
+
+def modificar_pedido(usuario, pedido_id, resultado):
+    """Modifica un pedido confirmado del sector del usuario."""
+    if usuario.sector_id is None:
+        raise PermissionError(
+            "El Jefe de Servicio no tiene un sector asignado"
+        )
+
+    pedido = Pedido.query.get(pedido_id)
+
+    if pedido is None:
+        raise LookupError("Pedido no encontrado")
+
+    if pedido.sector_id != usuario.sector_id:
+        raise PermissionError(
+            "No autorizado para modificar este pedido"
+        )
+
+    if pedido.estado != "confirmado":
+        raise RuntimeError(
+            "Solo se pueden modificar pedidos confirmados"
+        )
+
+    if resultado["fecha_desde"] != resultado["fecha_hasta"]:
+        raise ValueError(
+            "La modificación de pedidos con rango de fechas "
+            "todavía no está implementada"
+        )
+
+    nueva_fecha = resultado["fecha_desde"]
+
+    pedido_existente = Pedido.query.filter(
+        Pedido.sector_id == pedido.sector_id,
+        Pedido.fecha == nueva_fecha,
+        Pedido.id != pedido.id,
+    ).first()
+
+    if pedido_existente:
+        raise RuntimeError(
+            "Ya existe un pedido para ese sector y fecha"
+        )
+
+    try:
+        solicitudes_actuales = (
+            SolicitudPedido.query
+            .filter_by(pedido_id=pedido.id)
+            .all()
+        )
+
+        for solicitud in solicitudes_actuales:
+            if solicitud.autorizacion is not None:
+                db.session.delete(solicitud.autorizacion)
+
+            db.session.delete(solicitud)
+
+        pedido.fecha = nueva_fecha
+
+        db.session.flush()
+
+        _crear_solicitudes(
+            pedido=pedido,
+            detalle=resultado["detalle"],
+            sector_id=usuario.sector_id,
+        )
+
+        db.session.commit()
+
+        return pedido
+
+    except Exception:
+        db.session.rollback()
+        raise
