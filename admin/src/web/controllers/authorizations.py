@@ -134,9 +134,7 @@ def listar_autorizaciones():
             "error": "Usuario no válido",
         }), 401
 
-    query = Pedido.query.filter(
-        Pedido.estado.in_(["confirmado", "autorizado"])
-    )
+    query = Pedido.query
 
     fecha_desde_param = request.args.get("fecha_desde")
     fecha_hasta_param = request.args.get("fecha_hasta")
@@ -174,13 +172,13 @@ def listar_autorizaciones():
             "error": "fecha_hasta no puede ser anterior a fecha_desde",
         }), 400
 
-    if estado:
-        estados_validos = {
-            "confirmado",
-            "autorizado",
-            "rechazado",
-        }
+    estados_validos = {
+        "confirmado",
+        "autorizado",
+        "rechazado",
+    }
 
+    if estado:
         if estado not in estados_validos:
             return jsonify({
                 "error": "Estado inválido",
@@ -188,6 +186,10 @@ def listar_autorizaciones():
             }), 400
 
         query = query.filter(Pedido.estado == estado)
+    else:
+        query = query.filter(
+            Pedido.estado.in_(["confirmado", "autorizado"])
+        )
 
     if sector_id:
         try:
