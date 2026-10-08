@@ -10,6 +10,7 @@ from src.core.sectors.models import Sector
 from src.core.personnel.models import PersonnelType, MenuType, Personnel
 from src.core.quotas.models import Quota
 from src.core.configuration.models import Configuration
+from src.core.seeds.seed_configuration import seed_configuration
 
 def ensure_database_exists(db_url):
     parsed = urlparse(db_url)
@@ -40,6 +41,7 @@ if __name__ == '__main__':
     with app.app_context():
         print("Creando tablas...")
         db.create_all()
+        seed_configuration()
 
         print("Cargando roles base...")
         roles = ["Administrador", "Jefe de Servicio", "Servicio de Alimentación", "Sector Comedor"]
