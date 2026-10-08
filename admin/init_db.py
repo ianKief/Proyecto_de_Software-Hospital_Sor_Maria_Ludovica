@@ -9,6 +9,7 @@ import bcrypt
 from src.core.sectors.models import Sector
 from src.core.personnel.models import PersonnelType, MenuType, Personnel
 from src.core.quotas.models import Quota
+from src.core.configuration.models import Configuration
 
 def ensure_database_exists(db_url):
     parsed = urlparse(db_url)
