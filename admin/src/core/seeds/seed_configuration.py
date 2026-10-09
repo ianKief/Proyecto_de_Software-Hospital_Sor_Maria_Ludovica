@@ -1,7 +1,8 @@
 """Seed de la configuración general del sistema."""
 from src.web import create_app
 from src.core.db import db
-from src.core.configuration.models import Configuration
+from src.core.configuration import obtener_configuracion
+from src.core.configuration.models import Configuration, ID_CONFIGURACION
 
 
 def seed_configuration():
@@ -11,16 +12,12 @@ def seed_configuration():
     así no se pisan los cambios que haya hecho un Administrador.
     """
     print("Verificando configuración inicial...")
-    if Configuration.query.first():
+    if db.session.get(Configuration, ID_CONFIGURACION):
         print("La configuración ya existía.")
         return
 
-    try:
-        db.session.add(Configuration(elementos_por_pagina=25, mantenimiento_activo=False))
-        db.session.commit()
-    except Exception:
-        db.session.rollback()
-        raise
+    # obtener_configuracion() crea la fila con los valores iniciales si no existe.
+    obtener_configuracion()
     print("Configuración inicial cargada con éxito.")
 
 
