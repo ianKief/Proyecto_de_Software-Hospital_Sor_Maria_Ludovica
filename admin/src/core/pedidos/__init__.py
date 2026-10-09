@@ -69,98 +69,83 @@ def _obtener_tipos_comida():
 
 def _crear_solicitudes(pedido, detalle, sector_id):
     """Crea las solicitudes nominadas de un pedido."""
-    tipos_comida = _obtener_tipos_comida()
-    regular_actual = {}
+    regular_actual = 0
 
-    for nombre_comida, personas_ids in detalle.items():
-        if not personas_ids:
-            continue
+    food_type = pedido.tipo_comida
+    nombre_comida = food_type.nombre.lower()
+    personas_ids = detalle.get(nombre_comida, [])
 
-        food_type = tipos_comida.get(nombre_comida)
+    cupo = Cupo.query.filter_by(
+        sector_id=sector_id,
+        tipo_comida_id=food_type.id,
+    ).first()
 
-        if not food_type:
-            raise ValueError(
-                f"No existe el tipo de comida '{nombre_comida}'"
-            )
-
-        cupo = Cupo.query.filter_by(
-            sector_id=sector_id,
-            tipo_comida_id=food_type.id,
-        ).first()
-
-        if not cupo:
-            raise ValueError(
-                f"No existe un cupo configurado para {nombre_comida}"
-            )
-
-        regular_actual[nombre_comida] = (
+    if cupo:
+        regular_actual = (
             SolicitudPedido.query
             .join(Pedido)
             .filter(
                 Pedido.sector_id == sector_id,
                 Pedido.fecha == pedido.fecha,
-                SolicitudPedido.tipo_comida_id == food_type.id,
+                Pedido.tipo_comida_id == food_type.id,
+                Pedido.id != pedido.id,
                 SolicitudPedido.condicion == "regular",
             )
             .count()
         )
 
-        for person_id in personas_ids:
-            persona = Personal.query.get(person_id)
+    for person_id in personas_ids:
+        persona = Personal.query.get(person_id)
 
-            if not persona:
-                raise ValueError(
-                    f"La persona {person_id} no existe"
-                )
+        if not persona:
+            raise ValueError(f"La persona {person_id} no existe")
 
-            if not persona.activo:
-                raise ValueError(
-                    f"La persona {person_id} se encuentra inactiva"
-                )
-
-            tipo_personal = persona.personnel_type
-
-            if not tipo_personal:
-                raise ValueError(
-                    f"La persona {person_id} no tiene tipo de personal"
-                )
-
-            if tipo_personal.nombre == "Personal Fijo":
-                if persona.sector_id != sector_id:
-                    raise ValueError(
-                        f"La persona {person_id} no pertenece "
-                        "al sector del Jefe de Servicio"
-                    )
-
-            elif tipo_personal.nombre != "Residente":
-                raise ValueError(
-                    f"La persona {person_id} tiene un tipo de personal "
-                    f"no contemplado: {tipo_personal.nombre}"
-                )
-
-            if regular_actual[nombre_comida] < cupo.cantidad:
-                condicion = "regular"
-                regular_actual[nombre_comida] += 1
-            else:
-                condicion = "excepcion"
-
-            solicitud = SolicitudPedido(
-                pedido=pedido,
-                person_id=persona.id,
-                tipo_comida_id=food_type.id,
-                tipo_menu_id=persona.menu_type_id,
-                condicion=condicion,
+        if not persona.activo:
+            raise ValueError(
+                f"La persona {person_id} se encuentra inactiva"
             )
 
-            db.session.add(solicitud)
+        tipo_personal = persona.personnel_type
+
+        if not tipo_personal:
+            raise ValueError(
+                f"La persona {person_id} no tiene tipo de personal"
+            )
+
+        if tipo_personal.nombre == "Personal Fijo":
+            if persona.sector_id != sector_id:
+                raise ValueError(
+                    f"La persona {person_id} no pertenece "
+                    "al sector del Jefe de Servicio"
+                )
+        elif tipo_personal.nombre != "Residente":
+            raise ValueError(
+                f"La persona {person_id} tiene un tipo de personal "
+                f"no contemplado: {tipo_personal.nombre}"
+            )
+
+        if cupo and regular_actual < cupo.cantidad:
+            condicion = "regular"
+            regular_actual += 1
+        else:
+            condicion = "excepcion"
+
+        solicitud = SolicitudPedido(
+            pedido=pedido,
+            person_id=persona.id,
+            tipo_comida_id=food_type.id,
+            tipo_menu_id=persona.menu_type_id,
+            condicion=condicion,
+        )
+
+        db.session.add(solicitud)
+
 
 
 def crear_pedidos(usuario, resultado):
-    """Crea los pedidos y sus solicitudes nominadas."""
+    """Crea un pedido por fecha y tipo de comida."""
     if not usuario.activo:
-        raise ValueError(
-            "El usuario se encuentra desactivado"
-        )
+        raise ValueError("El usuario se encuentra desactivado")
 
     if not usuario.sector_id:
         raise ValueError(
@@ -170,14 +155,10 @@ def crear_pedidos(usuario, resultado):
     sector = usuario.sector
 
     if not sector:
-        raise ValueError(
-            "El sector del usuario no existe"
-        )
+        raise ValueError("El sector del usuario no existe")
 
     if not sector.activo:
-        raise ValueError(
-            "El sector del usuario se encuentra inactivo"
-        )
+        raise ValueError("El sector del usuario se encuentra inactivo")
 
     fechas = _generar_fechas_pedido(
         resultado["periodicidad"],
@@ -185,44 +166,68 @@ def crear_pedidos(usuario, resultado):
         resultado["fecha_hasta"],
     )
 
-    pedidos_existentes = (
-        Pedido.query
-        .filter(
-            Pedido.sector_id == sector.id,
-            Pedido.fecha.in_(fechas),
-        )
-        .all()
-    )
+    tipos_comida = _obtener_tipos_comida()
+    detalle = resultado["detalle"]
 
-    if pedidos_existentes:
+    comidas_con_personas = []
+
+    for nombre, personas in detalle.items():
+        if not personas:
+            continue
+
+        food_type = tipos_comida.get(nombre)
+
+        if not food_type:
+            raise ValueError(
+                f"No existe el tipo de comida '{nombre}'"
+            )
+
+        comidas_con_personas.append((food_type, personas))
+
+    if not comidas_con_personas:
         raise ValueError(
-            "Ya existe un pedido para una o más fechas del período"
+            "Debe existir al menos una persona en alguna comida"
         )
 
     pedidos_creados = []
 
     try:
         for fecha in fechas:
-            pedido = Pedido(
-                sector_id=sector.id,
-                fecha=fecha,
-                estado="confirmado",
-                creado_por=usuario.id,
-            )
+            for food_type, personas in comidas_con_personas:
+                existente = Pedido.query.filter_by(
+                    sector_id=sector.id,
+                    fecha=fecha,
+                    tipo_comida_id=food_type.id,
+                ).first()
 
-            db.session.add(pedido)
-            db.session.flush()
+                if existente:
+                    raise ValueError(
+                        f"Ya existe un pedido de {food_type.nombre} "
+                        f"para la fecha {fecha}"
+                    )
 
-            _crear_solicitudes(
-                pedido=pedido,
-                detalle=resultado["detalle"],
-                sector_id=sector.id,
-            )
+                pedido = Pedido(
+                    sector_id=sector.id,
+                    fecha=fecha,
+                    tipo_comida_id=food_type.id,
+                    estado="confirmado",
+                    creado_por=usuario.id,
+                )
 
-            pedidos_creados.append(pedido)
+                db.session.add(pedido)
+                db.session.flush()
+
+                _crear_solicitudes(
+                    pedido=pedido,
+                    detalle={
+                        food_type.nombre.lower(): personas,
+                    },
+                    sector_id=sector.id,
+                )
+
+                pedidos_creados.append(pedido)
 
         db.session.commit()
-
         return pedidos_creados
 
     except Exception:
@@ -449,12 +454,33 @@ def modificar_pedido(usuario, pedido_id, resultado):
     pedido_existente = Pedido.query.filter(
         Pedido.sector_id == pedido.sector_id,
         Pedido.fecha == nueva_fecha,
+        Pedido.tipo_comida_id == pedido.tipo_comida_id,
         Pedido.id != pedido.id,
     ).first()
 
     if pedido_existente:
         raise RuntimeError(
-            "Ya existe un pedido para ese sector y fecha"
+            "Ya existe un pedido para ese sector, fecha y tipo de comida"
+        )
+
+    nombre_comida = pedido.tipo_comida.nombre.lower()
+    personas = resultado["detalle"].get(nombre_comida, [])
+
+    if not personas:
+        raise ValueError(
+            "La modificación debe incluir personas para "
+            f"{pedido.tipo_comida.nombre}"
+        )
+
+    otras_comidas = {
+        nombre: ids
+        for nombre, ids in resultado["detalle"].items()
+        if nombre != nombre_comida and ids
+    }
+
+    if otras_comidas:
+        raise ValueError(
+            "Un pedido solo puede contener un tipo de comida"
         )
 
     try:

@@ -23,6 +23,14 @@ class Pedido(db.Model):
         nullable=False,
     )
 
+    tipo_comida_id = db.Column(
+        db.Integer,
+        db.ForeignKey("food_types.id"),
+        nullable=False,
+    )
+
+    tipo_comida = db.relationship("FoodType")
+
     estado = db.Column(
         db.String(20),
         nullable=False,
@@ -58,7 +66,8 @@ class Pedido(db.Model):
         db.UniqueConstraint(
             "sector_id",
             "fecha",
-            name="uq_pedido_sector_fecha",
+            "tipo_comida_id",
+            name="uq_pedido_sector_fecha_comida",
         ),
         db.CheckConstraint(
             "estado IN ('confirmado', 'autorizado', 'rechazado')",

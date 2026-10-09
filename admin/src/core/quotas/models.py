@@ -55,7 +55,7 @@ class Cupo(db.Model):
             name="uq_cupo_sector_tipo_comida",
         ),
         db.CheckConstraint(
-            "cantidad >= 0",
-            name="ck_cupo_cantidad_no_negativa",
+            "cantidad > 0",
+            name="ck_cupo_cantidad_positiva",
         ),
     )
