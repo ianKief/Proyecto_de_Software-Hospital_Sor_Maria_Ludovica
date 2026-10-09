@@ -6,7 +6,7 @@ app = create_app()
 
 with app.app_context():
     print("Verificando permisos...")
-    permisos = ["user_index", "user_new", "user_show", "user_update", "user_destroy"]
+    permisos = ["user_index", "user_new", "user_show", "user_update", "user_destroy", "config_show", "config_update"]
     
     # Crear permisos si no existen
     for p_name in permisos:
