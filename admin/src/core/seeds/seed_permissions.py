@@ -6,7 +6,14 @@ app = create_app()
 
 with app.app_context():
     print("Verificando permisos...")
-    permisos = ["user_index", "user_new", "user_show", "user_update", "user_destroy"]
+    permisos = ["user_index", "user_new", "user_show", "user_update", "user_destroy",
+                # Permisos de Sectores (¡NUEVOS!)
+                "sector_index",     # Para listar sectores
+                "sector_create",    # Para crear sector (el que estamos usando en /nuevo)
+                "sector_show",      # Para consultar sector
+                "sector_update",    # Para modificar sector
+                "sector_destroy"    # Para desactivar sector
+        ]
     
     # Crear permisos si no existen
     for p_name in permisos:
