@@ -1,58 +1,21 @@
-from calendar import monthrange
 from datetime import date, timedelta
 
 from src.core.db import db
 from src.core.food_types.models import FoodType
 from src.core.personnel.models import Personal
 from src.core.quotas.models import Cupo
-from src.core.pedidos.models import Pedido, SolicitudPedido
+from src.core.pedidos.models import Carga, Pedido, SolicitudPedido
 from src.core.menu_types.models import MenuType
 
 
 def _generar_fechas_pedido(periodicidad, fecha_desde, fecha_hasta):
-    """Genera las fechas según la periodicidad indicada."""
+    """Genera una fecha por cada día incluido en el rango."""
     fechas = []
+    fecha = fecha_desde
 
-    if periodicidad == "diaria":
-        fecha = fecha_desde
-
-        while fecha <= fecha_hasta:
-            fechas.append(fecha)
-            fecha += timedelta(days=1)
-
-    elif periodicidad == "semanal":
-        fecha = fecha_desde
-
-        while fecha <= fecha_hasta:
-            fechas.append(fecha)
-            fecha += timedelta(days=7)
-
-    elif periodicidad == "mensual":
-        fecha = fecha_desde
-        dia_original = fecha_desde.day
-
-        while fecha <= fecha_hasta:
-            fechas.append(fecha)
-
-            if fecha.month == 12:
-                siguiente_anio = fecha.year + 1
-                siguiente_mes = 1
-            else:
-                siguiente_anio = fecha.year
-                siguiente_mes = fecha.month + 1
-
-            ultimo_dia = monthrange(
-                siguiente_anio,
-                siguiente_mes,
-            )[1]
-
-            siguiente_dia = min(dia_original, ultimo_dia)
-
-            fecha = date(
-                siguiente_anio,
-                siguiente_mes,
-                siguiente_dia,
-            )
+    while fecha <= fecha_hasta:
+        fechas.append(fecha)
+        fecha += timedelta(days=1)
 
     return fechas
 
@@ -190,8 +153,19 @@ def crear_pedidos(usuario, resultado):
         )
 
     pedidos_creados = []
+    conflictos = []
 
     try:
+        carga = Carga(
+            creado_por=usuario.id,
+            periodicidad=resultado["periodicidad"],
+            fecha_desde=resultado["fecha_desde"],
+            fecha_hasta=resultado["fecha_hasta"],
+        )
+
+        db.session.add(carga)
+        db.session.flush()
+
         for fecha in fechas:
             for food_type, personas in comidas_con_personas:
                 existente = Pedido.query.filter_by(
@@ -201,12 +175,15 @@ def crear_pedidos(usuario, resultado):
                 ).first()
 
                 if existente:
-                    raise ValueError(
-                        f"Ya existe un pedido de {food_type.nombre} "
-                        f"para la fecha {fecha}"
-                    )
+                    conflictos.append({
+                        "fecha": fecha.isoformat(),
+                        "tipo_comida": food_type.nombre,
+                        "pedido_existente_id": existente.id,
+                    })
+                    continue
 
                 pedido = Pedido(
+                    carga_id=carga.id,
                     sector_id=sector.id,
                     fecha=fecha,
                     tipo_comida_id=food_type.id,
@@ -227,8 +204,12 @@ def crear_pedidos(usuario, resultado):
 
                 pedidos_creados.append(pedido)
 
+        if not pedidos_creados:
+            db.session.rollback()
+            return [], conflictos
+
         db.session.commit()
-        return pedidos_creados
+        return pedidos_creados, conflictos
 
     except Exception:
         db.session.rollback()

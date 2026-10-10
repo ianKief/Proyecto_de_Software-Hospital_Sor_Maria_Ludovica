@@ -56,7 +56,7 @@ def crear_pedido():
         }), 401
 
     try:
-        pedidos_creados = crear_pedidos(
+        pedidos_creados, conflictos = crear_pedidos(
             usuario=usuario,
             resultado=resultado,
         )
@@ -71,9 +71,20 @@ def crear_pedido():
             "error": "No se pudieron crear los pedidos",
         }), 500
 
+    if not pedidos_creados:
+        return jsonify({
+            "error": "No se creó ningún pedido porque todas las fechas tenían conflictos.",
+            "conflictos": conflictos,
+        }), 409
+
     return jsonify({
-        "mensaje": "Pedidos creados correctamente",
+        "mensaje": (
+            "Pedidos creados correctamente"
+            if not conflictos
+            else "Se crearon los pedidos disponibles; algunas fechas tenían conflictos"
+        ),
         "periodicidad": resultado["periodicidad"],
+        "conflictos": conflictos,
         "pedidos": [
             {
                 "id": pedido.id,

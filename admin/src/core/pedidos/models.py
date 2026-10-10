@@ -5,12 +5,55 @@ from src.core.food_types.models import FoodType
 from src.core.menu_types.models import MenuType
 from src.core.personnel.models import Personal
 
+class Carga(db.Model):
+    """Agrupa los pedidos generados en una misma operación."""
+
+    __tablename__ = "cargas"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    creado_por = db.Column(
+        db.Integer,
+        db.ForeignKey("users.id"),
+        nullable=False,
+    )
+
+    periodicidad = db.Column(
+        db.String(20),
+        nullable=False,
+    )
+
+    fecha_desde = db.Column(db.Date, nullable=False)
+    fecha_hasta = db.Column(db.Date, nullable=False)
+
+    created_at = db.Column(
+        db.DateTime,
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    pedidos = db.relationship(
+        "Pedido",
+        back_populates="carga",
+    )
+
 class Pedido(db.Model):
     """Representa un pedido de comidas de un sector para una fecha."""
 
     __tablename__ = "pedidos"
 
     id = db.Column(db.Integer, primary_key=True)
+
+    carga_id = db.Column(
+        db.Integer,
+        db.ForeignKey("cargas.id"),
+        nullable=False,
+    )
+
+    carga = db.relationship(
+        "Carga",
+        back_populates="pedidos",
+    )
 
     sector_id = db.Column(
         db.Integer,
