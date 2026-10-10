@@ -71,3 +71,9 @@ def user_new():
     roles = Role.query.all()
     sectors = Sector.query.all()
     return render_template('users/user_create.html', roles=roles, sectors=sectors)
+
+@users_bp.route('/<int:id>')
+@permission_required('user_show')
+def user_show(id):
+    user = User.query.get_or_404(id)
+    return render_template('users/user_show.html', user=user)
