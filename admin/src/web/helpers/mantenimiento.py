@@ -2,7 +2,7 @@
 from flask import request, render_template, jsonify
 
 from src.core.configuration import obtener_configuracion
-from src.web.helpers.auth import check_permission
+from src.web.helpers.auth import check_permission, is_authenticated
 
 # Endpoints que siempre funcionan, aunque el sitio esté en mantenimiento.
 # "auth.login" cubre el GET (formulario) y el POST (procesarlo): es una sola función.
@@ -20,9 +20,17 @@ def verificar_mantenimiento():
     el permiso ``config_update`` (el Administrador, que es quien puede
     desactivar el mantenimiento). En ``/api/`` responde JSON; en el resto,
     una página HTML con el mensaje.
+
+    En ``/api/`` también pasa el pedido sin sesión: la spec pide que el 401
+    vaya antes que cualquier otra regla, y ese 401 lo da el decorador de la
+    vista (``api_login_required``).
     """
     # Primero lo exceptuado, para no consultar la base en cada CSS o imagen.
     if request.endpoint in ENDPOINTS_PERMITIDOS:
+        return None
+
+    # Sin sesión en la API: que siga, así la vista responde 401 y no 503.
+    if request.path.startswith("/api/") and not is_authenticated():
         return None
 
     configuracion = obtener_configuracion()
