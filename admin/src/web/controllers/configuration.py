@@ -1,5 +1,5 @@
 """Controlador de la pantalla de Ajustes (configuración general del sistema)."""
-from flask import Blueprint, render_template, request, flash, redirect, url_for
+from flask import Blueprint, render_template, request, session, flash, redirect, url_for
 from sqlalchemy.exc import SQLAlchemyError
 
 from src.core.configuration import obtener_configuracion, actualizar_configuracion
@@ -79,7 +79,8 @@ def config_update():
         )
 
     try:
-        actualizar_configuracion(resultado)
+        # El controlador lee la sesión y le pasa el usuario al núcleo para el log.
+        actualizar_configuracion(resultado, session["user"])
     except SQLAlchemyError:
         # actualizar_configuracion ya hizo rollback y dejó el error en el log.
         return _render_formulario(

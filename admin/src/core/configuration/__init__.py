@@ -46,15 +46,23 @@ def obtener_configuracion():
     return configuracion
 
 
-def actualizar_configuracion(datos):
+def actualizar_configuracion(datos, usuario):
     """Guarda los nuevos valores de la configuración y devuelve la fila.
 
     Recibe los datos ya validados por ``validar_configuracion``
     (``elementos_por_pagina``, ``mantenimiento_activo`` y
-    ``mensaje_mantenimiento``). Ante un error hace rollback y relanza
-    la excepción.
+    ``mensaje_mantenimiento``) y el email del usuario que hace el cambio,
+    que se registra en el log junto con los valores que cambiaron.
+    Ante un error hace rollback y relanza la excepción.
     """
     configuracion = obtener_configuracion()
+
+    # Se guardan los valores de antes para registrar qué cambió.
+    anteriores = {
+        "elementos_por_pagina": configuracion.elementos_por_pagina,
+        "mantenimiento_activo": configuracion.mantenimiento_activo,
+        "mensaje_mantenimiento": configuracion.mensaje_mantenimiento,
+    }
 
     try:
         configuracion.elementos_por_pagina = datos["elementos_por_pagina"]
@@ -63,8 +71,16 @@ def actualizar_configuracion(datos):
         db.session.commit()
     except Exception:
         db.session.rollback()
-        logger.exception("No se pudo actualizar la configuración")
+        logger.exception("No se pudo actualizar la configuración (usuario %s)", usuario)
         raise
 
-    logger.info("Configuración actualizada: %s", configuracion)
+    # Solo los campos que cambiaron, como {campo: (antes, después)}.
+    cambios = {
+        campo: (anteriores[campo], datos[campo])
+        for campo in anteriores
+        if anteriores[campo] != datos[campo]
+    }
+    logger.info(
+        "Configuración actualizada por %s. Cambios: %s", usuario, cambios or "ninguno"
+    )
     return configuracion
