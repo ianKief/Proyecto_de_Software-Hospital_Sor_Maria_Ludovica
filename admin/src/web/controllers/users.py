@@ -4,7 +4,7 @@ from src.core.auth.models import Role
 from src.core.sectors.models import Sector
 from src.web.helpers.auth import permission_required
 from src.core.db import db
-from werkzeug.security import generate_password_hash
+import bcrypt
 
 users_bp = Blueprint('users', __name__, url_prefix='/users')
 
@@ -29,15 +29,21 @@ def user_new():
         sector_id = request.form.get('sector_id') or None
         activo = request.form.get('activo') == 'on'
 
-        # Validaciones de servidor (Requeridas por PDF)
         if not email or not nombre or not apellido or not dni or not password or not role_id:
             flash("Todos los campos obligatorios deben completarse.", "error")
             return redirect(url_for('users.user_new'))
             
         role = Role.query.get(role_id)
-        if role and role.name == "Jefe de Servicio" and not sector_id:
-            flash("El Sector es obligatorio para usuarios con rol 'Jefe de Servicio'.", "error")
-            return redirect(url_for('users.user_new'))
+        if role and role.name == "Jefe de Servicio":
+            if not sector_id:
+                flash("El Sector es obligatorio para usuarios con rol 'Jefe de Servicio'.", "error")
+                return redirect(url_for('users.user_new'))
+            sector = Sector.query.get(sector_id)
+            if not sector or not sector.activo:
+                flash("No se puede asociar un usuario a un sector inactivo o inexistente.", "error")
+                return redirect(url_for('users.user_new'))
+        else:
+            sector_id = None
             
         if User.query.filter_by(email=email).first():
             flash("Ya existe un usuario registrado con ese correo electrónico.", "error")
@@ -47,8 +53,7 @@ def user_new():
             flash("Ya existe un usuario registrado con ese DNI.", "error")
             return redirect(url_for('users.user_new'))
 
-        # Manejo seguro de contraseñas
-        hashed_password = generate_password_hash(password)
+        hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
         
         new_user = User(
             email=email,
@@ -99,9 +104,21 @@ def user_update(id):
             flash("Todos los campos excepto la contraseña son obligatorios.", "error")
             return redirect(url_for('users.user_update', id=id))
 
-        role = Role.query.get(role_id)
-        if role and role.name == "Jefe de Servicio" and not sector_id:
-            flash("El Sector es obligatorio para usuarios con rol 'Jefe de Servicio'.", "error")
+        if role and role.name == "Jefe de Servicio":
+            if not sector_id:
+                flash("El Sector es obligatorio para usuarios con rol 'Jefe de Servicio'.", "error")
+                return redirect(url_for('users.user_update', id=id))
+            sector = Sector.query.get(sector_id)
+            if not sector or not sector.activo:
+                flash("No se puede asociar un usuario a un sector inactivo o inexistente.", "error")
+                return redirect(url_for('users.user_update', id=id))
+        else:
+            # Los usuarios que no sean Jefe de Servicio no tendrán sector asociado
+            sector_id = None
+
+        # Un usuario con rol Administrador no puede ser bloqueado
+        if role and role.name == "Administrador" and not activo:
+            flash("Los usuarios con rol Administrador no pueden ser bloqueados.", "error")
             return redirect(url_for('users.user_update', id=id))
 
         # Validar DNI y Email (que no pertenezcan a OTRO usuario)
@@ -122,9 +139,8 @@ def user_update(id):
         user.sector_id = sector_id
         user.activo = activo
         
-        # Si mandó contraseña nueva, la hasheamos y la cambiamos
         if password and password.strip() != "":
-            user.password = generate_password_hash(password)
+            user.password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
         db.session.commit()
         flash("Usuario actualizado con éxito.", "success")
