@@ -77,3 +77,59 @@ def user_new():
 def user_show(id):
     user = User.query.get_or_404(id)
     return render_template('users/user_show.html', user=user)
+
+@users_bp.route('/<int:id>/editar', methods=['GET', 'POST'])
+@permission_required('user_update')
+def user_update(id):
+    user = User.query.get_or_404(id)
+    
+    if request.method == 'POST':
+        # Recuperar datos
+        email = request.form.get('email')
+        nombre = request.form.get('nombre')
+        apellido = request.form.get('apellido')
+        dni = request.form.get('dni')
+        password = request.form.get('password')
+        role_id = request.form.get('role_id')
+        sector_id = request.form.get('sector_id') or None
+        activo = request.form.get('activo') == 'on'
+
+        # Validaciones de campos obligatorios (la password puede venir vacía si no se quiere cambiar)
+        if not email or not nombre or not apellido or not dni or not role_id:
+            flash("Todos los campos excepto la contraseña son obligatorios.", "error")
+            return redirect(url_for('users.user_update', id=id))
+
+        role = Role.query.get(role_id)
+        if role and role.name == "Jefe de Servicio" and not sector_id:
+            flash("El Sector es obligatorio para usuarios con rol 'Jefe de Servicio'.", "error")
+            return redirect(url_for('users.user_update', id=id))
+
+        # Validar DNI y Email (que no pertenezcan a OTRO usuario)
+        if User.query.filter(User.email == email, User.id != id).first():
+            flash("Ya existe otro usuario registrado con ese correo electrónico.", "error")
+            return redirect(url_for('users.user_update', id=id))
+            
+        if User.query.filter(User.dni == dni, User.id != id).first():
+            flash("Ya existe otro usuario registrado con ese DNI.", "error")
+            return redirect(url_for('users.user_update', id=id))
+
+        # Actualizar campos
+        user.email = email
+        user.nombre = nombre
+        user.apellido = apellido
+        user.dni = dni
+        user.role_id = role_id
+        user.sector_id = sector_id
+        user.activo = activo
+        
+        # Si mandó contraseña nueva, la hasheamos y la cambiamos
+        if password and password.strip() != "":
+            user.password = generate_password_hash(password)
+
+        db.session.commit()
+        flash("Usuario actualizado con éxito.", "success")
+        return redirect(url_for('users.user_show', id=id))
+
+    roles = Role.query.all()
+    sectors = Sector.query.all()
+    return render_template('users/user_edit.html', user=user, roles=roles, sectors=sectors)
