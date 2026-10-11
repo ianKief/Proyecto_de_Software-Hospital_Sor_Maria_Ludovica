@@ -1,6 +1,20 @@
 {% extends "layout.html" %}
 
 {% block content %}
+<!-- Estilos CSS3 puros y responsivos para iconos y el modal -->
+<style>
+    .icon-sort {
+        width: 1.1em;
+        height: 1.1em;
+        flex-shrink: 0;
+    }
+    
+    /* Oscurecer el fondo cuando se abre el <dialog> nativo */
+    dialog::backdrop {
+        background-color: rgba(17, 24, 39, 0.6); /* Color gray-900 con 60% de opacidad */
+        backdrop-filter: blur(2px);
+    }
+</style>
 
 <main id="main-content" class="flex-grow py-8" tabindex="-1">
     <div class="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -24,7 +38,7 @@
             <div>
                 <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Sectores</h1>
                 <p class="mt-2 text-sm text-gray-600">
-                    Listado completo de los sectores registrados en el sistema.
+                    Listado de los sectores registrados en el sistema.
                 </p>
             </div>
             <div class="mt-4 sm:mt-0">
@@ -41,7 +55,6 @@
             
             <form method="GET" action="{{ url_for('sectors.index') }}" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 items-end">
                 
-                <!-- Mantener el ordenamiento actual oculto -->
                 <input type="hidden" name="sort_by" value="{{ sort_by }}">
                 <input type="hidden" name="order" value="{{ order }}">
                 
@@ -74,7 +87,6 @@
                     <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 border border-transparent rounded-md shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
                         Buscar
                     </button>
-                    <!-- El botón limpiar recarga la página sin parámetros (limpiando filtros y orden) -->
                     <a href="{{ url_for('sectors.index') }}" class="w-full inline-flex justify-center items-center bg-white hover:bg-gray-50 text-gray-700 font-medium py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
                         Limpiar
                     </a>
@@ -82,7 +94,7 @@
             </form>
         </section>
 
-        <!-- Tabla de datos -->
+        <!-- Tabla de datos (Vista Resumida) -->
         <div class="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200 text-sm">
@@ -111,12 +123,6 @@
                                 </a>
                             </th>
 
-                            <!-- Columna Descripción -->
-                            <th scope="col" class="px-6 py-3 text-left font-semibold text-gray-900">Descripción</th>
-                            
-                            <!-- Columna Jefes de Servicio (Nueva) -->
-                            <th scope="col" class="px-6 py-3 text-left font-semibold text-gray-900">Jefe(s) de Servicio</th>
-
                             <!-- Columna Fecha de Creación Ordenable -->
                             {% set fecha_order = 'desc' if sort_by == 'created_at' and order == 'asc' else 'asc' %}
                             <th scope="col" class="px-6 py-3 text-left font-semibold text-gray-900"
@@ -139,8 +145,10 @@
                                 </a>
                             </th>
 
-                            <!-- Columna Estado y Acciones -->
+                            <!-- Columna Estado -->
                             <th scope="col" class="px-6 py-3 text-left font-semibold text-gray-900">Estado</th>
+                            
+                            <!-- Columna Acciones -->
                             <th scope="col" class="px-6 py-3 text-right font-semibold text-gray-900">
                                 <span class="sr-only">Acciones</span>
                             </th>
@@ -151,23 +159,6 @@
                         <tr class="hover:bg-gray-50 transition-colors">
                             <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-900">{{ sector.nombre }}</td>
                             
-                            <td class="px-6 py-4 text-gray-600 max-w-xs sm:max-w-md lg:max-w-lg truncate" title="{{ sector.descripcion }}">
-                                {{ sector.descripcion or '<span class="text-gray-400 italic">Sin descripción</span>'|safe }}
-                            </td>
-                            
-                            <!-- Celdas Jefes de Servicio -->
-                            <td class="px-6 py-4 text-gray-600">
-                                {% if sector.jefes_servicio %}
-                                    <ul class="list-disc list-inside">
-                                        {% for jefe in sector.jefes_servicio %}
-                                            <li class="whitespace-nowrap">{{ jefe.nombre }} {{ jefe.apellido }}</li>
-                                        {% endfor %}
-                                    </ul>
-                                {% else %}
-                                    <span class="text-gray-400 italic">Sin asignar</span>
-                                {% endif %}
-                            </td>
-
                             <td class="px-6 py-4 whitespace-nowrap text-gray-600">
                                 {{ sector.created_at.strftime('%d/%m/%Y %H:%M') if sector.created_at else '-' }}
                             </td>
@@ -181,14 +172,124 @@
                             </td>
                             
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                <a href="#" class="text-blue-600 hover:text-blue-900 focus:outline-none focus:underline aria-label='Ver detalles del sector {{ sector.nombre }}'">Ver</a>
-                                <span class="text-gray-300 mx-2" aria-hidden="true">|</span>
-                                <a href="#" class="text-blue-600 hover:text-blue-900 focus:outline-none focus:underline aria-label='Modificar sector {{ sector.nombre }}'">Editar</a>
+                                <!-- Botón para abrir el Modal Nativo -->
+                                <button type="button" onclick="document.getElementById('modal-sector-{{ sector.id }}').showModal()" 
+                                        class="inline-flex items-center text-blue-600 hover:text-blue-900 focus:outline-none focus:underline aria-label='Ver detalles del sector {{ sector.nombre }}'">
+                                    Ver detalles
+                                </button>
                             </td>
                         </tr>
+
+                        <!-- Modal HTML5 Nativo para este Sector (Oculto por defecto) -->
+                        <dialog id="modal-sector-{{ sector.id }}" aria-labelledby="modal-title-{{ sector.id }}" class="bg-white rounded-lg shadow-xl w-full max-w-2xl p-0 m-auto backdrop-filter backdrop-blur-sm">
+                            <div class="overflow-hidden">
+                                
+                                <!-- Cabecera del Modal -->
+                                <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+                                    <h3 class="text-lg font-bold text-gray-900" id="modal-title-{{ sector.id }}">
+                                        Detalles: {{ sector.nombre }}
+                                    </h3>
+                                    <!-- Botón Cerrar (Cruz) -->
+                                    <button type="button" onclick="document.getElementById('modal-sector-{{ sector.id }}').close()" class="text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-md transition-colors">
+                                        <span class="sr-only">Cerrar ventana</span>
+                                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                </div>
+                                
+                                <!-- Contenido del Modal -->
+                                <div class="px-6 py-5">
+                                    <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-6">
+                                        
+                                        <!-- Nombre -->
+                                        <div class="sm:col-span-1">
+                                            <dt class="text-sm font-medium text-gray-500">Nombre del Sector</dt>
+                                            <dd class="mt-1 text-sm text-gray-900 font-semibold">{{ sector.nombre }}</dd>
+                                        </div>
+
+                                        <!-- Estado -->
+                                        <div class="sm:col-span-1">
+                                            <dt class="text-sm font-medium text-gray-500">Estado Actual</dt>
+                                            <dd class="mt-1 text-sm text-gray-900">
+                                                {% if sector.activo %}
+                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">Activo</span>
+                                                {% else %}
+                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200">Inactivo</span>
+                                                {% endif %}
+                                            </dd>
+                                        </div>
+
+                                        <!-- Fecha de Creación -->
+                                        <div class="sm:col-span-2 md:col-span-1">
+                                            <dt class="text-sm font-medium text-gray-500">Fecha de Creación</dt>
+                                            <dd class="mt-1 text-sm text-gray-900">{{ sector.created_at.strftime('%d/%m/%Y %H:%M') if sector.created_at else '-' }}</dd>
+                                        </div>
+                                        
+                                        <!-- Fecha de Modificación -->
+                                        <div class="sm:col-span-2 md:col-span-1">
+                                            <dt class="text-sm font-medium text-gray-500">Última Modificación</dt>
+                                            <dd class="mt-1 text-sm text-gray-900">{{ sector.updated_at.strftime('%d/%m/%Y %H:%M') if sector.updated_at else '-' }}</dd>
+                                        </div>
+
+                                        <!-- Descripción Completa -->
+                                        <div class="sm:col-span-2">
+                                            <dt class="text-sm font-medium text-gray-500">Descripción / Funciones</dt>
+                                            <dd class="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{{ sector.descripcion or 'Sin descripción registrada.' }}</dd>
+                                        </div>
+
+                                        <!-- Jefes de Servicio -->
+                                        <div class="sm:col-span-2">
+                                            <dt class="text-sm font-medium text-gray-500">Jefes de Servicio Asignados</dt>
+                                            <dd class="mt-1 text-sm text-gray-900">
+                                                {% if sector.jefes_servicio %}
+                                                    <ul class="border border-gray-200 rounded-md divide-y divide-gray-200 mt-2">
+                                                        {% for jefe in sector.jefes_servicio %}
+                                                            <li class="pl-3 pr-4 py-3 flex items-center justify-between text-sm">
+                                                                <div class="w-0 flex-1 flex items-center">
+                                                                    <svg class="flex-shrink-0 h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                                                    </svg>
+                                                                    <span class="ml-2 flex-1 w-0 truncate">
+                                                                        {{ jefe.nombre }} {{ jefe.apellido }}
+                                                                    </span>
+                                                                </div>
+                                                            </li>
+                                                        {% endfor %}
+                                                    </ul>
+                                                {% else %}
+                                                    <p class="text-gray-500 italic mt-1 bg-gray-50 p-3 rounded-md border border-gray-100">No hay jefes de servicio asignados a este sector actualmente.</p>
+                                                {% endif %}
+                                            </dd>
+                                        </div>
+                                    </dl>
+                                </div>
+                                
+                                <!-- Pie del Modal: Botones de Acción (Sin linkear por ahora) -->
+                                <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-3 gap-3">
+                                    
+                                    <!-- Botón Desactivar / Activar -->
+                                    <a href="#" class="w-full sm:w-auto inline-flex justify-center items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                                        {% if sector.activo %}Desactivar{% else %}Activar{% endif %}
+                                    </a>
+                                    
+                                    <!-- Botón Agregar Jefe -->
+                                    <a href="#" class="w-full sm:w-auto inline-flex justify-center items-center px-4 py-2 border border-blue-200 shadow-sm text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                                        Agregar Jefe
+                                    </a>
+
+                                    <!-- Botón Modificar -->
+                                    <a href="#" class="w-full sm:w-auto inline-flex justify-center items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                                        Modificar Datos
+                                    </a>
+                                </div>
+
+                            </div>
+                        </dialog>
+
                         {% else %}
                         <tr>
-                            <td colspan="6" class="px-6 py-8 text-center text-gray-500">
+                            <td colspan="4" class="px-6 py-8 text-center text-gray-500">
                                 No se encontraron sectores que coincidan con la búsqueda.
                             </td>
                         </tr>
@@ -207,7 +308,7 @@
                 </div>
                 
                 <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px w-full sm:w-auto overflow-x-auto" aria-label="Navegación de páginas">
-                    <!-- Botón Anterior -->
+                    <!-- Botones de Paginación (Se mantienen igual) -->
                     {% if sectores.has_prev %}
                         <a href="{{ url_for('sectors.index', page=sectores.prev_num, sort_by=sort_by, order=order, search_nombre=search_nombre, search_estado=search_estado, search_jefe=search_jefe) }}" 
                            class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 focus:z-10 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors"
@@ -220,7 +321,6 @@
                         </button>
                     {% endif %}
 
-                    <!-- Números de Página -->
                     {% for p in sectores.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=1) %}
                         {% if p %}
                             {% if p == sectores.page %}
@@ -240,7 +340,6 @@
                         {% endif %}
                     {% endfor %}
 
-                    <!-- Botón Siguiente -->
                     {% if sectores.has_next %}
                         <a href="{{ url_for('sectors.index', page=sectores.next_num, sort_by=sort_by, order=order, search_nombre=search_nombre, search_estado=search_estado, search_jefe=search_jefe) }}" 
                            class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 focus:z-10 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors"

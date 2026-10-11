@@ -465,11 +465,6 @@
       color: var(--color-red-800);
     }
   }
-  .icon-sort {
-        width: 1.1em;
-        height: 1.1em;
-        flex-shrink: 0;
-    }
   .focus\:not-sr-only:focus {
     position: static;
     width: auto;
@@ -558,8 +553,17 @@
     transition-timing-function: var(--tw-ease, var(--default-transition-timing-function));
     transition-duration: var(--tw-duration, var(--default-transition-duration));
   }
+  dialog::backdrop {
+    background-color: rgba(17, 24, 39, 0.6);
+    backdrop-filter: blur(2px);
+  }
 }
 @layer components {
+  .icon-sort {
+    width: 1.1em;
+    height: 1.1em;
+    flex-shrink: 0;
+  }
   .container {
     margin-inline: auto;
     width: 100%;
