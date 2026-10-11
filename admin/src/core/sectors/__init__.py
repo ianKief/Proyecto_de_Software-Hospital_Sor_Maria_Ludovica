@@ -103,3 +103,23 @@ def update_sector(sector_id: int, nombre: str = None, descripcion: str = None) -
     
     db.session.commit()
     return sector
+
+def toggle_status(sector_id: int) -> Sector:
+    """
+    Activa o desactiva un sector.
+    Si se intenta desactivar, delega la validación de dependencias al validator.
+    """
+    sector = get_sector(sector_id)
+    if not sector:
+        raise SectorValidationError("El sector solicitado no existe.")
+
+    if sector.activo:
+        # Si está activo y lo queremos desactivar, ejecutamos las reglas de validación
+        validate_deactivation(sector)
+        sector.activo = False
+    else:
+        # Si estaba inactivo, lo activamos sin restricciones
+        sector.activo = True
+
+    db.session.commit()
+    return sector

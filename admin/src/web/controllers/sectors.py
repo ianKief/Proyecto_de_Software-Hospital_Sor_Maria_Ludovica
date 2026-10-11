@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash
-from src.core.sectors import create_sector, list_sectors, update_sector, get_sector
+from src.core.sectors import create_sector, list_sectors, update_sector, get_sector, toggle_status
 from src.core.sectors.exceptions import SectorAlreadyExistsError, SectorValidationError
 from src.web.helpers.auth import permission_required
 
@@ -123,3 +123,22 @@ def edit(id):
         )
 
     return render_template('sectors/sector_edit.html', sector=sector, data={}, errors={})
+
+@sector_bp.route('/<int:id>/toggle', methods=['POST'])
+@permission_required('sector_update')
+def toggle(id):
+    """Activa o desactiva un sector según su estado actual."""
+    try:
+        sector = toggle_status(id)
+        accion = "activado" if sector.activo else "desactivado"
+        flash(f"El sector '{sector.nombre}' fue {accion} exitosamente.", "success")
+        
+    except SectorValidationError as e:
+        # Si falla la validación (ej. tiene personal o jefes activos), mostramos el error
+        flash(str(e), "error")
+        
+    except Exception:
+        flash("Ocurrió un error inesperado al intentar cambiar el estado del sector.", "error")
+
+    # Siempre redirigimos al listado para ver el resultado
+    return redirect(url_for('sectors.index'))

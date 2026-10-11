@@ -269,9 +269,11 @@
                                 <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-3 gap-3">
                                     
                                     <!-- Botón Desactivar / Activar -->
-                                    <a href="#" class="w-full sm:w-auto inline-flex justify-center items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
-                                        {% if sector.activo %}Desactivar{% else %}Activar{% endif %}
-                                    </a>
+                                    <form action="{{ url_for('sectors.toggle', id=sector.id) }}" method="POST" class="w-full sm:w-auto m-0">
+                                        <button type="submit" class="w-full sm:w-auto inline-flex justify-center items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                                            {% if sector.activo %}Desactivar{% else %}Activar{% endif %}
+                                        </button>
+                                    </form>
                                     
                                     <!-- Botón Agregar Jefe -->
                                     <a href="#" class="w-full sm:w-auto inline-flex justify-center items-center px-4 py-2 border border-blue-200 shadow-sm text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
