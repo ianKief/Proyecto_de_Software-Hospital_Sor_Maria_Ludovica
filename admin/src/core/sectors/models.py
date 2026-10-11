@@ -13,5 +13,7 @@ class Sector(db.Model):
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
+    jefes_servicio = db.relationship('User', backref='sector_asignado', lazy=True)
+
     def __repr__(self):
         return f'<Sector {self.nombre}>'

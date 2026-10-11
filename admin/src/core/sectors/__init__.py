@@ -2,6 +2,7 @@ from src.core.db import db
 from src.core.sectors.models import Sector
 from src.core.sectors.exceptions import SectorValidationError, SectorAlreadyExistsError
 
+
 MAX_NOMBRE_LENGTH = 255
 MAX_DESCRIPCION_LENGTH = 1000
 
@@ -10,6 +11,54 @@ def get_sector_by_name(nombre: str) -> Sector | None:
     """Busca un sector por coincidencia exacta insensible a mayúsculas/minúsculas."""
     return Sector.query.filter(Sector.nombre.ilike(nombre.strip())).first()
 
+def list_sectors(
+        page: int = 1, 
+        per_page: int = 25, 
+        sort_by: str = 'nombre', 
+        order: str = 'asc',
+        search_nombre: str = None,
+        search_estado: str = None,
+        search_jefe: str = None
+    ):
+    from src.core.users.models import User
+    """
+    Retorna un objeto Pagination con los sectores ordenados alfabéticamente.
+    """
+    query = Sector.query
+
+    # Filtro por Nombre de Sector (insensible a mayúsculas/minúsculas)
+    if search_nombre:
+        query = query.filter(Sector.nombre.ilike(f'%{search_nombre}%'))
+
+    # Filtro por Estado
+    if search_estado in ['activo', 'inactivo']:
+        is_active = True if search_estado == 'activo' else False
+        query = query.filter(Sector.activo == is_active)
+
+    # Filtro por Jefe de Servicio (Nombre o Apellido)
+    if search_jefe:
+        query = query.join(Sector.jefes_servicio).filter(
+            (User.nombre.ilike(f'%{search_jefe}%')) | 
+            (User.apellido.ilike(f'%{search_jefe}%'))
+        )
+
+    # Determinamos la columna por la cual ordenar
+    if sort_by == 'created_at':
+        sort_column = Sector.created_at
+    else:
+        sort_column = Sector.nombre  # Por defecto ordenamos por nombre
+
+    # Determinamos la dirección (ascendente o descendente)
+    if order == 'desc':
+        query = query.order_by(sort_column.desc())
+    else:
+        query = query.order_by(sort_column.asc())
+
+    return query.paginate(
+        page=page, 
+        per_page=per_page, 
+        error_out=False
+    )
 
 def create_sector(nombre: str, descripcion: str | None = None) -> Sector:
     """

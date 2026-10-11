@@ -1,10 +1,45 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash
-from src.core.sectors import create_sector
+from src.core.sectors import create_sector, list_sectors
 from src.core.sectors.exceptions import SectorAlreadyExistsError, SectorValidationError
 from src.web.helpers.auth import permission_required
 
 sector_bp = Blueprint('sectors', __name__, url_prefix='/sectores')
 
+# Agregá esta ruta en src/web/controllers/sector.py
+
+@sector_bp.route('/', methods=['GET'])
+@permission_required('sector_index')
+def index():
+    # Capturamos parámetros de la URL con valores por defecto
+    page = request.args.get('page', 1, type=int)
+    sort_by = request.args.get('sort_by', 'nombre')
+    order = request.args.get('order', 'asc')
+
+    # Parámetros de búsqueda
+    search_nombre = request.args.get('search_nombre', '').strip()
+    search_estado = request.args.get('search_estado', '').strip()
+    search_jefe = request.args.get('search_jefe', '').strip()
+    
+    # Obtenemos los sectores paginados (máximo 25 por página)
+    sectores_paginados = list_sectors(
+        page=page, 
+        per_page=25, 
+        sort_by=sort_by, 
+        order=order,
+        search_nombre=search_nombre,
+        search_estado=search_estado,
+        search_jefe=search_jefe
+    )
+    
+    return render_template(
+        'sectors/sectors_list.html', 
+        sectores=sectores_paginados,
+        sort_by=sort_by,
+        order=order,
+        search_nombre=search_nombre,
+        search_estado=search_estado,
+        search_jefe=search_jefe
+    )
 
 @sector_bp.route('/nuevo', methods=['GET', 'POST'])
 @permission_required('sector_create')
@@ -35,7 +70,7 @@ def create():
                     descripcion=data['descripcion'],
                 )
                 flash('El sector fue creado exitosamente.', 'success')
-                #return redirect(url_for('sectors.index'))
+                return redirect(url_for('sectors.index'))
 
             except SectorAlreadyExistsError as err:
                 errors['nombre'] = str(err)
