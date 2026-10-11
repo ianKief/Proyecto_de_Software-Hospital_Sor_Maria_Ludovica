@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash
-from src.core.sectors import create_sector, list_sectors
+from src.core.sectors import create_sector, list_sectors, update_sector, get_sector
 from src.core.sectors.exceptions import SectorAlreadyExistsError, SectorValidationError
 from src.web.helpers.auth import permission_required
 
@@ -82,3 +82,44 @@ def create():
                 flash('Ocurrió un error inesperado al procesar la solicitud.', 'error')
 
     return render_template('sectors/sector_create.html', data=data, errors=errors)
+
+@sector_bp.route('/<int:id>/editar', methods=['GET', 'POST'])
+@permission_required('sector_update')
+def edit(id):
+    sector = get_sector(id)
+    if not sector:
+        flash("El sector no existe o fue eliminado.", "error")
+        return redirect(url_for('sectors.index'))
+
+    errors = {}
+    
+    if request.method == 'POST':
+        nombre = request.form.get('nombre', '').strip()
+        descripcion = request.form.get('descripcion', '').strip()
+
+        try:
+            update_sector(id, nombre=nombre, descripcion=descripcion)
+            flash("El sector fue modificado exitosamente.", "success")
+            return redirect(url_for('sectors.index'))
+            
+        except SectorAlreadyExistsError as e:
+            errors['nombre'] = str(e)
+            
+        except SectorValidationError as e:
+            mensaje = str(e)
+            if "descripción" in mensaje.lower():
+                errors['descripcion'] = mensaje
+            else:
+                errors['nombre'] = mensaje
+                
+        except Exception:
+            errors['general'] = "Ocurrió un error inesperado al procesar la solicitud."
+
+        return render_template(
+            'sectors/sector_edit.html', 
+            sector=sector, 
+            data=request.form, 
+            errors=errors
+        )
+
+    return render_template('sectors/sector_edit.html', sector=sector, data={}, errors={})
