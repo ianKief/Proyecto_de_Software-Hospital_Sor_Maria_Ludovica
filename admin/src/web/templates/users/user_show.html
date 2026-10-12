@@ -74,12 +74,20 @@
             
             <!-- Acciones -->
             <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end gap-3">
-                {% if user.role.name != 'Administrador' and user.activo %}
-                    <form method="POST" action="{{ url_for('users.user_destroy', id=user.id) }}" onsubmit="return confirm('¿Confirmas la baja del usuario {{ user.nombre }} {{ user.apellido }}? El usuario quedará desactivado.');">
-                        <button type="submit" class="inline-flex items-center justify-center px-4 py-2 border text-sm font-medium rounded-md shadow-sm transition-colors border-red-300 text-red-700 bg-white hover:bg-red-50">
-                            Dar de baja
-                        </button>
-                    </form>
+                {% if user.role.name != 'Administrador' %}
+                    {% if user.activo %}
+                        <form method="POST" action="{{ url_for('users.user_destroy', id=user.id) }}" onsubmit="return confirm('¿Confirmas la baja del usuario {{ user.nombre }} {{ user.apellido }}? El usuario quedará desactivado.');">
+                            <button type="submit" class="inline-flex items-center justify-center px-4 py-2 border text-sm font-medium rounded-md shadow-sm transition-colors border-red-300 text-red-700 bg-white hover:bg-red-50 cursor-pointer">
+                                Dar de baja
+                            </button>
+                        </form>
+                    {% else %}
+                        <form method="POST" action="{{ url_for('users.user_activate', id=user.id) }}" onsubmit="return confirm('¿Confirmas reactivar al usuario {{ user.nombre }} {{ user.apellido }}?');">
+                            <button type="submit" class="inline-flex items-center justify-center px-4 py-2 border text-sm font-medium rounded-md shadow-sm transition-colors border-green-300 text-green-700 bg-white hover:bg-green-50 cursor-pointer">
+                                Reactivar Usuario
+                            </button>
+                        </form>
+                    {% endif %}
                 {% endif %}
                 <a href="{{ url_for('users.user_update', id=user.id) }}" class="inline-flex items-center justify-center px-4 py-2 border text-sm font-medium rounded-md shadow-sm transition-colors border-gray-300 text-gray-700 bg-white hover:bg-gray-50">
                     Editar Usuario

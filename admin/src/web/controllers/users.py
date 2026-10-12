@@ -166,6 +166,7 @@ def user_update(id):
             flash("Todos los campos excepto la contraseña son obligatorios.", "error")
             return redirect(url_for('users.user_update', id=id))
 
+        role = Role.query.get(role_id)
         if role and role.name == "Jefe de Servicio":
             if not sector_id:
                 flash("El Sector es obligatorio para usuarios con rol 'Jefe de Servicio'.", "error")
@@ -228,4 +229,14 @@ def user_destroy(id):
 
     flash(f"El usuario {user.nombre} {user.apellido} ha sido dado de baja exitosamente.", "success")
     return redirect(url_for('users.user_index'))
+
+@users_bp.route('/<int:id>/activar', methods=['POST'])
+@permission_required('user_update')
+def user_activate(id):
+    user = User.query.get_or_404(id)
+    user.activo = True
+    db.session.commit()
+    flash(f"El usuario {user.nombre} {user.apellido} ha sido reactivado exitosamente.", "success")
+    return redirect(url_for('users.user_index'))
+
 
