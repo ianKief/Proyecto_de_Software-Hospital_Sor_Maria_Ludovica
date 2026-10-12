@@ -72,8 +72,43 @@
                     </label>
                 </div>
 
-                <!-- TODO: Agregar campo Sector aquí cuando esté disponible el módulo de Sectores -->
+                <div id="sector-container" class="form-group flex flex-col gap-1.5 mt-4" style="display: none;">
+                    <label for="sector_id" class="form-label block text-sm font-medium text-gray-700">Sector <span aria-hidden="true" class="text-red-600 ml-1">*</span></label>
+                    <select id="sector_id" name="sector_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border text-gray-900 bg-white">
+                        <option value="">-- Seleccione un sector --</option>
+                        {% for sector in sectors %}
+                            <option value="{{ sector.id }}">{{ sector.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
 
+                <script>
+                    document.addEventListener("DOMContentLoaded", function() {
+                        const roleSelect = document.getElementById("role_id");
+                        const sectorContainer = document.getElementById("sector-container");
+                        const sectorSelect = document.getElementById("sector_id");
+
+                        function toggleSector() {
+                            const selectedOption = roleSelect.options[roleSelect.selectedIndex];
+                            // Verifica si el texto de la opción seleccionada es "Jefe de Servicio"
+                            if (selectedOption && selectedOption.text === "Jefe de Servicio") {
+                                sectorContainer.style.display = "block";
+                                sectorSelect.required = true;
+                                sectorSelect.setAttribute("aria-required", "true");
+                            } else {
+                                sectorContainer.style.display = "none";
+                                sectorSelect.required = false;
+                                sectorSelect.removeAttribute("aria-required");
+                                sectorSelect.value = ""; // Limpiar el valor si se oculta
+                            }
+                        }
+
+                        // Ejecutar al cargar la pagina por si queda seleccionado
+                        toggleSector();
+                        // Ejecutar cuando cambia el rol
+                        roleSelect.addEventListener("change", toggleSector);
+                    });
+                </script>
                 <div class="flex justify-end gap-3 mt-4 pt-4 border-t border-gray-200">
                     <a href="{{ url_for('users.user_index') }}" class="inline-flex items-center justify-center px-4 py-2 border text-sm font-medium rounded-md shadow-sm transition-colors bg-gray-100 text-gray-700 hover:bg-gray-200 border-gray-300">Cancelar</a>
                     <button type="submit" class="btn btn-primary">Crear Usuario</button>
