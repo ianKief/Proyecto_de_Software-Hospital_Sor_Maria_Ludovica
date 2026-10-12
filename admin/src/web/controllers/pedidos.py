@@ -3,13 +3,20 @@ from datetime import date
 from flask import Blueprint, jsonify, request, session
 
 from src.core.db import db
-from src.core.pedidos import (crear_pedidos, listar_pedidos, consultar_pedido as consultar_pedido_core, modificar_pedido, eliminar_pedido as eliminar_pedido_core,)
+from src.core.pedidos import (
+    crear_pedidos,
+    listar_pedidos as listar_pedidos_core,
+    consultar_pedido as consultar_pedido_core,
+    modificar_pedido,
+    eliminar_pedido as eliminar_pedido_core,
+)
 from src.core.pedidos.models import Pedido, SolicitudPedido
 from src.core.sectors.models import Sector
 from src.core.users.models import User
 from src.web.helpers.pedidos_validaciones import validar_pedido
-
-
+from src.web.helpers.api_auth import api_permission_required
+from src.core.paginacion import paginar
+from src.web.helpers.paginacion import validar_pagina, respuesta_paginada
 pedidos_bp = Blueprint(
     "pedidos",
     __name__,
@@ -28,13 +35,9 @@ def _obtener_usuario_autenticado():
     return User.query.get(user_id)
 
 @pedidos_bp.route("", methods=["POST"])
+@api_permission_required("request_new")
 def crear_pedido():
     """Crea un pedido y sus solicitudes nominadas."""
-
-    if session.get("role") != "Jefe de Servicio":
-        return jsonify({
-            "error": "No autorizado",
-        }), 403
 
     data = request.get_json(silent=True)
 
@@ -109,13 +112,9 @@ def crear_pedido():
 
 
 @pedidos_bp.route("", methods=["GET"])
+@api_permission_required("request_index")
 def listar_pedidos():
     """Lista los pedidos del sector del Jefe de Servicio autenticado."""
-
-    if session.get("role") != "Jefe de Servicio":
-        return jsonify({
-            "error": "No autorizado",
-        }), 403
 
     usuario = _obtener_usuario_autenticado()
 
@@ -123,6 +122,13 @@ def listar_pedidos():
         return jsonify({
             "error": "Usuario no autenticado",
         }), 401
+
+    numero_pagina = validar_pagina(request.args.get("page"))
+
+    if numero_pagina is None:
+        return jsonify({
+            "error": "El parámetro page no es válido",
+        }), 400
 
     try:
         fecha_desde = request.args.get("fecha_desde")
@@ -134,35 +140,22 @@ def listar_pedidos():
         if fecha_hasta:
             fecha_hasta = date.fromisoformat(fecha_hasta)
 
-        pagina = int(request.args.get("pagina", 1))
-        por_pagina = int(request.args.get("por_pagina", 25))
-
     except ValueError:
         return jsonify({
-            "error": "Los parámetros de fecha, página y paginación no son válidos",
-        }), 400
-
-    if pagina < 1:
-        return jsonify({
-            "error": "pagina debe ser mayor o igual a 1",
-        }), 400
-
-    if por_pagina < 1:
-        return jsonify({
-            "error": "por_pagina debe ser mayor o igual a 1",
+            "error": "Los parámetros de fecha no son válidos",
         }), 400
 
     try:
-        pedidos, total = listar_pedidos(
+        consulta = listar_pedidos_core(
             usuario=usuario,
             fecha_desde=fecha_desde,
             fecha_hasta=fecha_hasta,
             estado=request.args.get("estado"),
             tipo_comida=request.args.get("tipo_comida"),
             tipo_menu=request.args.get("tipo_menu"),
-            pagina=pagina,
-            por_pagina=por_pagina,
         )
+
+        pagina = paginar(consulta, numero_pagina)
 
     except ValueError as exc:
         return jsonify({
@@ -171,9 +164,7 @@ def listar_pedidos():
 
     resultado = []
 
-    for pedido in pedidos:
-        solicitudes = pedido.solicitudes
-
+    for pedido in pagina.items:
         totales_comida = {
             "desayuno": 0,
             "almuerzo": 0,
@@ -187,7 +178,7 @@ def listar_pedidos():
             "Celiaco": 0,
         }
 
-        for solicitud in solicitudes:
+        for solicitud in pedido.solicitudes:
             if solicitud.food_type:
                 nombre_comida = solicitud.food_type.nombre.lower()
 
@@ -212,22 +203,13 @@ def listar_pedidos():
             },
         })
 
-    return jsonify({
-        "pedidos": resultado,
-        "pagina": pagina,
-        "por_pagina": min(por_pagina, 25),
-        "total": total,
-    }), 200
+    return jsonify(respuesta_paginada(pagina, resultado)), 200
 
 
 @pedidos_bp.route("/<int:request_id>", methods=["GET"])
+@api_permission_required("request_show")
 def consultar_pedido(request_id):
     """Obtiene el detalle de un pedido."""
-
-    if session.get("role") != "Jefe de Servicio":
-        return jsonify({
-            "error": "No autorizado",
-        }), 403
 
     usuario = _obtener_usuario_autenticado()
 
@@ -261,9 +243,9 @@ def consultar_pedido(request_id):
     except ValueError as exc:
         return jsonify({
             "error": str(exc),
-        }), 401
+        }), 400
 
-    sector = pedido.sector
+    sector = Sector.query.get(pedido.sector_id)
 
     return jsonify({
         "id": pedido.id,
@@ -282,13 +264,9 @@ def consultar_pedido(request_id):
     }), 200
 
 @pedidos_bp.route("/<int:request_id>", methods=["PUT"])
+@api_permission_required("request_update")
 def modificar_pedido(request_id):
     """Modifica un pedido existente."""
-
-    if session.get("role") != "Jefe de Servicio":
-        return jsonify({
-            "error": "No autorizado",
-        }), 403
 
     data = request.get_json(silent=True)
 
@@ -364,13 +342,9 @@ def modificar_pedido(request_id):
 
 
 @pedidos_bp.route("/<int:request_id>", methods=["DELETE"])
+@api_permission_required("request_destroy")
 def eliminar_pedido(request_id):
     """Elimina un pedido existente."""
-
-    if session.get("role") != "Jefe de Servicio":
-        return jsonify({
-            "error": "No autorizado",
-        }), 403
 
     usuario = _obtener_usuario_autenticado()
 
@@ -388,7 +362,7 @@ def eliminar_pedido(request_id):
     except ValueError as exc:
         return jsonify({
             "error": str(exc),
-        }), 401
+        }), 400
 
     except PermissionError as exc:
         return jsonify({

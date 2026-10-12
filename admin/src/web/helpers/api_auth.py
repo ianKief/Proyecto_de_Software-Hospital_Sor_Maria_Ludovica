@@ -1,22 +1,44 @@
-"""Control de acceso para los endpoints de la API (respuestas en JSON)."""
+"""Control de acceso para los endpoints de la API."""
 from functools import wraps
 
 from flask import jsonify
 
-from src.web.helpers.auth import is_authenticated
+from src.web.helpers.auth import (
+    check_permission,
+    is_authenticated,
+)
 
 
 def api_login_required(f):
-    """Deja pasar solo a usuarios con sesión; si no hay sesión, responde 401 en JSON.
-
-    Es la versión para la API de ``login_required``: en vez de redirigir al
-    login (HTML), devuelve ``{"error": ...}`` con código 401.
-    Por ahora usa la sesión de Flask. Cuando exista la autenticación por
-    token (issue #12), se cambia solo este decorador y los endpoints no cambian.
-    """
+    """Exige una sesión iniciada y responde en JSON."""
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not is_authenticated():
-            return jsonify({"error": "Debe iniciar sesión."}), 401
+            return jsonify({
+                "error": "Debe iniciar sesión."
+            }), 401
+
         return f(*args, **kwargs)
+
     return decorated_function
+
+
+def api_permission_required(permission_name):
+    """Exige sesión iniciada y un permiso específico."""
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if not is_authenticated():
+                return jsonify({
+                    "error": "Debe iniciar sesión."
+                }), 401
+
+            if not check_permission(permission_name):
+                return jsonify({
+                    "error": "No tiene permisos para esta operación."
+                }), 403
+
+            return f(*args, **kwargs)
+
+        return decorated_function
+    return decorator

@@ -222,8 +222,6 @@ def listar_pedidos(
     estado=None,
     tipo_comida=None,
     tipo_menu=None,
-    pagina=1,
-    por_pagina=25,
 ):
     """Lista los pedidos del sector del Jefe de Servicio."""
     if not usuario.activo:
@@ -289,19 +287,7 @@ def listar_pedidos(
             )
         )
 
-    por_pagina = min(por_pagina, 25)
-
-    total = query.count()
-
-    pedidos = (
-        query
-        .order_by(Pedido.fecha.desc(), Pedido.id.desc())
-        .offset((pagina - 1) * por_pagina)
-        .limit(por_pagina)
-        .all()
-    )
-
-    return pedidos, total
+    return query.order_by(Pedido.fecha.desc(), Pedido.id.desc())
 
 def consultar_pedido(usuario, pedido_id):
     """Obtiene el detalle de un pedido del sector del usuario."""
