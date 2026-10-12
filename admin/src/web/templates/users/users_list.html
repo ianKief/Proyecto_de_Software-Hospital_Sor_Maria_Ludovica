@@ -21,6 +21,101 @@
       {% endif %}
     {% endwith %}
 
+    <!-- Panel de Búsqueda y Filtros -->
+    <section aria-labelledby="filter-heading" class="bg-white rounded-lg shadow-sm border border-gray-200 p-5 mb-6">
+        <h2 id="filter-heading" class="text-base font-semibold text-gray-800 mb-4 flex items-center justify-between">
+            <span>Filtrar y Ordenar</span>
+            {% if filters.email or filters.nombre_apellido or filters.dni or filters.activo or filters.role_id or filters.sector_id %}
+            <span class="text-xs font-medium text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200">Filtros activos</span>
+            {% endif %}
+        </h2>
+        
+        <form method="GET" action="{{ url_for('users.user_index') }}" class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- Filtro Nombre o Apellido -->
+                <div>
+                    <label for="nombre_apellido" class="block text-sm font-medium text-gray-700 mb-1">Nombre o Apellido</label>
+                    <input type="text" name="nombre_apellido" id="nombre_apellido" value="{{ filters.nombre_apellido }}"
+                           placeholder="Buscar por nombre o apellido..."
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm">
+                </div>
+
+                <!-- Filtro Correo Electrónico -->
+                <div>
+                    <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Correo Electrónico</label>
+                    <input type="text" name="email" id="email" value="{{ filters.email }}"
+                           placeholder="ejemplo@hospital.com"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm">
+                </div>
+
+                <!-- Filtro DNI -->
+                <div>
+                    <label for="dni" class="block text-sm font-medium text-gray-700 mb-1">DNI</label>
+                    <input type="text" name="dni" id="dni" value="{{ filters.dni }}"
+                           placeholder="Buscar por DNI..."
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm">
+                </div>
+
+                <!-- Filtro Rol -->
+                <div>
+                    <label for="role_id" class="block text-sm font-medium text-gray-700 mb-1">Rol</label>
+                    <select name="role_id" id="role_id" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white">
+                        <option value="">Todos los roles</option>
+                        {% for r in roles %}
+                        <option value="{{ r.id }}" {% if filters.role_id == r.id %}selected{% endif %}>{{ r.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Filtro Sector -->
+                <div>
+                    <label for="sector_id" class="block text-sm font-medium text-gray-700 mb-1">Sector o Servicio</label>
+                    <select name="sector_id" id="sector_id" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white">
+                        <option value="">Todos los sectores</option>
+                        {% for s in sectors %}
+                        <option value="{{ s.id }}" {% if filters.sector_id == s.id %}selected{% endif %}>{{ s.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Filtro Estado Activo -->
+                <div>
+                    <label for="activo" class="block text-sm font-medium text-gray-700 mb-1">Estado</label>
+                    <select name="activo" id="activo" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white">
+                        <option value="" {% if filters.activo == '' %}selected{% endif %}>Todos</option>
+                        <option value="true" {% if filters.activo == 'true' %}selected{% endif %}>Activo (Sí)</option>
+                        <option value="false" {% if filters.activo == 'false' %}selected{% endif %}>Inactivo (No)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Fila de ordenamiento y acciones -->
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between pt-3 border-t border-gray-100 gap-4">
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="text-sm font-medium text-gray-700">Ordenar por:</span>
+                    <select name="order_by" aria-label="Campo de ordenamiento" class="px-2.5 py-1.5 border border-gray-300 rounded-md text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-500">
+                        <option value="created_at" {% if filters.order_by == 'created_at' %}selected{% endif %}>Fecha de creación</option>
+                        <option value="apellido_nombre" {% if filters.order_by == 'apellido_nombre' %}selected{% endif %}>Apellido y Nombre</option>
+                        <option value="email" {% if filters.order_by == 'email' %}selected{% endif %}>Correo electrónico</option>
+                    </select>
+                    <select name="order_dir" aria-label="Sentido de ordenamiento" class="px-2.5 py-1.5 border border-gray-300 rounded-md text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-500">
+                        <option value="desc" {% if filters.order_dir == 'desc' %}selected{% endif %}>Descendente</option>
+                        <option value="asc" {% if filters.order_dir == 'asc' %}selected{% endif %}>Ascendente</option>
+                    </select>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <a href="{{ url_for('users.user_index') }}" class="px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-gray-50 hover:bg-gray-100 transition-colors">
+                        Limpiar filtros
+                    </a>
+                    <button type="submit" class="btn btn-primary px-4 py-2 text-sm font-medium rounded-md">
+                        Buscar
+                    </button>
+                </div>
+            </div>
+        </form>
+    </section>
+
     <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
@@ -30,6 +125,7 @@
                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Correo electrónico</th>
                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DNI</th>
                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rol</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sector</th>
                     <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Activo</th>
                     <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
                 </tr>
@@ -42,6 +138,7 @@
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ u.email }}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ u.dni }}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ u.role.name }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ u.sector.nombre if u.sector else '-' }}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-center">
                         {% if u.activo %}
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800" aria-label="Activo">Sí</span>
@@ -59,8 +156,8 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="7" class="px-6 py-12 text-center text-sm text-gray-500">
-                        No hay usuarios para mostrar.
+                    <td colspan="8" class="px-6 py-12 text-center text-sm text-gray-500">
+                        No se encontraron usuarios que coincidan con los criterios de búsqueda.
                     </td>
                 </tr>
                 {% endfor %}
@@ -73,13 +170,13 @@
     <div class="mt-6 flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6 rounded-lg shadow-sm">
         <div class="flex flex-1 justify-between sm:hidden">
             {% if users.has_prev %}
-                <a href="{{ url_for('users.user_index', page=users.prev_num) }}" class="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Anterior</a>
+                <a href="{{ url_for('users.user_index', **dict(request.args, page=users.prev_num)) }}" class="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Anterior</a>
             {% else %}
                 <span class="relative inline-flex items-center rounded-md border border-gray-300 bg-gray-100 px-4 py-2 text-sm font-medium text-gray-400 cursor-not-allowed">Anterior</span>
             {% endif %}
             
             {% if users.has_next %}
-                <a href="{{ url_for('users.user_index', page=users.next_num) }}" class="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Siguiente</a>
+                <a href="{{ url_for('users.user_index', **dict(request.args, page=users.next_num)) }}" class="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Siguiente</a>
             {% else %}
                 <span class="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-gray-100 px-4 py-2 text-sm font-medium text-gray-400 cursor-not-allowed">Siguiente</span>
             {% endif %}
@@ -94,7 +191,7 @@
             <div>
                 <nav class="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
                     {% if users.has_prev %}
-                        <a href="{{ url_for('users.user_index', page=users.prev_num) }}" class="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0">
+                        <a href="{{ url_for('users.user_index', **dict(request.args, page=users.prev_num)) }}" class="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0">
                             <span class="sr-only">Anterior</span>
                             &larr;
                         </a>
@@ -105,7 +202,7 @@
                     </span>
                     
                     {% if users.has_next %}
-                        <a href="{{ url_for('users.user_index', page=users.next_num) }}" class="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0">
+                        <a href="{{ url_for('users.user_index', **dict(request.args, page=users.next_num)) }}" class="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0">
                             <span class="sr-only">Siguiente</span>
                             &rarr;
                         </a>

@@ -1,4 +1,5 @@
 from flask import Blueprint, render_template, request, flash, redirect, url_for
+from sqlalchemy import or_
 from src.core.users.models import User
 from src.core.auth.models import Role
 from src.core.sectors.models import Sector
@@ -12,8 +13,69 @@ users_bp = Blueprint('users', __name__, url_prefix='/users')
 @permission_required('user_index')
 def user_index():
     page = request.args.get('page', 1, type=int)
-    users = User.query.paginate(page=page, per_page=25, error_out=False)
-    return render_template('users/users_list.html', users=users)
+    email = request.args.get('email', '').strip()
+    nombre_apellido = request.args.get('nombre_apellido', '').strip()
+    dni = request.args.get('dni', '').strip()
+    activo = request.args.get('activo', '').strip()
+    role_id = request.args.get('role_id', '').strip()
+    sector_id = request.args.get('sector_id', '').strip()
+    order_by = request.args.get('order_by', 'created_at').strip()
+    order_dir = request.args.get('order_dir', 'desc').strip()
+
+    query = User.query
+
+    # Filtros combinables
+    if email:
+        query = query.filter(User.email.ilike(f"%{email}%"))
+    if nombre_apellido:
+        query = query.filter(or_(User.nombre.ilike(f"%{nombre_apellido}%"), User.apellido.ilike(f"%{nombre_apellido}%")))
+    if dni:
+        query = query.filter(User.dni.ilike(f"%{dni}%"))
+    if activo in ['true', '1']:
+        query = query.filter(User.activo.is_(True))
+    elif activo in ['false', '0']:
+        query = query.filter(User.activo.is_(False))
+    if role_id and role_id.isdigit():
+        query = query.filter(User.role_id == int(role_id))
+    if sector_id and sector_id.isdigit():
+        query = query.filter(User.sector_id == int(sector_id))
+
+    # Ordenamiento
+    if order_by == 'email':
+        order_clause = [User.email.desc() if order_dir == 'desc' else User.email.asc()]
+    elif order_by == 'apellido_nombre':
+        order_clause = [
+            User.apellido.desc() if order_dir == 'desc' else User.apellido.asc(),
+            User.nombre.desc() if order_dir == 'desc' else User.nombre.asc()
+        ]
+    else:
+        order_by = 'created_at'
+        order_clause = [User.created_at.desc() if order_dir == 'desc' else User.created_at.asc()]
+
+    query = query.order_by(*order_clause)
+
+    users = query.paginate(page=page, per_page=25, error_out=False)
+    roles = Role.query.all()
+    sectors = Sector.query.all()
+
+    filters = {
+        'email': email,
+        'nombre_apellido': nombre_apellido,
+        'dni': dni,
+        'activo': activo,
+        'role_id': int(role_id) if role_id.isdigit() else '',
+        'sector_id': int(sector_id) if sector_id.isdigit() else '',
+        'order_by': order_by,
+        'order_dir': order_dir
+    }
+
+    return render_template(
+        'users/users_list.html',
+        users=users,
+        roles=roles,
+        sectors=sectors,
+        filters=filters
+    )
 
 @users_bp.route('/nuevo', methods=['GET', 'POST'])
 @permission_required('user_new')
