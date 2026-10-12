@@ -1,5 +1,5 @@
 """Turnos de comida: el rango horario en que se sirve cada comida."""
-from datetime import time
+from datetime import date, time
 
 # Clave: nombre exacto de FoodType (seed de init_db.py). Valor: (inicio, fin), los dos incluidos.
 TURNOS = {
@@ -8,6 +8,14 @@ TURNOS = {
     "Merienda": (time(16, 0), time(18, 30)),
     "Cena": (time(20, 0), time(23, 0)),
 }
+
+
+def hoy():
+    """Devuelve la fecha actual que usa el módulo de Entregas.
+
+    Todo Entregas toma "hoy" de acá, así la zona horaria se ajusta en un solo lugar.
+    """
+    return date.today()
 
 
 def turno_actual(ahora):
