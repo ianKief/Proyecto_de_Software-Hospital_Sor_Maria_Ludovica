@@ -7,14 +7,11 @@ from src.core.sectors.models import Sector
 
 
 class Personal(db.Model):
-    """Representa a una persona que puede ser incluida en pedidos de comidas."""
+    """Representa a una persona que puede ser incluida en pedidos."""
 
     __tablename__ = "personnel"
 
-    id = db.Column(
-        db.Integer,
-        primary_key=True,
-    )
+    id = db.Column(db.Integer, primary_key=True)
 
     dni = db.Column(
         db.String(50),
@@ -22,15 +19,8 @@ class Personal(db.Model):
         unique=True,
     )
 
-    nombre = db.Column(
-        db.String(255),
-        nullable=False,
-    )
-
-    apellido = db.Column(
-        db.String(255),
-        nullable=False,
-    )
+    nombre = db.Column(db.String(255), nullable=False)
+    apellido = db.Column(db.String(255), nullable=False)
 
     personnel_type_id = db.Column(
         db.Integer,
@@ -72,3 +62,46 @@ class Personal(db.Model):
     personnel_type = db.relationship("PersonnelType")
     sector = db.relationship("Sector")
     menu_type = db.relationship("MenuType")
+
+    asignaciones_sector = db.relationship(
+        "AsignacionSector",
+        back_populates="personal",
+        order_by="AsignacionSector.fecha_desde",
+    )
+
+
+class AsignacionSector(db.Model):
+    """Historial de asignaciones de una persona a sectores."""
+
+    __tablename__ = "asignacion_sector"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    personal_id = db.Column(
+        db.Integer,
+        db.ForeignKey("personnel.id"),
+        nullable=False,
+    )
+
+    sector_id = db.Column(
+        db.Integer,
+        db.ForeignKey("sectors.id"),
+        nullable=False,
+    )
+
+    fecha_desde = db.Column(db.Date, nullable=False)
+    fecha_hasta = db.Column(db.Date, nullable=True)
+
+    personal = db.relationship(
+        "Personal",
+        back_populates="asignaciones_sector",
+    )
+
+    sector = db.relationship("Sector")
+
+    __table_args__ = (
+        db.CheckConstraint(
+            "fecha_hasta IS NULL OR fecha_hasta >= fecha_desde",
+            name="ck_asignacion_sector_fechas",
+        ),
+    )
