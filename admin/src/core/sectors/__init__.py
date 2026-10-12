@@ -5,7 +5,8 @@ from src.core.sectors.validators import (
     validate_nombre, 
     validate_descripcion, 
     validate_deactivation,
-    validate_deletion
+    validate_deletion,
+    validate_jefes_servicio
     )
 
 # ==========================================
@@ -69,22 +70,27 @@ def list_sectors(
         error_out=False
     )
 
-def create_sector(nombre: str, descripcion: str | None = None) -> Sector:
+def create_sector(nombre: str, descripcion: str | None = None, jefes_ids: list[int] = None) -> tuple[Sector, list[str]]:
     """
-    Crea y persiste un nuevo sector aplicando todas las reglas de negocio.
+    Crea un nuevo sector. Asigna únicamente los jefes de servicio que sean válidos.
+    Retorna una tupla con el Sector creado y una lista de advertencias (si hubo jefes inválidos).
     """
-    # Delegamos las validaciones (Para la creación, la descripción es obligatoria)
     nombre_limpio = validate_nombre(nombre)
     descripcion_limpia = validate_descripcion(descripcion, is_required=True)
+    
+    # Desempaquetamos la validación individual
+    jefes_validados, advertencias_jefes = validate_jefes_servicio(jefes_ids)
 
     sector = Sector(
         nombre=nombre_limpio,
         descripcion=descripcion_limpia,
         activo=True,
+        jefes_servicio=jefes_validados
     )
     db.session.add(sector)
     db.session.commit()
-    return sector
+    
+    return sector, advertencias_jefes
 
 def update_sector(sector_id: int, nombre: str = None, descripcion: str = None) -> Sector:
     """

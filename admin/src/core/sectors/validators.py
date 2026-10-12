@@ -1,7 +1,6 @@
 from src.core.sectors.models import Sector
 from src.core.sectors.exceptions import SectorValidationError, SectorAlreadyExistsError
 from src.core.personnel.models import Personnel
-from src.core.personnel.models import Personnel
 #from src.core.pedidos.models import Pedido
 
 
@@ -106,3 +105,47 @@ def validate_deletion(sector) -> None:
             "existen pedidos registrados a nombre de este sector"
         )
     """
+
+def validate_jefes_servicio(jefes_ids: list[int] | None) -> tuple[list, list[str]]:
+    """
+    Evalúa individualmente una lista de IDs de Jefes de Servicio.
+    Retorna una tupla con:
+      - Lista de objetos User que cumplen todas las condiciones.
+      - Lista de mensajes de error (strings) de los que fallaron.
+    """
+    
+    from src.core.users.models import User
+
+    if not jefes_ids:
+        return [], []
+    
+    usuarios = User.query.filter(User.id.in_(jefes_ids)).all()
+    
+    usuarios_validos = []
+    errores = []
+
+    # 1. Chequeo de IDs inexistentes (opcional, pero útil por si mandan basura)
+    ids_encontrados = {u.id for u in usuarios}
+    ids_faltantes = set(jefes_ids) - ids_encontrados
+    if ids_faltantes:
+        errores.append(f"Se ignoraron {len(ids_faltantes)} ID(s) porque no existen en el sistema.")
+
+    for usuario in usuarios:
+        # 2. Validar el rol
+        if not usuario.role or usuario.role.nombre != 'jefe_servicio':
+            errores.append(
+                f"El usuario {usuario.nombre} {usuario.apellido} fue ignorado porque no tiene el rol de Jefe de Servicio."
+            )
+            continue # Saltamos al siguiente usuario
+            
+        # 3. Validar que no esté asignado a otro sector
+        if usuario.sector_id is not None:
+            errores.append(
+                f"El usuario {usuario.nombre} {usuario.apellido} fue ignorado porque ya está asignado a otro sector."
+            )
+            continue # Saltamos al siguiente usuario
+            
+        # Si pasó todas las validaciones, lo agregamos a la lista de válidos
+        usuarios_validos.append(usuario)
+
+    return usuarios_validos, errores

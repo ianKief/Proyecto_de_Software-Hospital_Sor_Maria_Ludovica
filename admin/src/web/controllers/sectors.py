@@ -2,6 +2,8 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash
 from src.core.sectors import create_sector, list_sectors, update_sector, get_sector, toggle_status, delete_sector
 from src.core.sectors.exceptions import SectorAlreadyExistsError, SectorValidationError
 from src.web.helpers.auth import permission_required
+from src.core.users.models import User
+from src.core.auth.models import Role
 
 sector_bp = Blueprint('sectors', __name__, url_prefix='/sectores')
 
@@ -45,11 +47,19 @@ def index():
 @permission_required('sector_create')
 def create():
     errors = {}
-    data = {'nombre': '', 'descripcion': ''}
+    data = {'nombre': '', 'descripcion': '', 'jefes_ids': []}
+
+    # Buscar usuarios disponibles (activos, sin sector, y con rol 'jefe_servicio')
+    jefes_disponibles = User.query.join(Role).filter(
+        User.sector_id == None, 
+        User.activo == True,
+        Role.name == 'jefe_servicio'  # Ajustar a 'name' si tu modelo Role usa name
+    ).all()
 
     if request.method == 'POST':
         data['nombre'] = request.form.get('nombre', '').strip()
         data['descripcion'] = request.form.get('descripcion', '').strip()
+        data['jefes_ids'] = request.form.getlist('jefes_ids', type=int)
 
         # Validación sintáctica inicial en el controlador
         if not data['nombre']:
@@ -65,11 +75,19 @@ def create():
         # Si supera la validación inicial, delegamos al core
         if not errors:
             try:
-                create_sector(
+                # Recibimos el sector y la lista de advertencias
+                sector_creado, advertencias = create_sector(
                     nombre=data['nombre'],
                     descripcion=data['descripcion'],
+                    jefes_ids=data['jefes_ids']
                 )
+                
                 flash('El sector fue creado exitosamente.', 'success')
+                
+                # Informamos las asignaciones que fallaron
+                for advertencia in advertencias:
+                    flash(advertencia, 'warning')
+                    
                 return redirect(url_for('sectors.index'))
 
             except SectorAlreadyExistsError as err:
@@ -78,10 +96,20 @@ def create():
             except SectorValidationError as err:
                 flash(str(err), 'error')
 
-            except Exception:
-                flash('Ocurrió un error inesperado al procesar la solicitud.', 'error')
+            except Exception as e:
+                # Importamos traceback temporalmente para ver la ruta completa del error
+                import traceback
+                traceback.print_exc() 
+                
+                # Le agregamos el mensaje real al flash para que lo veas en la pantalla
+                flash(f'Ocurrió un error inesperado: {str(e)}', 'error')
 
-    return render_template('sectors/sector_create.html', data=data, errors=errors)
+    return render_template(
+        'sectors/sector_create.html', 
+        data=data, 
+        errors=errors,
+        jefes_disponibles=jefes_disponibles
+        )
 
 @sector_bp.route('/<int:id>/editar', methods=['GET', 'POST'])
 @permission_required('sector_update')
@@ -144,7 +172,7 @@ def toggle(id):
     return redirect(url_for('sectors.index'))
 
 @sector_bp.route('/<int:id>/eliminar', methods=['POST'])
-@permission_required('sector_destroy')  # Ajustá al permiso real que uses
+@permission_required('sector_destroy')
 def delete(id):
     """
     Intenta eliminar un sector. Si tiene dependencias, el core lo desactivará

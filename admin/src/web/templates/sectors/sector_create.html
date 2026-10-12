@@ -9,7 +9,8 @@
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
                     {% for category, message in messages %}
-                        {% set alert_classes = 'bg-red-50 border-red-500 text-red-800' if category in ['danger', 'error'] else 'bg-green-50 border-green-500 text-green-800' %}
+                        <!-- Actualizado para soportar 'warning' (amarillo) -->
+                        {% set alert_classes = 'bg-red-50 border-red-500 text-red-800' if category in ['danger', 'error'] else ('bg-yellow-50 border-yellow-400 text-yellow-800' if category == 'warning' else 'bg-green-50 border-green-500 text-green-800') %}
                         <div class="border-l-4 p-4 rounded-r-md {{ alert_classes }}" role="alert">
                             <p class="text-sm font-medium">{{ message }}</p>
                         </div>
@@ -95,6 +96,43 @@
                                 <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
                             </svg>
                             <span>{{ errors.descripcion }}</span>
+                        </p>
+                    {% endif %}
+                </div>
+
+                <!-- NUEVO: Campo Jefes de Servicio (Múltiple) -->
+                <div>
+                    <label for="jefes_ids" class="block text-sm font-medium text-gray-800 mb-1">
+                        Jefes de Servicio
+                        <span class="text-gray-500 font-normal ml-1">(Opcional)</span>
+                    </label>
+
+                    <select 
+                        name="jefes_ids" 
+                        id="jefes_ids" 
+                        multiple
+                        size="4"
+                        aria-invalid="{{ 'true' if errors.jefes else 'false' }}"
+                        aria-describedby="{{ 'jefes-error' if errors.jefes else 'jefes-help' }}"
+                        class="w-full px-3 py-2 border rounded-md shadow-sm transition-colors text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-1 {{ 'border-red-500 focus:ring-red-500 focus:border-red-500' if errors.jefes else 'border-gray-300 focus:ring-blue-600 focus:border-blue-600' }}"
+                    >
+                        {% for jefe in jefes_disponibles %}
+                            <option value="{{ jefe.id }}" {% if jefe.id in data.jefes_ids %}selected{% endif %}>
+                                {{ jefe.apellido }}, {{ jefe.nombre }}
+                            </option>
+                        {% endfor %}
+                    </select>
+
+                    <p id="jefes-help" class="mt-1 text-xs text-gray-500">
+                        Mantenga presionado <kbd class="font-mono bg-gray-100 px-1 py-0.5 rounded border border-gray-200">Ctrl</kbd> (Windows) o <kbd class="font-mono bg-gray-100 px-1 py-0.5 rounded border border-gray-200">Cmd</kbd> (Mac) para seleccionar múltiples opciones.
+                    </p>
+
+                    {% if errors.jefes %}
+                        <p id="jefes-error" class="mt-1.5 text-sm text-red-600 font-medium flex items-center gap-1" role="alert">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                            </svg>
+                            <span>{{ errors.jefes }}</span>
                         </p>
                     {% endif %}
                 </div>

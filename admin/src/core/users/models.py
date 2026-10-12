@@ -18,7 +18,7 @@ class User(db.Model):
     role = db.relationship('Role')
     
     sector_id = db.Column(db.Integer, db.ForeignKey('sectors.id'), nullable=True)
-    sector = db.relationship('Sector')
+    sector = db.relationship('Sector', back_populates='jefes_servicio')
     
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
