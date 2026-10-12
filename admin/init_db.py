@@ -1,6 +1,8 @@
-import os
+import bcrypt
 from urllib.parse import urlparse
+
 from sqlalchemy import create_engine, text
+
 from src.web import create_app
 from src.core.db import db
 from src.core.auth.models import Role, Permission
@@ -12,8 +14,8 @@ from src.core.personnel.models import Personal
 from src.core.food_types.models import FoodType
 from src.core.quotas.models import Cupo
 from src.core.pedidos.models import Pedido, SolicitudPedido, Autorizacion
-import bcrypt
-
+from src.core.configuration.models import Configuration
+from src.core.seeds.seed_configuration import seed_configuration
 
 def ensure_database_exists(db_url):
     parsed = urlparse(db_url)
@@ -44,6 +46,8 @@ if __name__ == '__main__':
     with app.app_context():
         print("Creando tablas...")
         db.create_all()
+        seed_configuration()
+
         print("Cargando sectores...")
         sector = Sector.query.filter_by(nombre="Pediatría").first()
 
@@ -165,6 +169,18 @@ if __name__ == '__main__':
         for role_name in roles:
             if not Role.query.filter_by(name=role_name).first():
                 db.session.add(Role(name=role_name))
+
+        print("Cargando tipos de personal base...")
+        personnel_types = ["Personal Fijo", "Residente", "Eventual"]
+        for pt_name in personnel_types:
+            if not PersonnelType.query.filter_by(nombre=pt_name).first():
+                db.session.add(PersonnelType(nombre=pt_name))
+
+        print("Cargando tipos de menú base...")
+        menu_types = ["General", "Vegetariano", "Celiaco"]
+        for mt_name in menu_types:
+            if not MenuType.query.filter_by(nombre=mt_name).first():
+                db.session.add(MenuType(nombre=mt_name))
         
         db.session.commit()
 

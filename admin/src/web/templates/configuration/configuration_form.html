@@ -1,0 +1,84 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<main id="main-content" class="container mx-auto px-4 py-8 flex-grow" tabindex="-1">
+    <div class="max-w-2xl mx-auto">
+        <h1 class="text-2xl font-bold text-gray-900 mb-6">Parámetros generales</h1>
+
+        <!-- Notificaciones -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div role="alert" aria-live="polite" class="flash-messages mb-6">
+              {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">{{ message }}</div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        {% if error_general %}
+            <div role="alert" class="alert alert-error">{{ error_general }}</div>
+        {% endif %}
+
+        {% if not puede_editar %}
+            <div class="alert alert-info">Solo tenés permiso para ver la configuración.</div>
+        {% endif %}
+
+        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+            <form method="post" action="{{ url_for('configuration.config_update') }}" class="flex flex-col gap-5">
+                <!-- Un fieldset deshabilitado deshabilita todos sus campos. -->
+                <fieldset class="flex flex-col gap-5" {% if not puede_editar %}disabled{% endif %}>
+
+                    <div class="form-group">
+                        <label for="elementos_por_pagina" class="form-label">Elementos por página <span aria-hidden="true" class="required-asterisk">*</span></label>
+                        <input type="number" id="elementos_por_pagina" name="elementos_por_pagina"
+                               value="{{ valores.elementos_por_pagina }}"
+                               required aria-required="true"
+                               min="{{ elementos_minimo }}" max="{{ elementos_maximo }}" step="1"
+                               {% if errores.elementos_por_pagina %}aria-invalid="true" aria-describedby="elementos_por_pagina-error"{% endif %}
+                               class="form-input">
+                        {% if errores.elementos_por_pagina %}
+                            <p id="elementos_por_pagina-error" class="text-sm text-red-600">{{ errores.elementos_por_pagina }}</p>
+                        {% endif %}
+                    </div>
+
+                    <div class="form-group">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="mantenimiento_activo" name="mantenimiento_activo"
+                                   {% if valores.mantenimiento_activo %}checked{% endif %}
+                                   {% if errores.mantenimiento_activo %}aria-invalid="true" aria-describedby="mantenimiento_activo-error"{% endif %}
+                                   class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                            <span class="text-sm font-medium text-gray-700">Modo mantenimiento activo</span>
+                        </label>
+                        {% if errores.mantenimiento_activo %}
+                            <p id="mantenimiento_activo-error" class="text-sm text-red-600">{{ errores.mantenimiento_activo }}</p>
+                        {% endif %}
+                    </div>
+
+                    <div class="form-group">
+                        <label for="mensaje_mantenimiento" class="form-label">Mensaje de mantenimiento</label>
+                        <textarea id="mensaje_mantenimiento" name="mensaje_mantenimiento" rows="3"
+                                  maxlength="{{ largo_maximo_mensaje }}"
+                                  aria-describedby="mensaje_mantenimiento-ayuda{% if errores.mensaje_mantenimiento %} mensaje_mantenimiento-error{% endif %}"
+                                  {% if errores.mensaje_mantenimiento %}aria-invalid="true"{% endif %}
+                                  class="form-input">{{ valores.mensaje_mantenimiento }}</textarea>
+                        <p id="mensaje_mantenimiento-ayuda" class="text-sm text-gray-500">
+                            Obligatorio si el modo mantenimiento está activo. Máximo {{ largo_maximo_mensaje }} caracteres.
+                        </p>
+                        {% if errores.mensaje_mantenimiento %}
+                            <p id="mensaje_mantenimiento-error" class="text-sm text-red-600">{{ errores.mensaje_mantenimiento }}</p>
+                        {% endif %}
+                    </div>
+
+                </fieldset>
+
+                {% if puede_editar %}
+                    <div class="flex justify-end mt-4 pt-4 border-t border-gray-200">
+                        <button type="submit" class="btn btn-primary">Guardar</button>
+                    </div>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+</main>
+{% endblock %}

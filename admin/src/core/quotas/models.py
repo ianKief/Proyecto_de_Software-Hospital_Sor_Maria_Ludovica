@@ -10,10 +10,7 @@ class Cupo(db.Model):
 
     __tablename__ = "quotas"
 
-    id = db.Column(
-        db.Integer,
-        primary_key=True,
-    )
+    id = db.Column(db.Integer, primary_key=True)
 
     sector_id = db.Column(
         db.Integer,
@@ -27,10 +24,7 @@ class Cupo(db.Model):
         nullable=False,
     )
 
-    cantidad = db.Column(
-        db.Integer,
-        nullable=False,
-    )
+    cantidad = db.Column(db.Integer, nullable=False)
 
     created_at = db.Column(
         db.DateTime,

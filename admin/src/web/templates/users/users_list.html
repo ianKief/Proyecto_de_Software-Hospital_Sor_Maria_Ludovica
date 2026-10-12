@@ -1,40 +1,120 @@
 {% extends "layout.html" %}
 
 {% block content %}
-    <h1>Usuarios</h1>
+<main id="main-content" class="container mx-auto px-4 py-8 flex-grow" tabindex="-1">
 
-    <table>
-        <thead>
-            <tr>
-                <th>Nombre</th>
-                <th>Apellido</th>
-                <th>Correo electrónico</th>
-                <th>DNI</th>
-                <th>Rol</th>
-                <th>Activo</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for u in users %}
-            <tr>
-                <td>{{ u.nombre }}</td>
-                <td>{{ u.apellido }}</td>
-                <td>{{ u.email }}</td>
-                <td>{{ u.dni }}</td>
-                <td>{{ u.rol }}</td>
-                <td>
-                    {% if u.activo %}
-                        <span class="badge si">Sí</span>
-                    {% else %}
-                        <span class="badge no">No</span>
-                    {% endif %}
-                </td>
-            </tr>
+    <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold text-gray-900 mb-0">Usuarios</h1>
+        <a href="{{ url_for('users.user_new') }}" class="btn btn-primary" aria-label="Crear nuevo usuario">Nuevo Usuario</a>
+    </div>
+
+    <!-- Notificaciones -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div role="alert" aria-live="polite" class="flash-messages mb-6">
+          {% for category, message in messages %}
+            <div class="alert alert-{{ category }}">
+              {{ message }}
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Apellido</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Correo electrónico</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DNI</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rol</th>
+                    <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Activo</th>
+                    <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for u in users.items %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ u.nombre }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ u.apellido }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ u.email }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ u.dni }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ u.role.name }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-center">
+                        {% if u.activo %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800" aria-label="Activo">Sí</span>
+                        {% else %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800" aria-label="Inactivo">No</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
+                        <div class="flex justify-center gap-3">
+                            <a href="#" class="text-blue-600 hover:text-blue-900" aria-label="Ver detalle del usuario {{ u.nombre }} {{ u.apellido }}">Ver</a>
+                            <a href="#" class="text-blue-600 hover:text-blue-900" aria-label="Editar usuario {{ u.nombre }} {{ u.apellido }}">Editar</a>
+                            <a href="#" class="text-red-600 hover:text-red-900" aria-label="Eliminar usuario {{ u.nombre }} {{ u.apellido }}">Eliminar</a>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" class="px-6 py-12 text-center text-sm text-gray-500">
+                        No hay usuarios para mostrar.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Paginación -->
+    {% if users.pages > 1 %}
+    <div class="mt-6 flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6 rounded-lg shadow-sm">
+        <div class="flex flex-1 justify-between sm:hidden">
+            {% if users.has_prev %}
+                <a href="{{ url_for('users.user_index', page=users.prev_num) }}" class="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Anterior</a>
             {% else %}
-            <tr>
-                <td colspan="6">No hay usuarios para mostrar.</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+                <span class="relative inline-flex items-center rounded-md border border-gray-300 bg-gray-100 px-4 py-2 text-sm font-medium text-gray-400 cursor-not-allowed">Anterior</span>
+            {% endif %}
+
+            {% if users.has_next %}
+                <a href="{{ url_for('users.user_index', page=users.next_num) }}" class="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Siguiente</a>
+            {% else %}
+                <span class="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-gray-100 px-4 py-2 text-sm font-medium text-gray-400 cursor-not-allowed">Siguiente</span>
+            {% endif %}
+        </div>
+
+        <div class="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+            <div>
+                <p class="text-sm text-gray-700">
+                    Mostrando página <span class="font-medium">{{ users.page }}</span> de <span class="font-medium">{{ users.pages }}</span>
+                </p>
+            </div>
+            <div>
+                <nav class="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                    {% if users.has_prev %}
+                        <a href="{{ url_for('users.user_index', page=users.prev_num) }}" class="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0">
+                            <span class="sr-only">Anterior</span>
+                            &larr;
+                        </a>
+                    {% endif %}
+
+                    <span class="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 focus:outline-offset-0">
+                        {{ users.page }}
+                    </span>
+
+                    {% if users.has_next %}
+                        <a href="{{ url_for('users.user_index', page=users.next_num) }}" class="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0">
+                            <span class="sr-only">Siguiente</span>
+                            &rarr;
+                        </a>
+                    {% endif %}
+                </nav>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+</main>
 {% endblock %}

@@ -16,3 +16,9 @@ class PersonnelType(db.Model):
         nullable=False,
         unique=True,
     )
+
+    requiere_sector = db.Column(
+        db.Boolean,
+        default=True,
+        nullable=False,
+    )

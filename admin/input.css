@@ -1,0 +1,130 @@
+@import "tailwindcss";
+@source "./src/web/templates";
+
+@layer base {
+  body {
+    @apply bg-gray-50 text-gray-900 font-sans antialiased;
+  }
+  h1 {
+    @apply text-3xl font-bold text-gray-900 mb-4;
+  }
+  h2 {
+    @apply text-2xl font-bold text-gray-900 mb-3;
+  }
+  a {
+    @apply transition-colors;
+  }
+}
+
+@layer components {
+  /* Layout Básico */
+  .container {
+    @apply w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  .skip-link {
+    @apply sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-white focus:text-blue-600 focus:font-bold focus:shadow-md;
+  }
+
+  /* Botones */
+  .btn {
+    @apply inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors;
+  }
+  .btn-primary {
+    @apply bg-blue-600 hover:bg-blue-700 text-white;
+  }
+
+  /* Formularios (Auth y genéricos) */
+  .auth-wrapper {
+    @apply max-w-md mx-auto py-12;
+  }
+  .form-auth {
+    @apply flex flex-col gap-5 bg-white p-8 rounded-lg shadow-sm border border-gray-200 text-gray-900;
+  }
+  .form-group {
+    @apply flex flex-col gap-1.5;
+  }
+  .form-label {
+    @apply block text-sm font-medium text-gray-700;
+  }
+  .form-input {
+    @apply mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border text-gray-900;
+  }
+  .required-asterisk {
+    @apply text-red-600 ml-1;
+  }
+
+  /* Alertas */
+  .flash-messages {
+    @apply mb-6;
+  }
+  .alert {
+    @apply p-4 mb-4 rounded-md border text-sm font-medium;
+  }
+  .alert-error {
+    @apply bg-red-50 text-red-800 border-red-200;
+  }
+  .alert-success {
+    @apply bg-green-50 text-green-800 border-green-200;
+  }
+  .alert-info {
+    @apply bg-blue-50 text-blue-800 border-blue-200;
+  }
+
+  /* Tablas */
+  .table-header-flex {
+    @apply flex justify-between items-center mb-6 mt-6;
+  }
+  .table-container {
+    @apply overflow-x-auto shadow ring-1 ring-black/5 rounded-lg bg-white;
+  }
+  .table {
+    @apply min-w-full divide-y divide-gray-300;
+  }
+  .table thead {
+    @apply bg-gray-50;
+  }
+  .table th {
+    @apply py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6;
+  }
+  .table tbody {
+    @apply divide-y divide-gray-200 bg-white;
+  }
+  .table td {
+    @apply whitespace-nowrap py-4 pl-4 pr-3 text-sm text-gray-700 sm:pl-6;
+  }
+  .table-empty {
+    @apply px-6 py-12 text-center text-sm text-gray-500;
+  }
+
+  /* Badges */
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+  .badge.si {
+    @apply bg-green-100 text-green-800;
+  }
+  .badge.no {
+    @apply bg-red-100 text-red-800;
+  }
+
+  /* Acciones de tabla */
+  .actions {
+    @apply flex justify-center gap-3 text-blue-600 font-medium;
+  }
+  .actions a:hover {
+    @apply text-blue-900 underline;
+  }
+
+  /* Paginación */
+  .pagination {
+    @apply mt-8 flex justify-center;
+  }
+  .pagination-list {
+    @apply inline-flex shadow-sm rounded-md items-center gap-2;
+  }
+  .pagination-text {
+    @apply inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 rounded-md;
+  }
+
+}

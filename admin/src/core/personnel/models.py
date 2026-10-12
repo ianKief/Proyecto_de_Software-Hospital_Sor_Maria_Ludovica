@@ -12,13 +12,7 @@ class Personal(db.Model):
     __tablename__ = "personnel"
 
     id = db.Column(db.Integer, primary_key=True)
-
-    dni = db.Column(
-        db.String(50),
-        nullable=False,
-        unique=True,
-    )
-
+    dni = db.Column(db.String(50), nullable=False, unique=True)
     nombre = db.Column(db.String(255), nullable=False)
     apellido = db.Column(db.String(255), nullable=False)
 
