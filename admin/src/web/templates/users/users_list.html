@@ -147,10 +147,16 @@
                         {% endif %}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
-                        <div class="flex justify-center gap-3">
+                        <div class="flex justify-center items-center gap-3">
                             <a href="{{ url_for('users.user_show', id=u.id) }}" class="text-blue-600 hover:text-blue-900" aria-label="Ver detalle del usuario {{ u.nombre }} {{ u.apellido }}">Ver</a>
                             <a href="{{ url_for('users.user_update', id=u.id) }}" class="text-blue-600 hover:text-blue-900" aria-label="Editar usuario {{ u.nombre }} {{ u.apellido }}">Editar</a>
-                            <a href="#" class="text-red-600 hover:text-red-900" aria-label="Eliminar usuario {{ u.nombre }} {{ u.apellido }}">Eliminar</a>
+                            {% if u.role.name != 'Administrador' and u.activo %}
+                                <form method="POST" action="{{ url_for('users.user_destroy', id=u.id) }}" class="inline" onsubmit="return confirm('¿Confirmas la baja del usuario {{ u.nombre }} {{ u.apellido }}? El usuario quedará desactivado.');">
+                                    <button type="submit" class="text-red-600 hover:text-red-900" aria-label="Dar de baja usuario {{ u.nombre }} {{ u.apellido }}">
+                                        Dar de baja
+                                    </button>
+                                </form>
+                            {% endif %}
                         </div>
                     </td>
                 </tr>

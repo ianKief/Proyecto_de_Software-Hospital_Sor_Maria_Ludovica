@@ -211,3 +211,21 @@ def user_update(id):
     roles = Role.query.all()
     sectors = Sector.query.all()
     return render_template('users/user_edit.html', user=user, roles=roles, sectors=sectors)
+
+@users_bp.route('/<int:id>/eliminar', methods=['POST'])
+@permission_required('user_destroy')
+def user_destroy(id):
+    user = User.query.get_or_404(id)
+
+    # Regla: No se puede dar de baja a un Administrador
+    if user.role.name == "Administrador":
+        flash("Los usuarios con rol Administrador no pueden ser bloqueados ni dados de baja.", "error")
+        return redirect(url_for('users.user_index'))
+
+    # Baja lógica estricta
+    user.activo = False
+    db.session.commit()
+
+    flash(f"El usuario {user.nombre} {user.apellido} ha sido dado de baja exitosamente.", "success")
+    return redirect(url_for('users.user_index'))
+
