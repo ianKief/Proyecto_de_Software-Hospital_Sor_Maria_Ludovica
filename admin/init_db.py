@@ -15,6 +15,7 @@ from src.core.food_types.models import FoodType
 from src.core.quotas.models import Cupo
 from src.core.pedidos.models import Pedido, SolicitudPedido, Autorizacion
 from src.core.configuration.models import Configuration
+from src.core.deliveries.models import Entrega, EntregaDetalle
 from src.core.seeds.seed_configuration import seed_configuration
 
 def ensure_database_exists(db_url):
