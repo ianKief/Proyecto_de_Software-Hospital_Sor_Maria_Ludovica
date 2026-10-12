@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash
-from src.core.sectors import create_sector, list_sectors, update_sector, get_sector, toggle_status
+from src.core.sectors import create_sector, list_sectors, update_sector, get_sector, toggle_status, delete_sector
 from src.core.sectors.exceptions import SectorAlreadyExistsError, SectorValidationError
 from src.web.helpers.auth import permission_required
 
@@ -141,4 +141,30 @@ def toggle(id):
         flash("Ocurrió un error inesperado al intentar cambiar el estado del sector.", "error")
 
     # Siempre redirigimos al listado para ver el resultado
+    return redirect(url_for('sectors.index'))
+
+@sector_bp.route('/<int:id>/eliminar', methods=['POST'])
+@permission_required('sector_destroy')  # Ajustá al permiso real que uses
+def delete(id):
+    """
+    Intenta eliminar un sector. Si tiene dependencias, el core lo desactivará
+    automáticamente (Soft Delete).
+    """
+    try:
+        eliminado_fisicamente, mensaje = delete_sector(id)
+        
+        if eliminado_fisicamente:
+            # Borrado definitivo de la base de datos (Color verde)
+            flash(mensaje, "success")
+        else:
+            # No se pudo borrar pero fue desactivado (Color amarillo/naranja)
+            flash(mensaje, "warning")
+            
+    except SectorValidationError as e:
+        # Entra acá si ya estaba inactivo y tampoco se puede borrar, o si no existe
+        flash(str(e), "error")
+        
+    except Exception:
+        flash("Ocurrió un error inesperado al intentar eliminar el sector.", "error")
+
     return redirect(url_for('sectors.index'))

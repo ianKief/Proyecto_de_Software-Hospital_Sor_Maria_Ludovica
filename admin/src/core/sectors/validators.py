@@ -1,6 +1,9 @@
 from src.core.sectors.models import Sector
 from src.core.sectors.exceptions import SectorValidationError, SectorAlreadyExistsError
 from src.core.personnel.models import Personnel
+from src.core.personnel.models import Personnel
+#from src.core.pedidos.models import Pedido
+
 
 MAX_NOMBRE_LENGTH = 255
 MAX_DESCRIPCION_LENGTH = 1000
@@ -76,3 +79,30 @@ def validate_deactivation(sector) -> None:
         raise SectorValidationError(
             "No se puede desactivar el sector porque tiene personal del hospital asignado."
         )
+
+def validate_deletion(sector) -> None:
+    """
+    Valida si un sector cumple con las reglas de negocio para ser eliminado físicamente.
+    Los mensajes de error retornan solo la razón para encastrar en la respuesta final.
+    """
+    # 1. Validar que no tenga usuarios (jefes de servicio)
+    if sector.jefes_servicio:
+        raise SectorValidationError(
+            "tiene usuarios (jefes de servicio) vinculados"
+        )
+        
+    # 2. Validar que no tenga personal asignado
+    personal_asignado = Personnel.query.filter_by(sector_id=sector.id).first()
+    if personal_asignado:
+        raise SectorValidationError(
+            "tiene registros de personal del hospital asociados"
+        )
+        
+    # 3. Validar que no tenga pedidos asociados (Comentado hasta implementar)
+    """
+    pedidos_asociados = Pedido.query.filter_by(sector_id=sector.id).first()
+    if pedidos_asociados:
+        raise SectorValidationError(
+            "existen pedidos registrados a nombre de este sector"
+        )
+    """

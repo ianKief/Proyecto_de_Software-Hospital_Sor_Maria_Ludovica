@@ -1,20 +1,6 @@
 {% extends "layout.html" %}
 
 {% block content %}
-<!-- Estilos CSS3 puros y responsivos para iconos y el modal -->
-<style>
-    .icon-sort {
-        width: 1.1em;
-        height: 1.1em;
-        flex-shrink: 0;
-    }
-    
-    /* Oscurecer el fondo cuando se abre el <dialog> nativo */
-    dialog::backdrop {
-        background-color: rgba(17, 24, 39, 0.6); /* Color gray-900 con 60% de opacidad */
-        backdrop-filter: blur(2px);
-    }
-</style>
 
 <main id="main-content" class="flex-grow py-8" tabindex="-1">
     <div class="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -24,7 +10,7 @@
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
                     {% for category, message in messages %}
-                        {% set alert_classes = 'bg-red-50 border-red-500 text-red-800' if category in ['danger', 'error'] else 'bg-green-50 border-green-500 text-green-800' %}
+                        {% set alert_classes = 'bg-red-50 border-red-500 text-red-800' if category in ['danger', 'error'] else ('bg-yellow-50 border-yellow-400 text-yellow-800' if category == 'warning' else 'bg-green-50 border-green-500 text-green-800') %}
                         <div class="border-l-4 p-4 rounded-r-md {{ alert_classes }}" role="alert">
                             <p class="text-sm font-medium">{{ message }}</p>
                         </div>
@@ -268,6 +254,11 @@
                                 <!-- Pie del Modal: Botones de Acción (Sin linkear por ahora) -->
                                 <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-3 gap-3">
                                     
+                                    <!-- Botón que abre el modal de confirmación (Ya no es un form acá) -->
+                                    <button type="button" onclick="document.getElementById('modal-confirm-delete-{{ sector.id }}').showModal()" class="w-full sm:w-auto inline-flex justify-center items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-600 transition-colors">
+                                        Eliminar
+                                    </button>
+
                                     <!-- Botón Desactivar / Activar -->
                                     <form action="{{ url_for('sectors.toggle', id=sector.id) }}" method="POST" class="w-full sm:w-auto m-0">
                                         <button type="submit" class="w-full sm:w-auto inline-flex justify-center items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
@@ -286,6 +277,43 @@
                                     </a>
                                 </div>
 
+                            </div>
+                        </dialog>
+
+                        <!-- Modal de Confirmación de Eliminación -->
+                        <dialog id="modal-confirm-delete-{{ sector.id }}" aria-labelledby="modal-delete-title-{{ sector.id }}" class="bg-white rounded-lg shadow-xl w-full max-w-md p-0 m-auto backdrop-filter backdrop-blur-sm">
+                            <div class="px-6 py-5">
+                                <div class="flex items-start gap-4">
+                                    <!-- Icono de Advertencia -->
+                                    <div class="flex-shrink-0 flex items-center justify-center h-10 w-10 rounded-full bg-red-50">
+                                        <svg class="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <h3 class="text-lg font-bold text-gray-900" id="modal-delete-title-{{ sector.id }}">
+                                            Eliminar Sector
+                                        </h3>
+                                        <p class="mt-2 text-sm text-gray-600">
+                                            ¿Está seguro de que desea eliminar el sector <strong>{{ sector.nombre }}</strong>?<br><br>
+                                            Esta acción no se puede deshacer. Si el sector tiene personal o pedidos asociados, será desactivado automáticamente para mantener el historial.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-3 gap-3">
+                                <!-- Botón Cancelar (Cierra este modal) -->
+                                <button type="button" onclick="document.getElementById('modal-confirm-delete-{{ sector.id }}').close()" class="w-full sm:w-auto inline-flex justify-center items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                                    Cancelar
+                                </button>
+                                
+                                <!-- Formulario real que hace el POST -->
+                                <form action="{{ url_for('sectors.delete', id=sector.id) }}" method="POST" class="w-full sm:w-auto m-0">
+                                    <button type="submit" class="w-full sm:w-auto inline-flex justify-center items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-600 transition-colors">
+                                        Sí, eliminar
+                                    </button>
+                                </form>
                             </div>
                         </dialog>
 

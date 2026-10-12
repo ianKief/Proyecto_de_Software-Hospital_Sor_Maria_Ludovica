@@ -1,7 +1,12 @@
 from src.core.db import db
 from src.core.sectors.models import Sector
 from src.core.sectors.exceptions import SectorValidationError
-from src.core.sectors.validators import validate_nombre, validate_descripcion, validate_deactivation
+from src.core.sectors.validators import (
+    validate_nombre, 
+    validate_descripcion, 
+    validate_deactivation,
+    validate_deletion
+    )
 
 # ==========================================
 # FUNCIONES CORE
@@ -123,3 +128,41 @@ def toggle_status(sector_id: int) -> Sector:
 
     db.session.commit()
     return sector
+
+def delete_sector(sector_id: int) -> tuple[bool, str]:
+    """
+    Intenta eliminar un sector físicamente de la base de datos.
+    Si el sector tiene dependencias (personal, pedidos, etc.), se captura 
+    la excepción de validación y se procede a una baja lógica (desactivación).
+    
+    Retorna:
+        Una tupla (eliminado_fisicamente: bool, mensaje_resultado: str)
+    """
+    sector = get_sector(sector_id)
+    if not sector:
+        raise SectorValidationError("El sector solicitado no existe o ya fue eliminado.")
+
+    try:
+        # Intentamos validar si se puede eliminar físicamente
+        validate_deletion(sector)
+        
+        # Si no saltaron errores, lo borramos de verdad
+        nombre = sector.nombre
+        db.session.delete(sector)
+        db.session.commit()
+        return True, f"El sector '{nombre}' fue eliminado permanentemente del sistema."
+
+    except SectorValidationError as e:
+        # Si la validación falla (ej: "tiene registros de personal asociados")
+        motivo = str(e)
+        
+        if sector.activo:
+            # Hacemos la baja lógica y avisamos
+            sector.activo = False
+            db.session.commit()
+            return False, f"El sector '{sector.nombre}' no pudo ser eliminado de forma permanente porque {motivo}. En su lugar, ha sido desactivado."
+        else:
+            # Si ya estaba inactivo y tampoco se puede borrar
+            raise SectorValidationError(
+                f"El sector ya se encuentra inactivo, pero no puede ser eliminado de forma permanente porque {motivo}."
+            )
