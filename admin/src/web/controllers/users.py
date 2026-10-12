@@ -3,7 +3,7 @@ from src.core.users.models import User
 from src.core.auth.models import Role
 from src.web.helpers.auth import permission_required
 from src.core.db import db
-from werkzeug.security import generate_password_hash
+import bcrypt
 
 users_bp = Blueprint('users', __name__, url_prefix='/users')
 
@@ -41,7 +41,10 @@ def user_new():
             return redirect(url_for('users.user_new'))
 
         # Manejo seguro de contraseñas
-        hashed_password = generate_password_hash(password)
+        hashed_password = bcrypt.hashpw(
+            password.encode("utf-8"),
+            bcrypt.gensalt(),
+        ).decode("utf-8")
 
         new_user = User(
             email=email,
