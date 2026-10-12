@@ -4,6 +4,8 @@ from src.core.users.models import User
 from src.core.auth.models import Role
 from src.core.sectors.models import Sector
 from src.web.helpers.auth import permission_required
+from src.core.paginacion import paginar
+from src.web.helpers.paginacion import validar_pagina
 from src.core.db import db
 import bcrypt
 
@@ -12,7 +14,7 @@ users_bp = Blueprint('users', __name__, url_prefix='/users')
 @users_bp.route('/')
 @permission_required('user_index')
 def user_index():
-    page = request.args.get('page', 1, type=int)
+    numero = validar_pagina(request.args.get('page')) or 1
     email = request.args.get('email', '').strip()
     nombre_apellido = request.args.get('nombre_apellido', '').strip()
     dni = request.args.get('dni', '').strip()
@@ -54,7 +56,7 @@ def user_index():
 
     query = query.order_by(*order_clause)
 
-    users = query.paginate(page=page, per_page=25, error_out=False)
+    users = paginar(query, numero)
     roles = Role.query.all()
     sectors = Sector.query.all()
 
