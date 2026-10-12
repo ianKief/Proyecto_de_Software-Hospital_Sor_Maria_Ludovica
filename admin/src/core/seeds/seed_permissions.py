@@ -28,3 +28,26 @@ with app.app_context():
         print("Permisos cargados y asignados al rol Administrador con éxito.")
     else:
         print("No se encontró el rol Administrador.")
+
+    # Permisos de Entregas: el Sector Comedor registra y consulta,
+    # el Servicio de Alimentación solo consulta.
+    permisos_por_rol = {
+        "Sector Comedor": ["delivery_index", "delivery_show", "delivery_new", "authorized_meals_index"],
+        "Servicio de Alimentación": ["delivery_index", "delivery_show", "authorized_meals_index"],
+    }
+
+    for role_name, nombres in permisos_por_rol.items():
+        role = Role.query.filter_by(name=role_name).first()
+        if not role:
+            print(f"No se encontró el rol {role_name}.")
+            continue
+        for p_name in nombres:
+            perm = Permission.query.filter_by(name=p_name).first()
+            if not perm:
+                perm = Permission(name=p_name)
+                db.session.add(perm)
+            if perm not in role.permissions:
+                role.permissions.append(perm)
+
+    db.session.commit()
+    print("Permisos de Entregas asignados.")
