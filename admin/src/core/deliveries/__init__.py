@@ -161,6 +161,26 @@ def datos_comida_autorizada(solicitud):
     }
 
 
+def totales_comidas_autorizadas(consulta):
+    """Cuenta las comidas autorizadas de la consulta y cuántas ya se entregaron.
+
+    Recibe la consulta de ``buscar_comidas_autorizadas`` (sin paginar), así los
+    totales son de todo el filtro y no solo de una página.
+    Se cuenta por autorización, igual que ``resumen_entregas``: una cuenta como
+    entregada si tiene un detalle de entrega. Puede no coincidir con la marca
+    "entregada" de cada ítem, que es por persona: si una persona tiene dos
+    autorizaciones de la misma comida y retiró una, suma 2 autorizadas y 1 entregada.
+    """
+    entregadas = consulta.join(
+        EntregaDetalle,
+        EntregaDetalle.autorizacion_id == Autorizacion.id,
+    )
+    return {
+        "autorizadas": consulta.count(),
+        "entregadas": entregadas.count(),
+    }
+
+
 def _autorizacion_de_hoy(persona_id, fecha, tipo_comida_id):
     """Devuelve la autorización vigente de la persona para esa fecha y comida, o None.
 

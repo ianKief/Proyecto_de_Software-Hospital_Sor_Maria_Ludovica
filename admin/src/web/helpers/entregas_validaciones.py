@@ -1,4 +1,5 @@
-"""Validaciones del lado del servidor para registrar una entrega."""
+"""Validaciones del lado del servidor del módulo de Entregas."""
+from datetime import date
 
 
 CAMPOS_PERMITIDOS = {
@@ -103,3 +104,129 @@ def validar_entrega(data):
         "tipo_comida_id": data["tipo_comida_id"],
         "responsable_id": data["responsable_id"],
     }
+
+
+FILTROS_COMIDAS_AUTORIZADAS = [
+    "fecha",
+    "dni",
+    "nombre",
+    "sector_id",
+    "tipo_comida_id",
+]
+
+# Además de los filtros, el listado acepta el número de página.
+PARAMETROS_COMIDAS_AUTORIZADAS = set(FILTROS_COMIDAS_AUTORIZADAS) | {"page"}
+
+
+def _leer_fecha(texto):
+    """Convierte un texto ``AAAA-MM-DD`` en ``date``. Devuelve ``None`` si no es válido."""
+    try:
+        return date.fromisoformat(texto)
+    except ValueError:
+        return None
+
+
+def _leer_id(texto):
+    """Convierte un texto en un entero positivo. Devuelve ``None`` si no es válido.
+
+    Se controla con ``isdecimal()`` antes de ``int()`` porque ``int()`` también
+    acepta ``"+5"`` y ``"1_0"`` (que lee como 10). No se usa ``isdigit()``
+    porque da True con ``"²"``, que ``int()`` no puede convertir.
+    """
+    if not texto.isdecimal():
+        return None
+
+    valor = int(texto)
+
+    if valor <= 0:
+        return None
+
+    return valor
+
+
+def validar_filtros_comidas_autorizadas(args):
+    """Valida el query string de ``GET /api/authorized-meals``.
+
+    ``args`` es ``request.args`` (o cualquier diccionario de textos).
+    Los textos vacíos o con solo espacios cuentan como que no vinieron.
+    Exige al menos un filtro (``page`` no cuenta) para no traer todo el sistema.
+
+    Devuelve ``(True, filtros)``, con las cinco claves de filtro (las que no
+    vinieron en ``None``), o ``(False, {"error": mensaje, "campos": [...]})``.
+    """
+    campos_extra = set(args) - PARAMETROS_COMIDAS_AUTORIZADAS
+
+    if campos_extra:
+        return False, {
+            "error": "Se recibieron parámetros no permitidos",
+            "campos": sorted(campos_extra),
+        }
+
+    textos = {}
+    for campo in FILTROS_COMIDAS_AUTORIZADAS:
+        texto = args.get(campo, "").strip()
+        textos[campo] = texto or None
+
+    if all(texto is None for texto in textos.values()):
+        return False, {
+            "error": "Debe indicar al menos un filtro",
+            "campos": FILTROS_COMIDAS_AUTORIZADAS,
+        }
+
+    filtros = {
+        "fecha": None,
+        "dni": textos["dni"],
+        "nombre": textos["nombre"],
+        "sector_id": None,
+        "tipo_comida_id": None,
+    }
+
+    if textos["fecha"] is not None:
+        filtros["fecha"] = _leer_fecha(textos["fecha"])
+        if filtros["fecha"] is None:
+            return False, {
+                "error": "La fecha debe tener formato AAAA-MM-DD",
+                "campos": ["fecha"],
+            }
+
+    for campo in ["sector_id", "tipo_comida_id"]:
+        if textos[campo] is not None:
+            filtros[campo] = _leer_id(textos[campo])
+            if filtros[campo] is None:
+                return False, {
+                    "error": f"{campo} debe ser un entero positivo",
+                    "campos": [campo],
+                }
+
+    return True, filtros
+
+
+def validar_fecha_opcional(args):
+    """Valida el query string de ``GET /api/authorized-meals/<person_id>``.
+
+    Solo acepta ``fecha`` (``AAAA-MM-DD``) y es opcional.
+    Devuelve ``(True, fecha)``, con ``fecha`` en ``None`` si no vino,
+    o ``(False, {"error": mensaje, "campos": [...]})``.
+    """
+    campos_extra = set(args) - {"fecha"}
+
+    if campos_extra:
+        return False, {
+            "error": "Se recibieron parámetros no permitidos",
+            "campos": sorted(campos_extra),
+        }
+
+    texto = args.get("fecha", "").strip()
+
+    if not texto:
+        return True, None
+
+    fecha = _leer_fecha(texto)
+
+    if fecha is None:
+        return False, {
+            "error": "La fecha debe tener formato AAAA-MM-DD",
+            "campos": ["fecha"],
+        }
+
+    return True, fecha
