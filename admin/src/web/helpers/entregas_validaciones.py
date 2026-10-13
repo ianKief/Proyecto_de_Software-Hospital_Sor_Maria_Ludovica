@@ -257,6 +257,22 @@ def validar_filtros_entregas(args):
     return True, filtros
 
 
+def validar_filtros_resumen_entregas(args):
+    """Valida el query string de ``GET /api/deliveries/summary``.
+
+    Acepta los mismos filtros que el listado de entregas, pero no ``page``,
+    porque el resumen no se pagina. Devuelve lo mismo que
+    ``validar_filtros_entregas``.
+    """
+    if "page" in args:
+        return False, {
+            "error": "Se recibieron parámetros no permitidos",
+            "campos": ["page"],
+        }
+
+    return validar_filtros_entregas(args)
+
+
 def validar_fecha_opcional(args):
     """Valida el query string de ``GET /api/authorized-meals/<person_id>``.
 

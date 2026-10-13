@@ -451,3 +451,18 @@ def resumen_entregas(fecha=None, tipo_comida_id=None, sector_id=None):
             "diferencia": cantidades["autorizadas"] - cantidades["entregadas"],
         })
     return resumen
+
+
+def totales_resumen_entregas(resumen):
+    """Suma las filas que devuelve ``resumen_entregas``.
+
+    Devuelve un diccionario con ``autorizadas``, ``entregadas`` y
+    ``diferencia``. Si el resumen está vacío, los tres valen 0.
+    """
+    autorizadas = sum(fila["autorizadas"] for fila in resumen)
+    entregadas = sum(fila["entregadas"] for fila in resumen)
+    return {
+        "autorizadas": autorizadas,
+        "entregadas": entregadas,
+        "diferencia": autorizadas - entregadas,
+    }

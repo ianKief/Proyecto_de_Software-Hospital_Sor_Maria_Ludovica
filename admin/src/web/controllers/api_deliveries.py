@@ -10,7 +10,9 @@ from src.core.deliveries import (
     listar_entregas,
     obtener_entrega,
     registrar_entrega,
+    resumen_entregas,
     totales_comidas_autorizadas,
+    totales_resumen_entregas,
 )
 from src.core.deliveries.turnos import hoy
 from src.core.paginacion import paginar
@@ -20,6 +22,7 @@ from src.web.helpers.entregas_validaciones import (
     validar_fecha_opcional,
     validar_filtros_comidas_autorizadas,
     validar_filtros_entregas,
+    validar_filtros_resumen_entregas,
 )
 from src.web.helpers.paginacion import respuesta_paginada, validar_pagina
 
@@ -118,6 +121,35 @@ def deliveries_index():
     items = [datos_entrega(entrega) for entrega in pagina.items]
 
     return jsonify(respuesta_paginada(pagina, items)), 200
+
+
+# Va antes de /deliveries/<int:delivery_id> solo para que se lea mejor:
+# no chocan, porque el conversor int no acepta "summary".
+@api_deliveries_bp.get("/deliveries/summary")
+@api_permission_required("delivery_index")
+def deliveries_summary():
+    """Comidas autorizadas contra entregadas, por tipo de comida y de menú.
+
+    Filtros: ``fecha`` (AAAA-MM-DD), ``sector_id`` y ``tipo_comida_id``.
+    Si no viene la fecha se usa hoy, haya o no otros filtros, para no sumar
+    todo el historial. No se pagina: son pocas filas agrupadas.
+    Responde 400 si algún filtro no es válido o viene ``page``.
+    """
+    es_valido, resultado = validar_filtros_resumen_entregas(request.args)
+
+    if not es_valido:
+        return jsonify(resultado), 400
+
+    if resultado["fecha"] is None:
+        resultado["fecha"] = hoy()
+
+    items = resumen_entregas(**resultado)
+
+    return jsonify({
+        "fecha": resultado["fecha"].isoformat(),
+        "items": items,
+        "totales": totales_resumen_entregas(items),
+    }), 200
 
 
 @api_deliveries_bp.get("/deliveries/<int:delivery_id>")
