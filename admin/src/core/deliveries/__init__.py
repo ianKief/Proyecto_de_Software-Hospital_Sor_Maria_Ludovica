@@ -1,6 +1,7 @@
 """Operaciones del módulo de Entregas."""
 import logging
 from collections import defaultdict
+from datetime import timezone
 
 from sqlalchemy.exc import IntegrityError
 
@@ -205,7 +206,8 @@ def registrar_entrega(datos, usuario_id):
 
     Recibe los datos ya validados por ``validar_entrega`` (``personas``,
     ``tipo_comida_id`` y ``responsable_id``) y el id del usuario del Comedor
-    que la registra. La fecha y la hora las pone el servidor.
+    que la registra. La fecha y la hora las pone el servidor: ``created_at`` es
+    el mismo momento con el que se controla el turno.
 
     Antes de crear nada controla todo; si algo falla no se guarda ninguna persona:
     - ``ValueError`` (400): comida o responsable inexistente, fuera del horario
@@ -253,6 +255,9 @@ def registrar_entrega(datos, usuario_id):
         )
 
     entrega = Entrega(
+        # Se guarda el mismo momento con el que se validó el turno, en UTC y
+        # sin zona como el default del modelo (issue #18).
+        created_at=momento.astimezone(timezone.utc).replace(tzinfo=None),
         usuario_id=usuario_id,
         responsable_id=datos["responsable_id"],
         tipo_comida_id=tipo_comida.id,

@@ -165,6 +165,8 @@ def test_entrega_valida_con_dos_personas(datos):
     assert entrega.responsable_id == luis.id
     assert entrega.tipo_comida_id == datos["almuerzo"].id
     assert {d.autorizacion_id for d in entrega.detalles} == {de_ana.id, de_luis.id}
+    # Las 12:00 de Argentina se guardan como las 15:00 UTC, sin zona.
+    assert entrega.created_at == datetime(2026, 10, 13, 15, 0)
 
 
 def test_fuera_de_horario(datos):
