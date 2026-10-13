@@ -1,13 +1,19 @@
 from flask import Blueprint, render_template, request, flash, redirect, url_for
-from sqlalchemy import or_
 from src.core.users.models import User
 from src.core.auth.models import Role
 from src.core.sectors.models import Sector
 from src.web.helpers.auth import permission_required
 from src.core.paginacion import paginar
 from src.web.helpers.paginacion import validar_pagina
-from src.core.db import db
-import bcrypt
+from src.core.users import (
+    buscar_usuarios,
+    crear_usuario,
+    actualizar_usuario,
+    dar_de_baja_usuario,
+    reactivar_usuario,
+    existe_usuario_con_email,
+    existe_usuario_con_dni,
+)
 
 users_bp = Blueprint('users', __name__, url_prefix='/users')
 
@@ -24,37 +30,16 @@ def user_index():
     order_by = request.args.get('order_by', 'created_at').strip()
     order_dir = request.args.get('order_dir', 'desc').strip()
 
-    query = User.query
-
-    # Filtros combinables
-    if email:
-        query = query.filter(User.email.ilike(f"%{email}%"))
-    if nombre_apellido:
-        query = query.filter(or_(User.nombre.ilike(f"%{nombre_apellido}%"), User.apellido.ilike(f"%{nombre_apellido}%")))
-    if dni:
-        query = query.filter(User.dni.ilike(f"%{dni}%"))
-    if activo in ['true', '1']:
-        query = query.filter(User.activo.is_(True))
-    elif activo in ['false', '0']:
-        query = query.filter(User.activo.is_(False))
-    if role_id and role_id.isdigit():
-        query = query.filter(User.role_id == int(role_id))
-    if sector_id and sector_id.isdigit():
-        query = query.filter(User.sector_id == int(sector_id))
-
-    # Ordenamiento
-    if order_by == 'email':
-        order_clause = [User.email.desc() if order_dir == 'desc' else User.email.asc()]
-    elif order_by == 'apellido_nombre':
-        order_clause = [
-            User.apellido.desc() if order_dir == 'desc' else User.apellido.asc(),
-            User.nombre.desc() if order_dir == 'desc' else User.nombre.asc()
-        ]
-    else:
-        order_by = 'created_at'
-        order_clause = [User.created_at.desc() if order_dir == 'desc' else User.created_at.asc()]
-
-    query = query.order_by(*order_clause)
+    query = buscar_usuarios(
+        email=email,
+        nombre_apellido=nombre_apellido,
+        dni=dni,
+        activo=activo,
+        role_id=role_id,
+        sector_id=sector_id,
+        order_by=order_by,
+        order_dir=order_dir
+    )
 
     users = paginar(query, numero)
     roles = Role.query.all()
@@ -109,29 +94,24 @@ def user_new():
         else:
             sector_id = None
             
-        if User.query.filter_by(email=email).first():
+        if existe_usuario_con_email(email):
             flash("Ya existe un usuario registrado con ese correo electrónico.", "error")
             return redirect(url_for('users.user_new'))
 
-        if User.query.filter_by(dni=dni).first():
+        if existe_usuario_con_dni(dni):
             flash("Ya existe un usuario registrado con ese DNI.", "error")
             return redirect(url_for('users.user_new'))
 
-        hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-        
-        new_user = User(
+        crear_usuario(
             email=email,
             nombre=nombre,
             apellido=apellido,
             dni=dni,
-            password=hashed_password,
-            activo=activo,
+            password=password,
             role_id=role_id,
-            sector_id=sector_id
+            sector_id=sector_id,
+            activo=activo
         )
-
-        db.session.add(new_user)
-        db.session.commit()
 
         flash("Usuario creado con éxito.", "success")
         return redirect(url_for('users.user_index'))
@@ -186,28 +166,30 @@ def user_update(id):
             flash("Los usuarios con rol Administrador no pueden ser bloqueados.", "error")
             return redirect(url_for('users.user_update', id=id))
 
-        # Validar DNI y Email (que no pertenezcan a OTRO usuario)
-        if User.query.filter(User.email == email, User.id != id).first():
+        if existe_usuario_con_email(email, excluir_id=id):
             flash("Ya existe otro usuario registrado con ese correo electrónico.", "error")
             return redirect(url_for('users.user_update', id=id))
             
-        if User.query.filter(User.dni == dni, User.id != id).first():
+        if existe_usuario_con_dni(dni, excluir_id=id):
             flash("Ya existe otro usuario registrado con ese DNI.", "error")
             return redirect(url_for('users.user_update', id=id))
 
-        # Actualizar campos
-        user.email = email
-        user.nombre = nombre
-        user.apellido = apellido
-        user.dni = dni
-        user.role_id = role_id
-        user.sector_id = sector_id
-        user.activo = activo
-        
-        if password and password.strip() != "":
-            user.password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        try:
+            actualizar_usuario(
+                user=user,
+                email=email,
+                nombre=nombre,
+                apellido=apellido,
+                dni=dni,
+                role_id=role_id,
+                sector_id=sector_id,
+                activo=activo,
+                password=password
+            )
+        except ValueError as e:
+            flash(str(e), "error")
+            return redirect(url_for('users.user_update', id=id))
 
-        db.session.commit()
         flash("Usuario actualizado con éxito.", "success")
         return redirect(url_for('users.user_show', id=id))
 
@@ -219,15 +201,11 @@ def user_update(id):
 @permission_required('user_destroy')
 def user_destroy(id):
     user = User.query.get_or_404(id)
-
-    # Regla: No se puede dar de baja a un Administrador
-    if user.role.name == "Administrador":
-        flash("Los usuarios con rol Administrador no pueden ser bloqueados ni dados de baja.", "error")
+    try:
+        dar_de_baja_usuario(user)
+    except ValueError as e:
+        flash(str(e), "error")
         return redirect(url_for('users.user_index'))
-
-    # Baja lógica estricta
-    user.activo = False
-    db.session.commit()
 
     flash(f"El usuario {user.nombre} {user.apellido} ha sido dado de baja exitosamente.", "success")
     return redirect(url_for('users.user_index'))
@@ -236,9 +214,6 @@ def user_destroy(id):
 @permission_required('user_update')
 def user_activate(id):
     user = User.query.get_or_404(id)
-    user.activo = True
-    db.session.commit()
+    reactivar_usuario(user)
     flash(f"El usuario {user.nombre} {user.apellido} ha sido reactivado exitosamente.", "success")
     return redirect(url_for('users.user_index'))
-
-
