@@ -1,5 +1,14 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash
-from src.core.sectors import create_sector, list_sectors, update_sector, get_sector, toggle_status, delete_sector
+from src.core.sectors import (
+    create_sector, 
+    list_sectors, 
+    update_sector, 
+    get_sector, 
+    toggle_status, 
+    delete_sector,
+    add_jefes_to_sector,
+    remove_jefe_from_sector
+    )
 from src.core.sectors.exceptions import SectorAlreadyExistsError, SectorValidationError
 from src.web.helpers.auth import permission_required
 from src.core.users.models import User
@@ -234,4 +243,29 @@ def delete(id):
     except Exception:
         flash("Ocurrió un error inesperado al intentar eliminar el sector.", "error")
 
+    return redirect(url_for('sectors.index'))
+
+@sector_bp.route('/<int:id>/jefes/asignar', methods=['POST'])
+@permission_required('sector_update')
+def assign_jefes(id):
+    jefes_ids = request.form.getlist('jefes_ids', type=int)
+    try:
+        sector, advertencias = add_jefes_to_sector(id, jefes_ids)
+        flash("Jefe(s) asignado(s) correctamente.", "success")
+        for adv in advertencias:
+            flash(adv, 'warning')
+    except Exception as e:
+        flash(f"Error al asignar: {str(e)}", "error")
+        
+    return redirect(url_for('sectors.index'))
+
+@sector_bp.route('/<int:id>/jefes/<int:jefe_id>/desvincular', methods=['POST'])
+@permission_required('sector_update')
+def unassign_jefe(id, jefe_id):
+    try:
+        remove_jefe_from_sector(id, jefe_id)
+        flash("Jefe de servicio desvinculado del sector.", "success")
+    except Exception as e:
+        flash(f"Error al desvincular: {str(e)}", "error")
+        
     return redirect(url_for('sectors.index'))

@@ -8,7 +8,6 @@ from src.core.sectors.validators import (
     validate_deletion,
     validate_jefes_servicio
     )
-from src.core.users.models import User
 
 # ==========================================
 # FUNCIONES CORE
@@ -34,6 +33,7 @@ def list_sectors(
     """
     Retorna un objeto Pagination con los sectores ordenados alfabéticamente.
     """
+    from src.core.users.models import User
     query = Sector.query
 
     # Filtro por Nombre de Sector (insensible a mayúsculas/minúsculas)
@@ -203,6 +203,7 @@ def add_jefes_to_sector(sector_id: int, jefes_ids: list[int]) -> tuple[Sector, l
 
 def remove_jefe_from_sector(sector_id: int, jefe_id: int):
     """Desvincula un jefe específico de un sector."""
+    from src.core.users.models import User
     sector = get_sector(sector_id)
     if not sector:
         raise SectorValidationError("El sector solicitado no existe.")
