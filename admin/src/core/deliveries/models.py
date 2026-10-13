@@ -36,10 +36,12 @@ class Entrega(db.Model):
     )
 
     # Fecha y hora de la entrega: la pone el servidor al crearla (nunca viene del cliente).
+    # Se guarda en UTC y sin zona: si se manda con zona, psycopg2 la envía como timestamptz
+    # y Postgres la pasa a la zona de la sesión (issue #18). Para mostrarla: a_hora_argentina().
     created_at = db.Column(
         db.DateTime,
         nullable=False,
-        default=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
     )
 
     usuario = db.relationship("User")

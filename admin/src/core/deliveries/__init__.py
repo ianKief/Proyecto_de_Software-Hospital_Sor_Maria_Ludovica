@@ -1,11 +1,12 @@
 """Operaciones del módulo de Entregas."""
 import logging
+from collections import defaultdict
 
 from sqlalchemy.exc import IntegrityError
 
 from src.core.db import db
 from src.core.deliveries.models import Entrega, EntregaDetalle
-from src.core.deliveries.turnos import ahora, hoy, turno_actual
+from src.core.deliveries.turnos import a_hora_argentina, ahora, hoy, turno_actual
 from src.core.food_types.models import FoodType
 from src.core.pedidos.models import Autorizacion, Pedido, SolicitudPedido
 from src.core.personnel.models import Personal
@@ -262,3 +263,142 @@ def registrar_entrega(datos, usuario_id):
         len(autorizaciones),
     )
     return entrega
+
+
+def listar_entregas(fecha=None, sector_id=None, tipo_comida_id=None):
+    """Arma la consulta de entregas con los filtros que vengan.
+
+    - ``fecha``: fecha del pedido de las autorizaciones entregadas. No se usa
+      ``created_at`` porque está en UTC: una cena a las 22 h quedaría al día siguiente.
+    - ``sector_id``: sector que hizo el pedido de alguna de las personas.
+    - ``tipo_comida_id``: tipo de comida de la entrega.
+
+    La fecha y el sector están en el pedido (detalle → autorización → solicitud
+    → pedido). Para que una entrega con personas de dos sectores no salga
+    repetida, el join no se hace sobre ``Entrega``: se buscan los ids de las
+    entregas que tienen algún detalle que cumple y se filtra con ``IN``.
+
+    Devuelve la consulta sin ejecutar, con las más recientes primero, para
+    pasarla a ``paginar()``.
+    """
+    consulta = Entrega.query
+
+    if tipo_comida_id is not None:
+        consulta = consulta.filter(Entrega.tipo_comida_id == tipo_comida_id)
+
+    if fecha is not None or sector_id is not None:
+        ids_entregas = (
+            db.session.query(EntregaDetalle.entrega_id)
+            .join(EntregaDetalle.autorizacion)
+            .join(Autorizacion.solicitud)
+            .join(SolicitudPedido.pedido)
+        )
+        if fecha is not None:
+            ids_entregas = ids_entregas.filter(Pedido.fecha == fecha)
+        if sector_id is not None:
+            ids_entregas = ids_entregas.filter(Pedido.sector_id == sector_id)
+        consulta = consulta.filter(Entrega.id.in_(ids_entregas))
+
+    return consulta.order_by(Entrega.created_at.desc(), Entrega.id.desc())
+
+
+def obtener_entrega(entrega_id):
+    """Devuelve la entrega con ese id. Lanza ``LookupError`` si no existe."""
+    entrega = db.session.get(Entrega, entrega_id)
+    if entrega is None:
+        raise LookupError("La entrega no existe")
+    return entrega
+
+
+def datos_entrega(entrega):
+    """Arma el diccionario de una entrega, listo para la API.
+
+    El tipo de menú, la condición y el sector de cada persona salen de su
+    solicitud autorizada (detalle → autorización → solicitud).
+    """
+    personas = []
+    for detalle in entrega.detalles:
+        solicitud = detalle.autorizacion.solicitud
+        persona = solicitud.persona
+        # Pedido no tiene relación "sector" (issue #15): se busca por id.
+        sector = db.session.get(Sector, solicitud.pedido.sector_id)
+        personas.append({
+            "id": persona.id,
+            "dni": persona.dni,
+            "nombre": persona.nombre,
+            "apellido": persona.apellido,
+            "tipo_menu": {
+                "id": solicitud.menu_type.id,
+                "nombre": solicitud.menu_type.nombre,
+            },
+            "condicion": solicitud.condicion,
+            "sector": {
+                "id": sector.id,
+                "nombre": sector.nombre,
+            },
+        })
+
+    return {
+        "id": entrega.id,
+        "fecha_hora": a_hora_argentina(entrega.created_at).isoformat(),
+        "usuario": {
+            "id": entrega.usuario.id,
+            "email": entrega.usuario.email,
+        },
+        "responsable": {
+            "id": entrega.responsable.id,
+            "dni": entrega.responsable.dni,
+            "nombre": entrega.responsable.nombre,
+            "apellido": entrega.responsable.apellido,
+        },
+        "tipo_comida": {
+            "id": entrega.tipo_comida.id,
+            "nombre": entrega.tipo_comida.nombre,
+        },
+        "personas": personas,
+    }
+
+
+def resumen_entregas(fecha=None, tipo_comida_id=None, sector_id=None):
+    """Cuenta las comidas autorizadas y las entregadas, por tipo de comida y de menú.
+
+    Las autorizadas son las mismas filas que devuelve ``buscar_comidas_autorizadas``
+    con esos filtros. Una autorizada cuenta como entregada si tiene un detalle
+    de entrega. Se cuenta por autorización (no por persona como la marca
+    "entregada" de E4): si una persona tiene dos autorizaciones de la misma
+    comida y retiró una, suma 2 autorizadas y 1 entregada.
+
+    Que venga al menos la fecha o el tipo de comida lo controla el endpoint.
+    Devuelve una lista ordenada por comida y menú.
+    """
+    filas = (
+        buscar_comidas_autorizadas(
+            fecha=fecha,
+            sector_id=sector_id,
+            tipo_comida_id=tipo_comida_id,
+        )
+        .outerjoin(
+            EntregaDetalle,
+            EntregaDetalle.autorizacion_id == Autorizacion.id,
+        )
+        .add_columns(EntregaDetalle.id)
+        .all()
+    )
+
+    totales = defaultdict(lambda: {"autorizadas": 0, "entregadas": 0})
+    for solicitud, detalle_id in filas:
+        clave = (solicitud.food_type.nombre, solicitud.menu_type.nombre)
+        totales[clave]["autorizadas"] += 1
+        if detalle_id is not None:
+            totales[clave]["entregadas"] += 1
+
+    resumen = []
+    for (comida, menu), cantidades in sorted(totales.items()):
+        resumen.append({
+            "tipo_comida": comida,
+            "tipo_menu": menu,
+            "autorizadas": cantidades["autorizadas"],
+            "entregadas": cantidades["entregadas"],
+            "diferencia": cantidades["autorizadas"] - cantidades["entregadas"],
+        })
+    return resumen

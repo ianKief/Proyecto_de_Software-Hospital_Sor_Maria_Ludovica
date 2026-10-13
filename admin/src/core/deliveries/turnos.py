@@ -27,6 +27,18 @@ def hoy():
     return ahora().date()
 
 
+def a_hora_argentina(dt):
+    """Pasa un datetime guardado en UTC a la hora de Argentina (UTC-3).
+
+    Las columnas ``created_at`` son ``DateTime`` sin zona y guardan la hora en UTC,
+    así que la base las devuelve sin ``tzinfo``: en ese caso se le indica que es
+    UTC antes de convertirlo. Si ya trae zona, se convierte directamente.
+    """
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(ZONA_ARGENTINA)
+
+
 def turno_actual(ahora):
     """Devuelve el nombre de la comida que se sirve en ``ahora`` (un datetime), o None si no hay ninguna.
 

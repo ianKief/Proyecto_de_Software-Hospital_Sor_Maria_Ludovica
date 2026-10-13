@@ -1,7 +1,7 @@
 """Tests de los turnos de comida (no necesitan base de datos)."""
 from datetime import datetime
 
-from src.core.deliveries.turnos import turno_actual
+from src.core.deliveries.turnos import a_hora_argentina, turno_actual
 
 
 def _a_las(hora, minuto, segundo=0):
@@ -32,3 +32,8 @@ def test_madrugada():
 
 def test_entre_comidas():
     assert turno_actual(_a_las(15, 30)) is None
+
+
+def test_a_hora_argentina_desde_utc_sin_zona():
+    # Una cena del 13/10 a las 22:00 en Argentina queda guardada el 14/10 a la 01:00 UTC.
+    assert a_hora_argentina(datetime(2026, 10, 14, 1, 0)).isoformat() == "2026-10-13T22:00:00-03:00"
