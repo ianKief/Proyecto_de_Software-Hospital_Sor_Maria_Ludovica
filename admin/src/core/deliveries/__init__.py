@@ -1,10 +1,17 @@
 """Operaciones del módulo de Entregas."""
+import logging
+
+from sqlalchemy.exc import IntegrityError
+
 from src.core.db import db
-from src.core.deliveries.models import EntregaDetalle
-from src.core.deliveries.turnos import hoy
+from src.core.deliveries.models import Entrega, EntregaDetalle
+from src.core.deliveries.turnos import ahora, hoy, turno_actual
+from src.core.food_types.models import FoodType
 from src.core.pedidos.models import Autorizacion, Pedido, SolicitudPedido
 from src.core.personnel.models import Personal
 from src.core.sectors.models import Sector
+
+logger = logging.getLogger(__name__)
 
 
 def _consulta_autorizadas():
@@ -151,3 +158,107 @@ def datos_comida_autorizada(solicitud):
             solicitud.tipo_comida_id,
         ),
     }
+
+
+def _autorizacion_de_hoy(persona_id, fecha, tipo_comida_id):
+    """Devuelve la autorización vigente de la persona para esa fecha y comida, o None.
+
+    Si tiene dos (pedidas por dos sectores) devuelve la de menor id, así
+    siempre se elige la misma y dos entregas simultáneas chocan en el UNIQUE.
+    """
+    solicitud = (
+        _consulta_autorizadas()
+        .filter(SolicitudPedido.person_id == persona_id)
+        .filter(Pedido.fecha == fecha)
+        .filter(SolicitudPedido.tipo_comida_id == tipo_comida_id)
+        .order_by(Autorizacion.id)
+        .first()
+    )
+    if solicitud is None:
+        return None
+    return solicitud.autorizacion
+
+
+def registrar_entrega(datos, usuario_id):
+    """Registra la entrega de una comida a una o varias personas y devuelve la Entrega.
+
+    Recibe los datos ya validados por ``validar_entrega`` (``personas``,
+    ``tipo_comida_id`` y ``responsable_id``) y el id del usuario del Comedor
+    que la registra. La fecha y la hora las pone el servidor.
+
+    Antes de crear nada controla todo; si algo falla no se guarda ninguna persona:
+    - ``ValueError`` (400): comida o responsable inexistente, fuera del horario
+      de esa comida, o alguna persona sin autorización para hoy.
+    - ``RuntimeError`` (409): alguna persona ya retiró esa comida hoy.
+
+    Las personas inactivas con la comida autorizada se entregan igual.
+    """
+    momento = ahora()
+    fecha = momento.date()
+
+    tipo_comida = db.session.get(FoodType, datos["tipo_comida_id"])
+    if tipo_comida is None:
+        raise ValueError("El tipo de comida no existe")
+
+    if db.session.get(Personal, datos["responsable_id"]) is None:
+        raise ValueError("El responsable del retiro no existe")
+
+    if turno_actual(momento) != tipo_comida.nombre:
+        raise ValueError(f"Fuera del horario de {tipo_comida.nombre}")
+
+    # Se busca la autorización de cada persona; las que no tienen se juntan para avisar todas juntas.
+    autorizaciones = []
+    sin_autorizacion = []
+    for persona_id in datos["personas"]:
+        autorizacion = _autorizacion_de_hoy(persona_id, fecha, tipo_comida.id)
+        if autorizacion is None:
+            sin_autorizacion.append(persona_id)
+        else:
+            autorizaciones.append(autorizacion)
+
+    if sin_autorizacion:
+        raise ValueError(
+            f"Sin autorización de {tipo_comida.nombre} para hoy: personas {sin_autorizacion}"
+        )
+
+    ya_retiraron = [
+        persona_id
+        for persona_id in datos["personas"]
+        if ya_entregada(persona_id, fecha, tipo_comida.id)
+    ]
+    if ya_retiraron:
+        raise RuntimeError(
+            f"Ya retiraron {tipo_comida.nombre} hoy: personas {ya_retiraron}"
+        )
+
+    entrega = Entrega(
+        usuario_id=usuario_id,
+        responsable_id=datos["responsable_id"],
+        tipo_comida_id=tipo_comida.id,
+        detalles=[
+            EntregaDetalle(autorizacion_id=autorizacion.id)
+            for autorizacion in autorizaciones
+        ],
+    )
+
+    try:
+        db.session.add(entrega)
+        db.session.commit()
+    except IntegrityError:
+        # Otra entrega de la misma autorización se guardó entre el control y el commit.
+        db.session.rollback()
+        logger.warning("Entrega duplicada rechazada (usuario %s)", usuario_id)
+        raise RuntimeError("Alguna de las personas ya retiró esta comida")
+    except Exception:
+        db.session.rollback()
+        logger.exception("No se pudo registrar la entrega (usuario %s)", usuario_id)
+        raise
+
+    logger.info(
+        "Entrega %s registrada por el usuario %s: %s para %s personas",
+        entrega.id,
+        usuario_id,
+        tipo_comida.nombre,
+        len(autorizaciones),
+    )
+    return entrega

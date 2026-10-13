@@ -1,5 +1,9 @@
 """Turnos de comida: el rango horario en que se sirve cada comida."""
-from datetime import date, time
+from datetime import datetime, time, timedelta, timezone
+
+# Argentina usa UTC-3 todo el año (no tiene horario de verano).
+# Se arma a mano para no depender de zoneinfo, que en Windows necesita instalar tzdata.
+ZONA_ARGENTINA = timezone(timedelta(hours=-3))
 
 # Clave: nombre exacto de FoodType (seed de init_db.py). Valor: (inicio, fin), los dos incluidos.
 TURNOS = {
@@ -10,12 +14,17 @@ TURNOS = {
 }
 
 
-def hoy():
-    """Devuelve la fecha actual que usa el módulo de Entregas.
+def ahora():
+    """Devuelve la fecha y hora actual en Argentina (UTC-3).
 
-    Todo Entregas toma "hoy" de acá, así la zona horaria se ajusta en un solo lugar.
+    Todo Entregas toma la hora de acá, así no depende de la zona horaria del servidor.
     """
-    return date.today()
+    return datetime.now(ZONA_ARGENTINA)
+
+
+def hoy():
+    """Devuelve la fecha actual en Argentina que usa el módulo de Entregas."""
+    return ahora().date()
 
 
 def turno_actual(ahora):
