@@ -8,6 +8,7 @@ from src.core.sectors.validators import (
     validate_deletion,
     validate_jefes_servicio
     )
+from src.core.paginacion import paginar
 
 # ==========================================
 # FUNCIONES CORE
@@ -22,8 +23,7 @@ def get_sector(sector_id: int) -> Sector | None:
     return Sector.query.get(sector_id)
 
 def list_sectors(
-        page: int = 1, 
-        per_page: int = 25, 
+        page: int = 1,  
         sort_by: str = 'nombre', 
         order: str = 'asc',
         search_nombre: str = None,
@@ -64,11 +64,7 @@ def list_sectors(
     else:
         query = query.order_by(sort_column.asc())
 
-    return query.paginate(
-        page=page, 
-        per_page=per_page, 
-        error_out=False
-    )
+    return paginar(query, page)
 
 def create_sector(nombre: str, descripcion: str | None = None, jefes_ids: list[int] = None) -> tuple[Sector, list[str]]:
     """

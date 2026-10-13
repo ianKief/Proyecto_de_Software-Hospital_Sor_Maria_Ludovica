@@ -1,6 +1,6 @@
 from src.core.sectors.models import Sector
 from src.core.sectors.exceptions import SectorValidationError, SectorAlreadyExistsError
-from src.core.personnel.models import Personnel
+from src.core.personnel.models import Personal
 #from src.core.pedidos.models import Pedido
 
 
@@ -73,7 +73,7 @@ def validate_deactivation(sector) -> None:
         )
         
     # 2. Validar que no tenga personal asignado
-    personal_asignado = Personnel.query.filter_by(sector_id=sector.id).first()
+    personal_asignado = Personal.query.filter_by(sector_id=sector.id).first()
     if personal_asignado:
         raise SectorValidationError(
             "No se puede desactivar el sector porque tiene personal del hospital asignado."
@@ -91,7 +91,7 @@ def validate_deletion(sector) -> None:
         )
         
     # 2. Validar que no tenga personal asignado
-    personal_asignado = Personnel.query.filter_by(sector_id=sector.id).first()
+    personal_asignado = Personal.query.filter_by(sector_id=sector.id).first()
     if personal_asignado:
         raise SectorValidationError(
             "tiene registros de personal del hospital asociados"
@@ -132,7 +132,7 @@ def validate_jefes_servicio(jefes_ids: list[int] | None, current_sector_id: int 
 
     for usuario in usuarios:
         # 2. Validar el rol
-        if not usuario.role or usuario.role.name != 'jefe_servicio':
+        if not usuario.role or usuario.role.name != 'Jefe de Servicio':
             errores.append(
                 f"El usuario {usuario.nombre} {usuario.apellido} fue ignorado porque no tiene el rol de Jefe de Servicio."
             )

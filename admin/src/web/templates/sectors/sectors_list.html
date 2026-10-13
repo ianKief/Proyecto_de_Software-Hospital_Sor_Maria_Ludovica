@@ -92,7 +92,7 @@
                             <th scope="col" class="px-6 py-3 text-left font-semibold text-gray-900" 
                                 {% if sort_by == 'nombre' %} aria-sort="{{ 'ascending' if order == 'asc' else 'descending' }}" {% endif %}>
                                 
-                                <a href="{{ url_for('sectors.index', sort_by='nombre', order=nombre_order, page=sectores.page, search_nombre=search_nombre, search_estado=search_estado, search_jefe=search_jefe) }}" 
+                                <a href="{{ url_for('sectors.index', sort_by='nombre', order=nombre_order, page=pagina.page, search_nombre=search_nombre, search_estado=search_estado, search_jefe=search_jefe) }}" 
                                    class="group inline-flex items-center hover:text-blue-600 focus:outline-none focus:underline whitespace-nowrap">
                                     Nombre
                                     <span class="ml-2 flex-none rounded text-gray-400 group-hover:text-blue-600">
@@ -114,7 +114,7 @@
                             <th scope="col" class="px-6 py-3 text-left font-semibold text-gray-900"
                                 {% if sort_by == 'created_at' %} aria-sort="{{ 'ascending' if order == 'asc' else 'descending' }}" {% endif %}>
                                 
-                                <a href="{{ url_for('sectors.index', sort_by='created_at', order=fecha_order, page=sectores.page, search_nombre=search_nombre, search_estado=search_estado, search_jefe=search_jefe) }}" 
+                                <a href="{{ url_for('sectors.index', sort_by='created_at', order=fecha_order, page=pagina.page, search_nombre=search_nombre, search_estado=search_estado, search_jefe=search_jefe) }}" 
                                    class="group inline-flex items-center hover:text-blue-600 focus:outline-none focus:underline whitespace-nowrap">
                                     Fecha de Creación
                                     <span class="ml-2 flex-none rounded text-gray-400 group-hover:text-blue-600">
@@ -141,7 +141,7 @@
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200 bg-white">
-                        {% for sector in sectores.items %}
+                        {% for sector in sectores %}
                         <tr class="hover:bg-gray-50 transition-colors">
                             <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-900">{{ sector.nombre }}</td>
                             
@@ -180,20 +180,20 @@
             </div>
 
             <!-- Controles de Paginación -->
-            {% if sectores.pages > 1 %}
+            {% if pagina.pages > 1 %}
             <div class="bg-white px-4 py-3 border-t border-gray-200 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div class="hidden sm:block">
                     <p class="text-sm text-gray-700">
-                        Mostrando <span class="font-medium">{{ sectores.first_item }}</span> a <span class="font-medium">{{ sectores.last_item }}</span> de <span class="font-medium">{{ sectores.total }}</span> resultados
+                        Mostrando <span class="font-medium">{{ pagina.first_item }}</span> a <span class="font-medium">{{ pagina.last_item }}</span> de <span class="font-medium">{{ pagina.total }}</span> resultados
                     </p>
                 </div>
-                
+
                 <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px w-full sm:w-auto overflow-x-auto" aria-label="Navegación de páginas">
-                    <!-- Botones de Paginación (Se mantienen igual) -->
-                    {% if sectores.has_prev %}
-                        <a href="{{ url_for('sectors.index', page=sectores.prev_num, sort_by=sort_by, order=order, search_nombre=search_nombre, search_estado=search_estado, search_jefe=search_jefe) }}" 
-                           class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 focus:z-10 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                           aria-label="Ir a la página anterior">
+                    <!-- Botón Anterior -->
+                    {% if pagina.has_prev %}
+                        <a href="{{ url_for('sectors.index', page=pagina.prev_num, sort_by=sort_by, order=order, search_nombre=search_nombre, search_estado=search_estado, search_jefe=search_jefe) }}" 
+                        class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 focus:z-10 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                        aria-label="Ir a la página anterior">
                             <span aria-hidden="true">&laquo; Anterior</span>
                         </a>
                     {% else %}
@@ -202,15 +202,16 @@
                         </button>
                     {% endif %}
 
-                    {% for p in sectores.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=1) %}
+                    <!-- Números de página -->
+                    {% for p in pagina.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=1) %}
                         {% if p %}
-                            {% if p == sectores.page %}
+                            {% if p == pagina.page %}
                                 <span aria-current="page" class="z-10 bg-blue-50 border-blue-500 text-blue-600 relative inline-flex items-center px-4 py-2 border text-sm font-medium">
                                     <span class="sr-only">Página actual, página </span>{{ p }}
                                 </span>
                             {% else %}
                                 <a href="{{ url_for('sectors.index', page=p, sort_by=sort_by, order=order, search_nombre=search_nombre, search_estado=search_estado, search_jefe=search_jefe) }}" 
-                                   class="bg-white border-gray-300 text-gray-500 hover:bg-gray-50 relative inline-flex items-center px-4 py-2 border text-sm font-medium focus:z-10 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors">
+                                class="bg-white border-gray-300 text-gray-500 hover:bg-gray-50 relative inline-flex items-center px-4 py-2 border text-sm font-medium focus:z-10 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors">
                                     <span class="sr-only">Ir a la página </span>{{ p }}
                                 </a>
                             {% endif %}
@@ -221,10 +222,11 @@
                         {% endif %}
                     {% endfor %}
 
-                    {% if sectores.has_next %}
-                        <a href="{{ url_for('sectors.index', page=sectores.next_num, sort_by=sort_by, order=order, search_nombre=search_nombre, search_estado=search_estado, search_jefe=search_jefe) }}" 
-                           class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 focus:z-10 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                           aria-label="Ir a la página siguiente">
+                    <!-- Botón Siguiente -->
+                    {% if pagina.has_next %}
+                        <a href="{{ url_for('sectors.index', page=pagina.next_num, sort_by=sort_by, order=order, search_nombre=search_nombre, search_estado=search_estado, search_jefe=search_jefe) }}" 
+                        class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 focus:z-10 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                        aria-label="Ir a la página siguiente">
                             <span aria-hidden="true">Siguiente &raquo;</span>
                         </a>
                     {% else %}

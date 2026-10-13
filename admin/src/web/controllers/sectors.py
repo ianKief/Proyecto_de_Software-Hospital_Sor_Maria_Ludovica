@@ -13,6 +13,7 @@ from src.core.sectors.exceptions import SectorAlreadyExistsError, SectorValidati
 from src.web.helpers.auth import permission_required
 from src.core.users.models import User
 from src.core.auth.models import Role
+from src.web.helpers.paginacion import validar_pagina
 
 sector_bp = Blueprint('sectors', __name__, url_prefix='/sectores')
 
@@ -22,7 +23,7 @@ sector_bp = Blueprint('sectors', __name__, url_prefix='/sectores')
 @permission_required('sector_index')
 def index():
     # Capturamos parámetros de la URL con valores por defecto
-    page = request.args.get('page', 1, type=int)
+    page = validar_pagina(request.args.get('page')) or 1
     sort_by = request.args.get('sort_by', 'nombre')
     order = request.args.get('order', 'asc')
 
@@ -32,9 +33,8 @@ def index():
     search_jefe = request.args.get('search_jefe', '').strip()
     
     # Obtenemos los sectores paginados (máximo 25 por página)
-    sectores_paginados = list_sectors(
+    pagina_obj = list_sectors(
         page=page, 
-        per_page=25, 
         sort_by=sort_by, 
         order=order,
         search_nombre=search_nombre,
@@ -45,13 +45,14 @@ def index():
     jefes_disponibles = User.query.join(Role).filter(
             User.sector_id == None, 
             User.activo == True,
-            Role.name == 'jefe_servicio'
+            Role.name == 'Jefe de Servicio'
         ).all()
     
     
     return render_template(
         'sectors/sectors_list.html', 
-        sectores=sectores_paginados,
+        sectores=pagina_obj.items, # <-- MUY IMPORTANTE: mandar .items
+        pagina=pagina_obj,         # <-- Mandamos el objeto entero para los botones
         sort_by=sort_by,
         order=order,
         search_nombre=search_nombre,
@@ -70,7 +71,7 @@ def create():
     jefes_disponibles = User.query.join(Role).filter(
         User.sector_id == None, 
         User.activo == True,
-        Role.name == 'jefe_servicio'
+        Role.name == 'Jefe de Servicio'
     ).all()
 
     if request.method == 'POST':
@@ -140,7 +141,7 @@ def edit(id):
     jefes_disponibles = User.query.join(Role).filter(
         User.sector_id == None, 
         User.activo == True,
-        Role.name == 'jefe_servicio'
+        Role.name == 'Jefe de Servicio'
     ).all()
 
     errors = {}
