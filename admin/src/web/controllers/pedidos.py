@@ -1,13 +1,13 @@
 from datetime import date
 
-from flask import Blueprint, jsonify, request, session
+from flask import Blueprint, jsonify, request, session, current_app
 
 from src.core.db import db
 from src.core.pedidos import (
     crear_pedidos,
     listar_pedidos as listar_pedidos_core,
     consultar_pedido as consultar_pedido_core,
-    modificar_pedido,
+    modificar_pedido as modificar_pedido_core,
     eliminar_pedido as eliminar_pedido_core,
 )
 from src.core.pedidos.models import Pedido, SolicitudPedido
@@ -288,7 +288,7 @@ def modificar_pedido(request_id):
         return jsonify(resultado), 400
 
     try:
-        pedido = modificar_pedido(
+        pedido = modificar_pedido_core(
             usuario=usuario,
             pedido_id=request_id,
             resultado=resultado,
@@ -315,10 +315,13 @@ def modificar_pedido(request_id):
         }), 400
 
     except Exception:
+        current_app.logger.exception(
+            "Error al modificar el pedido %s",
+            request_id,
+        )
         return jsonify({
             "error": "No se pudo modificar el pedido",
         }), 500
-
     return jsonify({
         "mensaje": "Pedido modificado correctamente",
         "pedido": {
