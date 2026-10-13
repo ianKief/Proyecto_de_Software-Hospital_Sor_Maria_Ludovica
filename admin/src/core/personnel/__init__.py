@@ -4,7 +4,7 @@ from sqlalchemy import or_
 
 from src.core.db import db
 from src.core.paginacion import paginar
-from src.core.personnel.models import Personnel
+from src.core.personnel.models import Personal
 from src.core.personnel.validators import validate_personnel_data, ValidationError
 
 # Imports según la nueva estructura de carpetas de tu equipo:
@@ -39,9 +39,9 @@ def list_active_sectors():
     return Sector.query.filter_by(activo=True).order_by(Sector.nombre).all()
 
 
-def get_personnel_by_id(personnel_id: int) -> Personnel | None:
+def get_personnel_by_id(personnel_id: int) -> Personal | None:
     """Busca una persona por su ID."""
-    return db.session.get(Personnel, personnel_id)
+    return db.session.get(Personal, personnel_id)
 
 
 def list_personnel(
@@ -57,51 +57,51 @@ def list_personnel(
     """
     Aplica filtros, ordenamiento y devuelve la paginación estandarizada con paginar().
     """
-    query = Personnel.query
+    query = Personal.query
 
     if dni and dni.strip():
-        query = query.filter(Personnel.dni.ilike(f"%{dni.strip()}%"))
+        query = query.filter(Personal.dni.ilike(f"%{dni.strip()}%"))
 
     if nombre_apellido and nombre_apellido.strip():
         term = f"%{nombre_apellido.strip()}%"
-        query = query.filter(or_(Personnel.nombre.ilike(term), Personnel.apellido.ilike(term)))
+        query = query.filter(or_(Personal.nombre.ilike(term), Personal.apellido.ilike(term)))
 
     if sector_id:
-        query = query.filter(Personnel.sector_id == sector_id)
+        query = query.filter(Personal.sector_id == sector_id)
 
     if personnel_type_id:
-        query = query.filter(Personnel.personnel_type_id == personnel_type_id)
+        query = query.filter(Personal.personnel_type_id == personnel_type_id)
 
     if activo is not None:
-        query = query.filter(Personnel.activo == activo)
+        query = query.filter(Personal.activo == activo)
 
     # Ordenamiento
     desc = str(order_direction).lower() == "desc"
     if order_by == "dni":
-        order_col = Personnel.dni.desc() if desc else Personnel.dni.asc()
+        order_col = Personal.dni.desc() if desc else Personal.dni.asc()
         query = query.order_by(order_col)
     elif order_by == "created_at":
-        order_col = Personnel.created_at.desc() if desc else Personnel.created_at.asc()
+        order_col = Personal.created_at.desc() if desc else Personal.created_at.asc()
         query = query.order_by(order_col)
     else:
         if desc:
-            query = query.order_by(Personnel.apellido.desc(), Personnel.nombre.desc())
+            query = query.order_by(Personal.apellido.desc(), Personal.nombre.desc())
         else:
-            query = query.order_by(Personnel.apellido.asc(), Personnel.nombre.asc())
+            query = query.order_by(Personal.apellido.asc(), Personal.nombre.asc())
 
     return paginar(query, page)
 
 
-def create_personnel(data: dict) -> Personnel:
+def create_personnel(data: dict) -> Personal:
     """Valida los datos y registra una nueva persona."""
     validated = validate_personnel_data(data)
-    person = Personnel(**validated)
+    person = Personal(**validated)
     db.session.add(person)
     db.session.commit()
     return person
 
 
-def update_personnel(personnel_id: int, data: dict) -> Personnel:
+def update_personnel(personnel_id: int, data: dict) -> Personal:
     """Valida los datos y modifica una persona existente."""
     person = get_personnel_by_id(personnel_id)
     if not person:
