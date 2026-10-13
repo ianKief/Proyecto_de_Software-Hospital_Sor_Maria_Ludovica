@@ -4,7 +4,7 @@ from src.core.db import db
 from src.core.personnel.models import Personnel, PersonnelType, MenuType
 from src.core.sectors.models import Sector
 from src.core.personnel.validators import validate_personnel_data, ValidationError
-from src.core.paginacion.py import paginar
+from src.core.paginacion import paginar
 
 # consultas
 
