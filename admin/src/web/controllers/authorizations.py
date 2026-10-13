@@ -1,7 +1,7 @@
 from datetime import date
 
 from flask import Blueprint, jsonify, request, session
-
+from src.web.helpers.api_auth import api_permission_required
 from src.core.pedidos.models import Pedido, SolicitudPedido, Autorizacion
 from src.core.authorizations import (
     listar_autorizaciones as listar_autorizaciones_core,
@@ -10,6 +10,8 @@ from src.core.authorizations import (
     autorizar_pedido as autorizar_pedido_core,
     rechazar_pedido as rechazar_pedido_core,
 )
+from src.core.paginacion import paginar
+from src.web.helpers.paginacion import validar_pagina, respuesta_paginada
 from src.core.users.models import User
 
 
@@ -30,24 +32,15 @@ def _obtener_usuario_autenticado():
     return User.query.get(user_id)
 
 
-def _es_servicio_alimentacion():
-    """Verifica si el usuario actual pertenece al Servicio de Alimentación."""
-    return session.get("role") == "Servicio de Alimentación"
-
-
 def _obtener_pedido(request_id):
     """Obtiene un pedido por su identificador."""
     return Pedido.query.get(request_id)
 
 
 @authorizations_bp.route("", methods=["GET"])
+@api_permission_required("authorization_index")
 def listar_autorizaciones():
     """Lista pedidos para revisión del Servicio de Alimentación."""
-
-    if not _es_servicio_alimentacion():
-        return jsonify({
-            "error": "No autorizado",
-        }), 403
 
     usuario = _obtener_usuario_autenticado()
 
@@ -55,6 +48,13 @@ def listar_autorizaciones():
         return jsonify({
             "error": "Usuario no válido",
         }), 401
+
+    numero_pagina = validar_pagina(request.args.get("page"))
+
+    if numero_pagina is None:
+        return jsonify({
+            "error": "El parámetro page no es válido",
+        }), 400
 
     fecha_desde_param = request.args.get("fecha_desde")
     fecha_hasta_param = request.args.get("fecha_hasta")
@@ -70,53 +70,44 @@ def listar_autorizaciones():
             if fecha_hasta_param
             else None
         )
-        sector_id = request.args.get("sector_id")
-        sector_id = int(sector_id) if sector_id else None
 
-        pagina = request.args.get("pagina", 1, type=int)
-        por_pagina = request.args.get("por_pagina", 25, type=int)
+        sector_id_param = request.args.get("sector_id")
+        sector_id = int(sector_id_param) if sector_id_param else None
 
     except ValueError:
         return jsonify({
-            "error": "Los parámetros no tienen un formato válido",
+            "error": "Los parámetros de fecha o sector no son válidos",
         }), 400
 
     try:
-        pedidos, total = listar_autorizaciones_core(
+        consulta = listar_autorizaciones_core(
             fecha_desde=fecha_desde,
             fecha_hasta=fecha_hasta,
             estado=request.args.get("estado"),
             sector_id=sector_id,
             tipo_comida=request.args.get("tipo_comida"),
             tipo_menu=request.args.get("tipo_menu"),
-            pagina=pagina,
-            por_pagina=por_pagina,
         )
+
+        pagina = paginar(consulta, numero_pagina)
 
     except ValueError as exc:
         return jsonify({
             "error": str(exc),
         }), 400
 
-    return jsonify({
-        "pedidos": [
-            armar_detalle_pedido(pedido)
-            for pedido in pedidos
-        ],
-        "pagina": pagina,
-        "por_pagina": min(por_pagina, 25),
-        "total": total,
-    }), 200
+    pedidos = [
+        armar_detalle_pedido(pedido)
+        for pedido in pagina.items
+    ]
+
+    return jsonify(respuesta_paginada(pagina, pedidos)), 200
 
 
 @authorizations_bp.route("/<int:request_id>", methods=["GET"])
+@api_permission_required("authorization_show")
 def consultar_autorizacion(request_id):
     """Obtiene el detalle de un pedido para autorizarlo."""
-
-    if not _es_servicio_alimentacion():
-        return jsonify({
-            "error": "No autorizado",
-        }), 403
 
     pedido = _obtener_pedido(request_id)
 
@@ -125,17 +116,13 @@ def consultar_autorizacion(request_id):
             "error": "Pedido no encontrado",
         }), 404
 
-    return jsonify(_armar_detalle_pedido(pedido)), 200
+    return jsonify(armar_detalle_pedido(pedido)), 200
 
 
 @authorizations_bp.route("/<int:request_id>", methods=["PUT"])
+@api_permission_required("authorization_update")
 def autorizar_pedido(request_id):
     """Autoriza individualmente las solicitudes nominadas."""
-
-    if not _es_servicio_alimentacion():
-        return jsonify({
-            "error": "No autorizado",
-        }), 403
 
     usuario = _obtener_usuario_autenticado()
 
@@ -181,13 +168,9 @@ def autorizar_pedido(request_id):
     "/<int:request_id>/reject",
     methods=["POST"]
 )
+@api_permission_required("authorization_update")
 def rechazar_pedido(request_id):
     """Rechaza un pedido."""
-
-    if not _es_servicio_alimentacion():
-        return jsonify({
-            "error": "No autorizado",
-        }), 403
 
     usuario = _obtener_usuario_autenticado()
 

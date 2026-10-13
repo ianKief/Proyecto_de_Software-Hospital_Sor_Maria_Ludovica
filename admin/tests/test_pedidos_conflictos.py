@@ -1,15 +1,23 @@
 from datetime import date
-
+from src.web.helpers import api_auth
 from src.web import create_app
 from src.web.controllers import pedidos as pedidos_controller
 from types import SimpleNamespace
 
-def preparar_cliente():
+def preparar_cliente(monkeypatch):
     app = create_app()
     app.config.update(TESTING=True, SECRET_KEY="test-secret")
     client = app.test_client()
 
+    monkeypatch.setattr(
+        api_auth,
+        "check_permission",
+        lambda permission_name: True,
+    )
+
     with client.session_transaction() as session:
+        session["user"] = "jefe@hospital.com"
+        session["user_id"] = 1
         session["role"] = "Jefe de Servicio"
 
     return client
@@ -39,7 +47,7 @@ def test_todas_las_fechas_en_conflicto_devuelven_409(monkeypatch):
         ),
     )
 
-    response = preparar_cliente().post(
+    response = preparar_cliente(monkeypatch).post(
         "/api/requests",
         json={"prueba": True},
     )
@@ -82,7 +90,7 @@ def test_carga_parcial_devuelve_pedidos_y_conflictos(monkeypatch):
         ),
     )
 
-    response = preparar_cliente().post(
+    response = preparar_cliente(monkeypatch).post(
         "/api/requests",
         json={"prueba": True},
     )

@@ -1,8 +1,7 @@
 from src.core.db import db
 from src.core.food_types.models import FoodType
 from src.core.menu_types.models import MenuType
-from src.core.pedidos.models import Pedido, SolicitudPedido
-
+from src.core.pedidos.models import Autorizacion, Pedido, SolicitudPedido
 
 def armar_detalle_pedido(pedido):
     """Construye el detalle de un pedido."""
@@ -92,8 +91,6 @@ def listar_autorizaciones(
     sector_id=None,
     tipo_comida=None,
     tipo_menu=None,
-    pagina=1,
-    por_pagina=25,
 ):
     """Lista pedidos para revisión del Servicio de Alimentación."""
 
@@ -157,24 +154,7 @@ def listar_autorizaciones(
             )
         )
 
-    if pagina < 1 or por_pagina < 1:
-        raise ValueError(
-            "pagina y por_pagina deben ser valores positivos"
-        )
-
-    por_pagina = min(por_pagina, 25)
-
-    total = query.count()
-
-    pedidos = (
-        query
-        .order_by(Pedido.fecha.desc(), Pedido.id.desc())
-        .offset((pagina - 1) * por_pagina)
-        .limit(por_pagina)
-        .all()
-    )
-
-    return pedidos, total
+    return query.order_by(Pedido.fecha.desc(), Pedido.id.desc())
 
 
 def consultar_autorizacion(request_id):
