@@ -10,7 +10,7 @@ class Sector(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     nombre = db.Column(db.String(255), unique=True, nullable=False)
-    descripcion = db.Column(db.Text, nullable=True)
+    descripcion = db.Column(db.Text, nullable=False)
     activo = db.Column(db.Boolean, default=True, nullable=False)
 
     created_at = db.Column(
@@ -24,5 +24,7 @@ class Sector(db.Model):
         onupdate=lambda: datetime.now(timezone.utc),
     )
 
+    jefes_servicio = db.relationship('User', back_populates='sector', lazy=True)
+    
     def __repr__(self):
         return f"<Sector {self.nombre}>"

@@ -361,6 +361,9 @@
   .bg-white {
     background-color: var(--color-white);
   }
+  .bg-red-600 {
+    background-color: var(--color-red-600);
+  }
   .p-4 {
     padding: calc(var(--spacing) * 4);
   }
@@ -461,8 +464,8 @@
     .hover\:text-gray-900:hover {
       color: var(--color-gray-900);
     }
-    .hover\:text-red-800:hover {
-      color: var(--color-red-800);
+    .hover\:bg-red-800:hover {
+      background-color: var(--color-red-800);
     }
   }
   .focus\:not-sr-only:focus {
@@ -553,8 +556,17 @@
     transition-timing-function: var(--tw-ease, var(--default-transition-timing-function));
     transition-duration: var(--tw-duration, var(--default-transition-duration));
   }
+  dialog::backdrop {
+    background-color: rgba(17, 24, 39, 0.6);
+    backdrop-filter: blur(2px);
+  }
 }
 @layer components {
+  .icon-sort {
+    width: 1.1em;
+    height: 1.1em;
+    flex-shrink: 0;
+  }
   .container {
     margin-inline: auto;
     width: 100%;

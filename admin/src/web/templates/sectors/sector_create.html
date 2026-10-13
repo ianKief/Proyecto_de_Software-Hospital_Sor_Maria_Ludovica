@@ -1,0 +1,156 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<main id="main-content" class="flex-grow py-8" tabindex="-1">
+    <div class="container mx-auto px-4 sm:px-6 lg:px-8 max-w-2xl">
+
+        <!-- Mensajes Flash / Alertas -->
+        <div role="status" aria-live="polite" class="space-y-3 mb-6">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <!-- Actualizado para soportar 'warning' (amarillo) -->
+                        {% set alert_classes = 'bg-red-50 border-red-500 text-red-800' if category in ['danger', 'error'] else ('bg-yellow-50 border-yellow-400 text-yellow-800' if category == 'warning' else 'bg-green-50 border-green-500 text-green-800') %}
+                        <div class="border-l-4 p-4 rounded-r-md {{ alert_classes }}" role="alert">
+                            <p class="text-sm font-medium">{{ message }}</p>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
+
+        <!-- Tarjeta del formulario -->
+        <section class="bg-white rounded-lg border border-gray-200 shadow-sm p-6 sm:p-8" aria-labelledby="form-title">
+            <header class="mb-6 border-b border-gray-100 pb-4">
+                <h1 id="form-title" class="text-2xl font-bold text-gray-900 tracking-tight">Crear nuevo sector</h1>
+                <p class="mt-1 text-sm text-gray-600">
+                    Complete los datos requeridos. Los campos con asterisco (<span class="text-red-600" aria-hidden="true">*</span>) son obligatorios.
+                </p>
+            </header>
+
+            <form method="POST" action="{{ url_for('sectors.create') }}" class="space-y-6">
+                
+                <!-- Campo Nombre -->
+                <div>
+                    <label for="nombre" class="block text-sm font-medium text-gray-800 mb-1">
+                        Nombre del Sector
+                        <span class="text-red-600" aria-hidden="true">*</span>
+                        <span class="sr-only">(campo obligatorio)</span>
+                    </label>
+
+                    <input 
+                        type="text" 
+                        name="nombre" 
+                        id="nombre" 
+                        value="{{ data.nombre|default('', true) }}"
+                        required
+                        maxlength="255"
+                        autocomplete="off"
+                        aria-required="true"
+                        aria-invalid="{{ 'true' if errors.nombre else 'false' }}"
+                        aria-describedby="{{ 'nombre-error' if errors.nombre else 'nombre-help' }}"
+                        class="w-full px-3 py-2 border rounded-md shadow-sm transition-colors text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-1 {{ 'border-red-500 focus:ring-red-500 focus:border-red-500' if errors.nombre else 'border-gray-300 focus:ring-blue-600 focus:border-blue-600' }}"
+                    >
+
+                    <p id="nombre-help" class="mt-1 text-xs text-gray-500">
+                        Máximo 255 caracteres. No se permiten nombres repetidos.
+                    </p>
+
+                    {% if errors.nombre %}
+                        <p id="nombre-error" class="mt-1.5 text-sm text-red-600 font-medium flex items-center gap-1" role="alert">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                            </svg>
+                            <span>{{ errors.nombre }}</span>
+                        </p>
+                    {% endif %}
+                </div>
+
+                <!-- Campo Descripción -->
+                <div>
+                    <label for="descripcion" class="block text-sm font-medium text-gray-800 mb-1">
+                        Descripción
+                        <span class="text-red-600" aria-hidden="true">*</span>
+                        <span class="sr-only">(campo obligatorio)</span>
+                    </label>
+
+                    <textarea 
+                        name="descripcion" 
+                        id="descripcion" 
+                        rows="4" 
+                        required
+                        maxlength="1000"
+                        aria-required="true"
+                        aria-invalid="{{ 'true' if errors.descripcion else 'false' }}"
+                        aria-describedby="{{ 'descripcion-error' if errors.descripcion else 'descripcion-help' }}"
+                        class="w-full px-3 py-2 border rounded-md shadow-sm transition-colors text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-1 {{ 'border-red-500 focus:ring-red-500 focus:border-red-500' if errors.descripcion else 'border-gray-300 focus:ring-blue-600 focus:border-blue-600' }}"
+                    >{{ data.descripcion|default('', true) }}</textarea>
+
+                    <p id="descripcion-help" class="mt-1 text-xs text-gray-500">
+                        Detalle las funciones u observaciones del sector (máximo 1000 caracteres).
+                    </p>
+
+                    {% if errors.descripcion %}
+                        <p id="descripcion-error" class="mt-1.5 text-sm text-red-600 font-medium flex items-center gap-1" role="alert">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                            </svg>
+                            <span>{{ errors.descripcion }}</span>
+                        </p>
+                    {% endif %}
+                </div>
+
+                <!-- NUEVO: Campo Jefes de Servicio (Múltiple) -->
+                <div>
+                    <label for="jefes_ids" class="block text-sm font-medium text-gray-800 mb-1">
+                        Jefes de Servicio
+                        <span class="text-gray-500 font-normal ml-1">(Opcional)</span>
+                    </label>
+
+                    <select 
+                        name="jefes_ids" 
+                        id="jefes_ids" 
+                        multiple
+                        size="4"
+                        aria-invalid="{{ 'true' if errors.jefes else 'false' }}"
+                        aria-describedby="{{ 'jefes-error' if errors.jefes else 'jefes-help' }}"
+                        class="w-full px-3 py-2 border rounded-md shadow-sm transition-colors text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-1 {{ 'border-red-500 focus:ring-red-500 focus:border-red-500' if errors.jefes else 'border-gray-300 focus:ring-blue-600 focus:border-blue-600' }}"
+                    >
+                        {% for jefe in jefes_disponibles %}
+                            <option value="{{ jefe.id }}" {% if jefe.id in data.jefes_ids %}selected{% endif %}>
+                                {{ jefe.apellido }}, {{ jefe.nombre }}
+                            </option>
+                        {% endfor %}
+                    </select>
+
+                    <p id="jefes-help" class="mt-1 text-xs text-gray-500">
+                        Mantenga presionado <kbd class="font-mono bg-gray-100 px-1 py-0.5 rounded border border-gray-200">Ctrl</kbd> (Windows) o <kbd class="font-mono bg-gray-100 px-1 py-0.5 rounded border border-gray-200">Cmd</kbd> (Mac) para seleccionar múltiples opciones.
+                    </p>
+
+                    {% if errors.jefes %}
+                        <p id="jefes-error" class="mt-1.5 text-sm text-red-600 font-medium flex items-center gap-1" role="alert">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                            </svg>
+                            <span>{{ errors.jefes }}</span>
+                        </p>
+                    {% endif %}
+                </div>
+
+                <!-- Botones de Acción -->
+                <div class="pt-4 border-t border-gray-100 flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-3 gap-3">
+                    <a href="{{ url_for('sectors.index') }}" 
+                       class="w-full sm:w-auto text-center px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-600 transition-colors">
+                        Cancelar
+                    </a>
+                    <button type="submit" 
+                            class="w-full sm:w-auto inline-flex justify-center items-center px-5 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-600 transition-colors">
+                        Guardar sector
+                    </button>
+                </div>
+            </form>
+        </section>
+
+    </div>
+</main>
+{% endblock %}
