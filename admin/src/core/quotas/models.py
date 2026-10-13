@@ -1,25 +1,55 @@
 from datetime import datetime, timezone
+
 from src.core.db import db
-from sqlalchemy import CheckConstraint, UniqueConstraint
+from src.core.food_types.models import FoodType
+from src.core.sectors.models import Sector
 
 
-class Quota(db.Model):
-    __tablename__ = 'quotas'
+class Cupo(db.Model):
+    """Representa el cupo de comensales para un sector y tipo de comida."""
+
+    __tablename__ = "quotas"
 
     id = db.Column(db.Integer, primary_key=True)
-    sector_id = db.Column(db.Integer, db.ForeignKey('sectors.id'), nullable=False)
-    tipo_comida = db.Column(db.String(20), nullable=False)  # Desayuno, Almuerzo, Merienda, Cena
-    cantidad = db.Column(db.Integer, nullable=False)
 
-    sector = db.relationship('Sector', backref='quotas')
-
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
-
-    __table_args__ = (
-        UniqueConstraint('sector_id', 'tipo_comida', name='uq_sector_tipo_comida'),
-        CheckConstraint('cantidad > 0', name='chk_quota_cantidad_positiva'),
+    sector_id = db.Column(
+        db.Integer,
+        db.ForeignKey("sectors.id"),
+        nullable=False,
     )
 
-    def __repr__(self):
-        return f'<Quota Sector:{self.sector_id} Comida:{self.tipo_comida} Cantidad:{self.cantidad}>'
+    tipo_comida_id = db.Column(
+        db.Integer,
+        db.ForeignKey("food_types.id"),
+        nullable=False,
+    )
+
+    cantidad = db.Column(db.Integer, nullable=False)
+
+    created_at = db.Column(
+        db.DateTime,
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    updated_at = db.Column(
+        db.DateTime,
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+    sector = db.relationship("Sector")
+    tipo_comida = db.relationship("FoodType")
+
+    __table_args__ = (
+        db.UniqueConstraint(
+            "sector_id",
+            "tipo_comida_id",
+            name="uq_cupo_sector_tipo_comida",
+        ),
+        db.CheckConstraint(
+            "cantidad > 0",
+            name="ck_cupo_cantidad_positiva",
+        ),
+    )

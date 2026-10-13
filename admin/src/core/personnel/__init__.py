@@ -1,12 +1,28 @@
+from datetime import date, timedelta
 import re
 from sqlalchemy import or_
-from src.core.db import db
-from src.core.personnel.models import Personnel, PersonnelType, MenuType
-from src.core.sectors.models import Sector
-from src.core.personnel.validators import validate_personnel_data, ValidationError
-from src.core.paginacion import paginar
 
-# consultas
+from src.core.db import db
+from src.core.paginacion import paginar
+from src.core.personnel.models import Personnel
+from src.core.personnel.validators import validate_personnel_data, ValidationError
+
+# Imports según la nueva estructura de carpetas de tu equipo:
+from src.core.personnel_types.models import PersonnelType
+from src.core.menu_types.models import MenuType
+from src.core.sectors.models import Sector
+
+# Intentamos importar AsignacionSector y Pedido si existen en sus respectivos módulos
+try:
+    from src.core.personnel.models import AsignacionSector
+except ImportError:
+    AsignacionSector = None
+
+try:
+    from src.core.pedidos.models import Pedido
+except ImportError:
+    Pedido = None
+
 
 def list_personnel_types():
     """Retorna los tipos de personal."""
@@ -25,10 +41,11 @@ def list_active_sectors():
 
 def get_personnel_by_id(personnel_id: int) -> Personnel | None:
     """Busca una persona por su ID."""
-    return Personnel.query.get(personnel_id)
+    return db.session.get(Personnel, personnel_id)
 
 
 def list_personnel(
+    page: int = 1,
     dni: str | None = None,
     nombre_apellido: str | None = None,
     sector_id: int | None = None,
@@ -36,11 +53,9 @@ def list_personnel(
     activo: bool | None = None,
     order_by: str = "apellido_nombre",
     order_direction: str = "asc",
-    page: int = 1,
-    per_page: int = 25,
 ):
     """
-    Aplica filtros, ordenamiento y devuelve la paginación estandarizada.
+    Aplica filtros, ordenamiento y devuelve la paginación estandarizada con paginar().
     """
     query = Personnel.query
 
@@ -61,7 +76,7 @@ def list_personnel(
         query = query.filter(Personnel.activo == activo)
 
     # Ordenamiento
-    desc = order_direction.lower() == "desc"
+    desc = str(order_direction).lower() == "desc"
     if order_by == "dni":
         order_col = Personnel.dni.desc() if desc else Personnel.dni.asc()
         query = query.order_by(order_col)
@@ -74,14 +89,13 @@ def list_personnel(
         else:
             query = query.order_by(Personnel.apellido.asc(), Personnel.nombre.asc())
 
-    # Usamos despues la funcion paginar!!!!!
     return paginar(query, page)
 
 
 def create_personnel(data: dict) -> Personnel:
     """Valida los datos y registra una nueva persona."""
     validated = validate_personnel_data(data)
-    person = Personnel(**validated)  
+    person = Personnel(**validated)
     db.session.add(person)
     db.session.commit()
     return person
@@ -102,7 +116,13 @@ def update_personnel(personnel_id: int, data: dict) -> Personnel:
 
 
 def has_order_history(personnel_id: int) -> bool:
-    """Verifica si la persona tiene historial en pedidos o entregas."""
+    """Verifica si la persona tiene historial en pedidos."""
+    if Pedido:
+        # Si la tabla pedidos ya tiene referencia a personal_id
+        if hasattr(Pedido, "personal_id"):
+            return Pedido.query.filter_by(personal_id=personnel_id).first() is not None
+        elif hasattr(Pedido, "personnel_id"):
+            return Pedido.query.filter_by(personnel_id=personnel_id).first() is not None
     return False
 
 
@@ -122,3 +142,68 @@ def delete_personnel(personnel_id: int) -> tuple[bool, str]:
         db.session.delete(person)
         db.session.commit()
         return True, f"La persona {person.nombre} {person.apellido} fue eliminada del sistema."
+
+
+def cambiar_asignacion_sector(personal_id: int, sector_id: int | None, fecha_desde=None):
+    """Cambia el sector de una persona conservando su historial."""
+    if fecha_desde is None:
+        fecha_desde = date.today()
+
+    personal = get_personnel_by_id(personal_id)
+    if personal is None:
+        raise LookupError("Personal no encontrado")
+
+    nuevo_sector = None
+    if sector_id is not None:
+        nuevo_sector = db.session.get(Sector, sector_id)
+        if nuevo_sector is None:
+            raise LookupError("Sector no encontrado")
+        if not nuevo_sector.activo:
+            raise ValueError("No se puede asignar personal a un sector inactivo")
+
+    if AsignacionSector:
+        asignacion_actual = (
+            AsignacionSector.query
+            .filter_by(
+                personal_id=personal.id,
+                fecha_hasta=None,
+            )
+            .first()
+        )
+
+        if asignacion_actual is not None and asignacion_actual.sector_id == sector_id:
+            return personal
+
+        try:
+            if asignacion_actual is not None:
+                if fecha_desde < asignacion_actual.fecha_desde:
+                    raise ValueError(
+                        "La fecha del cambio no puede ser anterior "
+                        "al inicio de la asignación vigente"
+                    )
+
+                asignacion_actual.fecha_hasta = max(
+                    fecha_desde - timedelta(days=1),
+                    asignacion_actual.fecha_desde,
+                )
+
+            personal.sector_id = sector_id
+
+            if nuevo_sector is not None:
+                nueva_asignacion = AsignacionSector(
+                    personal_id=personal.id,
+                    sector_id=nuevo_sector.id,
+                    fecha_desde=fecha_desde,
+                )
+                db.session.add(nueva_asignacion)
+
+            db.session.commit()
+            return personal
+
+        except Exception:
+            db.session.rollback()
+            raise
+    else:
+        personal.sector_id = sector_id
+        db.session.commit()
+        return personal

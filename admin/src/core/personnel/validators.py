@@ -1,6 +1,8 @@
 import re
-from src.core.personnel.models import Personnel, PersonnelType, MenuType
+from src.core.personnel.models import Personnel
 from src.core.sectors.models import Sector
+from src.core.personnel_types.models import PersonnelType
+from src.core.menu_types.models import MenuType
 
 class ValidationError(Exception):
     """Excepción para errores de validación de negocio."""

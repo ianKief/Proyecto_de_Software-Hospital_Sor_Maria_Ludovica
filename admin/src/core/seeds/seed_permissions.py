@@ -4,27 +4,63 @@ from src.core.auth.models import Role, Permission
 
 app = create_app()
 
+PERMISOS_POR_ROL = {
+    "Administrador": [
+        "user_index",
+        "user_new",
+        "user_show",
+        "user_update",
+        "user_destroy",
+        "config_show",
+        "config_update",
+    ],
+    "Jefe de Servicio": [
+        "request_index",
+        "request_new",
+        "request_show",
+        "request_update",
+        "request_destroy",
+    ],
+    "Servicio de Alimentación": [
+        "authorization_index",
+        "authorization_show",
+        "authorization_update",
+    ],
+}
+
 with app.app_context():
     print("Verificando permisos...")
-    permisos = ["user_index", "user_new", "user_show", "user_update", "user_destroy", "config_show", "config_update"]
-    
-    # Crear permisos si no existen
-    for p_name in permisos:
-        perm = Permission.query.filter_by(name=p_name).first()
-        if not perm:
-            perm = Permission(name=p_name)
-            db.session.add(perm)
-    
+
+    todos_los_permisos = {
+        permiso
+        for permisos in PERMISOS_POR_ROL.values()
+        for permiso in permisos
+    }
+
+    for nombre in todos_los_permisos:
+        permiso = Permission.query.filter_by(name=nombre).first()
+
+        if permiso is None:
+            db.session.add(Permission(name=nombre))
+
     db.session.commit()
-    
-    # Asignar permisos al Administrador
-    admin_role = Role.query.filter_by(name="Administrador").first()
-    if admin_role:
-        for p_name in permisos:
-            perm = Permission.query.filter_by(name=p_name).first()
-            if perm not in admin_role.permissions:
-                admin_role.permissions.append(perm)
-        db.session.commit()
-        print("Permisos cargados y asignados al rol Administrador con éxito.")
-    else:
-        print("No se encontró el rol Administrador.")
+
+    for nombre_rol, nombres_permisos in PERMISOS_POR_ROL.items():
+        rol = Role.query.filter_by(name=nombre_rol).first()
+
+        if rol is None:
+            print(f"No se encontró el rol {nombre_rol}.")
+            continue
+
+        for nombre_permiso in nombres_permisos:
+            permiso = Permission.query.filter_by(
+                name=nombre_permiso
+            ).first()
+
+            if permiso not in rol.permissions:
+                rol.permissions.append(permiso)
+
+        print(f"Permisos asignados al rol {nombre_rol}.")
+
+    db.session.commit()
+    print("Permisos verificados correctamente.")
