@@ -8,6 +8,7 @@ from src.core.sectors.validators import (
     validate_deletion,
     validate_jefes_servicio
     )
+from src.core.users.models import User
 
 # ==========================================
 # FUNCIONES CORE
@@ -30,7 +31,6 @@ def list_sectors(
         search_estado: str = None,
         search_jefe: str = None
     ):
-    from src.core.users.models import User
     """
     Retorna un objeto Pagination con los sectores ordenados alfabéticamente.
     """
@@ -92,11 +92,11 @@ def create_sector(nombre: str, descripcion: str | None = None, jefes_ids: list[i
     
     return sector, advertencias_jefes
 
-def update_sector(sector_id: int, nombre: str = None, descripcion: str = None) -> Sector:
+def update_sector(sector_id: int, nombre: str = None, descripcion: str = None, jefes_ids: list[int] = None) -> tuple[Sector, list[str]]:
     """
     Actualiza los datos de un sector aplicando las reglas de negocio y validaciones.
     Conserva la descripción existente si se provee una cadena vacía o None.
-    No modifica a los jefes de servicio.
+    Suma nuevos jefes de servicio a los ya existentes (no los sobrescribe).
     """
     sector = get_sector(sector_id)
     if not sector:
@@ -106,14 +106,25 @@ def update_sector(sector_id: int, nombre: str = None, descripcion: str = None) -
     if nombre and nombre.strip():
         sector.nombre = validate_nombre(nombre, exclude_sector_id=sector_id)
 
-    # Si se envía una descripción, la validamos y la asignamos (si está vacía, no hace nada)
+    # Si se envía una descripción, la validamos y la asignamos
     if descripcion and descripcion.strip():
         sector.descripcion = validate_descripcion(descripcion, is_required=False)
+
+    # Validamos los jefes pasándole el ID actual
+    jefes_validados, advertencias = validate_jefes_servicio(jefes_ids, current_sector_id=sector.id)
+
+    # Agregamos solo los nuevos jefes válidos que no estén ya asignados al sector
+    if jefes_ids is not None:
+        jefes_actuales = sector.jefes_servicio
+        for nuevo_jefe in jefes_validados:
+            if nuevo_jefe not in jefes_actuales:
+                sector.jefes_servicio.append(nuevo_jefe)
 
     # La fecha de modificación (updated_at) se actualiza sola gracias a `onupdate` en el modelo.
     
     db.session.commit()
-    return sector
+    
+    return sector, advertencias
 
 def toggle_status(sector_id: int) -> Sector:
     """
@@ -172,3 +183,31 @@ def delete_sector(sector_id: int) -> tuple[bool, str]:
             raise SectorValidationError(
                 f"El sector ya se encuentra inactivo, pero no puede ser eliminado de forma permanente porque {motivo}."
             )
+
+def add_jefes_to_sector(sector_id: int, jefes_ids: list[int]) -> tuple[Sector, list[str]]:
+    """Suma nuevos jefes a un sector existente."""
+    sector = get_sector(sector_id)
+    if not sector:
+        raise SectorValidationError("El sector solicitado no existe.")
+        
+    jefes_validados, advertencias = validate_jefes_servicio(jefes_ids, current_sector_id=sector.id)
+    
+    if jefes_ids:
+        jefes_actuales = sector.jefes_servicio
+        for nuevo_jefe in jefes_validados:
+            if nuevo_jefe not in jefes_actuales:
+                sector.jefes_servicio.append(nuevo_jefe)
+                
+    db.session.commit()
+    return sector, advertencias
+
+def remove_jefe_from_sector(sector_id: int, jefe_id: int):
+    """Desvincula un jefe específico de un sector."""
+    sector = get_sector(sector_id)
+    if not sector:
+        raise SectorValidationError("El sector solicitado no existe.")
+        
+    jefe = User.query.get(jefe_id)
+    if jefe and jefe in sector.jefes_servicio:
+        sector.jefes_servicio.remove(jefe) # SQLAlchemy setea el sector_id a None automáticamente
+        db.session.commit()

@@ -32,6 +32,13 @@ def index():
         search_estado=search_estado,
         search_jefe=search_jefe
     )
+
+    jefes_disponibles = User.query.join(Role).filter(
+            User.sector_id == None, 
+            User.activo == True,
+            Role.name == 'jefe_servicio'
+        ).all()
+    
     
     return render_template(
         'sectors/sectors_list.html', 
@@ -40,7 +47,8 @@ def index():
         order=order,
         search_nombre=search_nombre,
         search_estado=search_estado,
-        search_jefe=search_jefe
+        search_jefe=search_jefe,
+        jefes_disponibles=jefes_disponibles
     )
 
 @sector_bp.route('/nuevo', methods=['GET', 'POST'])
@@ -53,7 +61,7 @@ def create():
     jefes_disponibles = User.query.join(Role).filter(
         User.sector_id == None, 
         User.activo == True,
-        Role.name == 'jefe_servicio'  # Ajustar a 'name' si tu modelo Role usa name
+        Role.name == 'jefe_servicio'
     ).all()
 
     if request.method == 'POST':
@@ -119,15 +127,36 @@ def edit(id):
         flash("El sector no existe o fue eliminado.", "error")
         return redirect(url_for('sectors.index'))
 
+    # Buscamos a los jefes que están completamente libres
+    jefes_disponibles = User.query.join(Role).filter(
+        User.sector_id == None, 
+        User.activo == True,
+        Role.name == 'jefe_servicio'
+    ).all()
+
     errors = {}
     
     if request.method == 'POST':
         nombre = request.form.get('nombre', '').strip()
         descripcion = request.form.get('descripcion', '').strip()
+        # 1. Atrapamos los IDs seleccionados
+        jefes_ids = request.form.getlist('jefes_ids', type=int)
 
         try:
-            update_sector(id, nombre=nombre, descripcion=descripcion)
+            # 2. Pasamos los IDs y recibimos la tupla
+            sector_actualizado, advertencias = update_sector(
+                id, 
+                nombre=nombre, 
+                descripcion=descripcion, 
+                jefes_ids=jefes_ids
+            )
+            
             flash("El sector fue modificado exitosamente.", "success")
+            
+            # 3. Disparamos alertas amarillas por cada jefe inválido (si los hay)
+            for adv in advertencias:
+                flash(adv, 'warning')
+                
             return redirect(url_for('sectors.index'))
             
         except SectorAlreadyExistsError as e:
@@ -140,17 +169,27 @@ def edit(id):
             else:
                 errors['nombre'] = mensaje
                 
-        except Exception:
+        except Exception as e:
+            # Imprimimos en consola para debug y mostramos error general
+            import traceback
+            traceback.print_exc()
             errors['general'] = "Ocurrió un error inesperado al procesar la solicitud."
 
         return render_template(
             'sectors/sector_edit.html', 
             sector=sector, 
             data=request.form, 
-            errors=errors
+            errors=errors,
+            jefes_disponibles=jefes_disponibles # 4. Lo pasamos al HTML
         )
 
-    return render_template('sectors/sector_edit.html', sector=sector, data={}, errors={})
+    return render_template(
+        'sectors/sector_edit.html', 
+        sector=sector, 
+        data={}, 
+        errors={}, 
+        jefes_disponibles=jefes_disponibles # 4. Lo pasamos al HTML
+    )
 
 @sector_bp.route('/<int:id>/toggle', methods=['POST'])
 @permission_required('sector_update')

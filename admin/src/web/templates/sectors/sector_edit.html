@@ -91,6 +91,59 @@
                     {% endif %}
                 </div>
 
+                <div class="mb-6 p-4 border rounded bg-gray-50">
+        
+                    <!-- A) Jefes de Servicio Actuales (Solo lectura) -->
+                    <div class="mb-4">
+                        <label class="block font-medium text-gray-800 mb-2">Jefes actuales del sector</label>
+                        
+                        {% if sector.jefes_servicio %}
+                            <ul class="flex flex-wrap gap-2">
+                                {% for jefe in sector.jefes_servicio %}
+                                    <li class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                                        <!-- Un puntito decorativo -->
+                                        <svg class="mr-1.5 h-2 w-2 text-blue-600" fill="currentColor" viewBox="0 0 8 8"><circle cx="4" cy="4" r="3" /></svg>
+                                        {{ jefe.apellido }}, {{ jefe.nombre }}
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        {% else %}
+                            <p class="text-sm text-gray-500 italic">No hay jefes asignados actualmente a este sector.</p>
+                        {% endif %}
+                    </div>
+
+                    <!-- B) Selector para AGREGAR nuevos -->
+                    <div>
+                        <label for="jefes_ids" class="block font-medium text-gray-800 mb-1">
+                            Agregar nuevos Jefes de Servicio
+                            <span class="text-sm text-gray-500 font-normal ml-1">(Opcional)</span>
+                        </label>
+
+                        <select 
+                            name="jefes_ids" 
+                            id="jefes_ids" 
+                            multiple
+                            size="4"
+                            class="w-full px-3 py-2 border rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
+                        >
+                            {% for jefe in jefes_disponibles %}
+                                <option value="{{ jefe.id }}">
+                                    {{ jefe.apellido }}, {{ jefe.nombre }}
+                                </option>
+                            {% else %}
+                                <!-- Si la lista del core viene vacía, mostramos esto -->
+                                <option value="" disabled class="text-gray-400 italic">
+                                    No hay jefes de servicio libres en este momento
+                                </option>
+                            {% endfor %}
+                        </select>
+                        
+                        <p class="mt-1 text-xs text-gray-500">
+                            Mantenga presionada la tecla Ctrl (o Cmd en Mac) para seleccionar múltiples opciones. Solo se muestran profesionales sin sector asignado.
+                        </p>
+                    </div>
+                </div>
+
                 <!-- Botones de Acción -->
                 <div class="pt-4 border-t border-gray-100 flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-3 gap-3">
                     <a href="{{ url_for('sectors.index') }}" 

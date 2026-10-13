@@ -106,11 +106,11 @@ def validate_deletion(sector) -> None:
         )
     """
 
-def validate_jefes_servicio(jefes_ids: list[int] | None) -> tuple[list, list[str]]:
+def validate_jefes_servicio(jefes_ids: list[int] | None, current_sector_id: int | None = None) -> tuple[list, list[str]]:
     """
     Evalúa individualmente una lista de IDs de Jefes de Servicio.
     Retorna una tupla con:
-      - Lista de objetos User que cumplen todas las condiciones.
+      - Lista de objetos User nuevos que cumplen todas las condiciones.
       - Lista de mensajes de error (strings) de los que fallaron.
     """
     
@@ -124,7 +124,7 @@ def validate_jefes_servicio(jefes_ids: list[int] | None) -> tuple[list, list[str
     usuarios_validos = []
     errores = []
 
-    # 1. Chequeo de IDs inexistentes (opcional, pero útil por si mandan basura)
+    # 1. Chequeo de IDs inexistentes
     ids_encontrados = {u.id for u in usuarios}
     ids_faltantes = set(jefes_ids) - ids_encontrados
     if ids_faltantes:
@@ -132,20 +132,25 @@ def validate_jefes_servicio(jefes_ids: list[int] | None) -> tuple[list, list[str
 
     for usuario in usuarios:
         # 2. Validar el rol
-        if not usuario.role or usuario.role.nombre != 'jefe_servicio':
+        if not usuario.role or usuario.role.name != 'jefe_servicio':
             errores.append(
                 f"El usuario {usuario.nombre} {usuario.apellido} fue ignorado porque no tiene el rol de Jefe de Servicio."
             )
-            continue # Saltamos al siguiente usuario
+            continue
             
-        # 3. Validar que no esté asignado a otro sector
+        # 3. Validar estado de asignación
         if usuario.sector_id is not None:
-            errores.append(
-                f"El usuario {usuario.nombre} {usuario.apellido} fue ignorado porque ya está asignado a otro sector."
-            )
-            continue # Saltamos al siguiente usuario
+            if usuario.sector_id == current_sector_id:
+                # Ya pertenece a este sector. Lo ignoramos en silencio porque no es un "nuevo" jefe a agregar.
+                continue
+            else:
+                # Pertenece a OTRO sector. Esto sí es un error.
+                errores.append(
+                    f"El usuario {usuario.nombre} {usuario.apellido} fue ignorado porque ya está asignado a otro sector."
+                )
+                continue
             
-        # Si pasó todas las validaciones, lo agregamos a la lista de válidos
+        # Si pasó todas las validaciones (es jefe y tiene sector_id == None)
         usuarios_validos.append(usuario)
 
     return usuarios_validos, errores
