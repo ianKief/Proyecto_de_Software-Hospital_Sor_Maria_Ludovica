@@ -201,6 +201,62 @@ def validar_filtros_comidas_autorizadas(args):
     return True, filtros
 
 
+FILTROS_ENTREGAS = [
+    "fecha",
+    "sector_id",
+    "tipo_comida_id",
+]
+
+PARAMETROS_ENTREGAS = set(FILTROS_ENTREGAS) | {"page"}
+
+
+def validar_filtros_entregas(args):
+    """Valida el query string de ``GET /api/deliveries``.
+
+    ``args`` es ``request.args`` (o cualquier diccionario de textos).
+    Los textos vacíos o con solo espacios cuentan como que no vinieron.
+    A diferencia de las comidas autorizadas, no exige ningún filtro: si no
+    viene ninguno, el endpoint usa los del turno en curso.
+
+    Devuelve ``(True, filtros)``, con las tres claves de filtro (las que no
+    vinieron en ``None``), o ``(False, {"error": mensaje, "campos": [...]})``.
+    """
+    campos_extra = set(args) - PARAMETROS_ENTREGAS
+
+    if campos_extra:
+        return False, {
+            "error": "Se recibieron parámetros no permitidos",
+            "campos": sorted(campos_extra),
+        }
+
+    filtros = {
+        "fecha": None,
+        "sector_id": None,
+        "tipo_comida_id": None,
+    }
+
+    texto_fecha = args.get("fecha", "").strip()
+    if texto_fecha:
+        filtros["fecha"] = _leer_fecha(texto_fecha)
+        if filtros["fecha"] is None:
+            return False, {
+                "error": "La fecha debe tener formato AAAA-MM-DD",
+                "campos": ["fecha"],
+            }
+
+    for campo in ["sector_id", "tipo_comida_id"]:
+        texto = args.get(campo, "").strip()
+        if texto:
+            filtros[campo] = _leer_id(texto)
+            if filtros[campo] is None:
+                return False, {
+                    "error": f"{campo} debe ser un entero positivo",
+                    "campos": [campo],
+                }
+
+    return True, filtros
+
+
 def validar_fecha_opcional(args):
     """Valida el query string de ``GET /api/authorized-meals/<person_id>``.
 

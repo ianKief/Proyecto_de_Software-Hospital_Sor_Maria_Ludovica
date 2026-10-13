@@ -327,6 +327,30 @@ def listar_entregas(fecha=None, sector_id=None, tipo_comida_id=None):
     return consulta.order_by(Entrega.created_at.desc(), Entrega.id.desc())
 
 
+def filtros_del_turno_actual():
+    """Devuelve los filtros de ``listar_entregas`` para "lo que se está entregando ahora".
+
+    La fecha es la de hoy y la comida, la del turno en curso (E1b). Si en
+    este momento no hay turno (o esa comida no está cargada en la base),
+    ``tipo_comida_id`` queda en ``None`` y se listan todas las comidas de hoy.
+    Toma la hora de ``ahora()``, igual que ``registrar_entrega``.
+    """
+    momento = ahora()
+    tipo_comida_id = None
+
+    nombre_turno = turno_actual(momento)
+    if nombre_turno is not None:
+        tipo_comida = FoodType.query.filter_by(nombre=nombre_turno).first()
+        if tipo_comida is not None:
+            tipo_comida_id = tipo_comida.id
+
+    return {
+        "fecha": momento.date(),
+        "sector_id": None,
+        "tipo_comida_id": tipo_comida_id,
+    }
+
+
 def obtener_entrega(entrega_id):
     """Devuelve la entrega con ese id. Lanza ``LookupError`` si no existe."""
     entrega = db.session.get(Entrega, entrega_id)

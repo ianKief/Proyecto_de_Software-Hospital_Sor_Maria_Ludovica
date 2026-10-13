@@ -6,6 +6,9 @@ from src.core.deliveries import (
     comidas_autorizadas_de,
     datos_comida_autorizada,
     datos_entrega,
+    filtros_del_turno_actual,
+    listar_entregas,
+    obtener_entrega,
     registrar_entrega,
     totales_comidas_autorizadas,
 )
@@ -16,6 +19,7 @@ from src.web.helpers.entregas_validaciones import (
     validar_entrega,
     validar_fecha_opcional,
     validar_filtros_comidas_autorizadas,
+    validar_filtros_entregas,
 )
 from src.web.helpers.paginacion import respuesta_paginada, validar_pagina
 
@@ -82,6 +86,50 @@ def authorized_meals_show(person_id):
         "fecha": fecha.isoformat(),
         "items": [datos_comida_autorizada(solicitud) for solicitud in solicitudes],
     }), 200
+
+
+@api_deliveries_bp.get("/deliveries")
+@api_permission_required("delivery_index")
+def deliveries_index():
+    """Lista paginada de entregas según los filtros del query string.
+
+    Filtros: ``fecha`` (AAAA-MM-DD), ``sector_id`` y ``tipo_comida_id``.
+    Si no viene ninguno, lista las de hoy del turno en curso; fuera de
+    horario, todas las de hoy. Responde 400 si la página o algún filtro
+    no es válido.
+    """
+    numero_pagina = validar_pagina(request.args.get("page"))
+
+    if numero_pagina is None:
+        return jsonify({
+            "error": "El parámetro page no es válido",
+            "campos": ["page"],
+        }), 400
+
+    es_valido, resultado = validar_filtros_entregas(request.args)
+
+    if not es_valido:
+        return jsonify(resultado), 400
+
+    if all(valor is None for valor in resultado.values()):
+        resultado = filtros_del_turno_actual()
+
+    pagina = paginar(listar_entregas(**resultado), numero_pagina)
+    items = [datos_entrega(entrega) for entrega in pagina.items]
+
+    return jsonify(respuesta_paginada(pagina, items)), 200
+
+
+@api_deliveries_bp.get("/deliveries/<int:delivery_id>")
+@api_permission_required("delivery_show")
+def deliveries_show(delivery_id):
+    """Detalle de una entrega. Responde 404 si no existe."""
+    try:
+        entrega = obtener_entrega(delivery_id)
+    except LookupError as error:
+        return jsonify({"error": str(error)}), 404
+
+    return jsonify(datos_entrega(entrega)), 200
 
 
 @api_deliveries_bp.post("/deliveries")
