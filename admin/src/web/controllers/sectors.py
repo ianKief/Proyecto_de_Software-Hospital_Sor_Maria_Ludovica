@@ -14,6 +14,7 @@ from src.web.helpers.auth import permission_required
 from src.core.users.models import User
 from src.core.auth.models import Role
 from src.web.helpers.paginacion import validar_pagina
+from src.core.users import get_jefes_disponibles
 
 sector_bp = Blueprint('sectors', __name__, url_prefix='/sectores')
 
@@ -42,11 +43,7 @@ def index():
         search_jefe=search_jefe
     )
 
-    jefes_disponibles = User.query.join(Role).filter(
-            User.sector_id == None, 
-            User.activo == True,
-            Role.name == 'Jefe de Servicio'
-        ).all()
+    jefes_disponibles = get_jefes_disponibles()
     
     
     return render_template(
@@ -68,11 +65,7 @@ def create():
     data = {'nombre': '', 'descripcion': '', 'jefes_ids': []}
 
     # Buscar usuarios disponibles (activos, sin sector, y con rol 'jefe_servicio')
-    jefes_disponibles = User.query.join(Role).filter(
-        User.sector_id == None, 
-        User.activo == True,
-        Role.name == 'Jefe de Servicio'
-    ).all()
+    jefes_disponibles = get_jefes_disponibles()
 
     if request.method == 'POST':
         data['nombre'] = request.form.get('nombre', '').strip()
@@ -138,11 +131,7 @@ def edit(id):
         return redirect(url_for('sectors.index'))
 
     # Buscamos a los jefes que están completamente libres
-    jefes_disponibles = User.query.join(Role).filter(
-        User.sector_id == None, 
-        User.activo == True,
-        Role.name == 'Jefe de Servicio'
-    ).all()
+    jefes_disponibles = get_jefes_disponibles()
 
     errors = {}
     
