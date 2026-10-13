@@ -6,6 +6,7 @@ from src.web.controllers.users import users_bp
 from src.web.controllers.auth import auth_bp
 from src.web.controllers.configuration import configuration_bp
 from src.web.controllers.api_configuration import api_configuration_bp
+from src.web.controllers.personnel import bp as personnel_bp
 from src.web.helpers.auth import check_permission
 from src.web.helpers.mantenimiento import verificar_mantenimiento
 import logging
@@ -44,6 +45,7 @@ def create_app(env="development", static_folder=None):
     app.register_blueprint(auth_bp)
     app.register_blueprint(configuration_bp)
     app.register_blueprint(api_configuration_bp)
+    app.register_blueprint(personnel_bp)
     app.jinja_env.globals["check_permission"] = check_permission
     app.before_request(verificar_mantenimiento)
 

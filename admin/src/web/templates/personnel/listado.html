@@ -1,0 +1,116 @@
+{% extends "layout.html" %}
+
+{% block title %}Gestión de Personal{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+  <div class="flex justify-between items-center mb-6">
+    <h1 class="text-2xl font-bold text-gray-800">Personal del Hospital</h1>
+    <a href="{{ url_for('personnel.new') }}" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg shadow transition">
+      + Agregar Personal
+    </a>
+  </div>
+
+  <!-- Formulario de Filtros -->
+  <form method="GET" action="{{ url_for('personnel.index') }}" class="bg-white p-4 rounded-lg shadow mb-6 border border-gray-200">
+    <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+      <div>
+        <label class="block text-xs font-semibold text-gray-600 uppercase mb-1">DNI</label>
+        <input type="text" name="dni" value="{{ dni }}" placeholder="Ej: 40123456" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm">
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-600 uppercase mb-1">Nombre o Apellido</label>
+        <input type="text" name="nombre_apellido" value="{{ nombre_apellido }}" placeholder="Buscar por nombre..." class="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm">
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-600 uppercase mb-1">Tipo de Personal</label>
+        <select name="personnel_type_id" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm">
+          <option value="">Todos</option>
+          {% for t in tipos_personal %}
+            <option value="{{ t.id }}" {% if personnel_type_id == t.id %}selected{% endif %}>{{ t.nombre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-600 uppercase mb-1">Sector</label>
+        <select name="sector_id" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm">
+          <option value="">Todos</option>
+          {% for s in sectores %}
+            <option value="{{ s.id }}" {% if sector_id == s.id %}selected{% endif %}>{{ s.nombre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-600 uppercase mb-1">Estado</label>
+        <select name="activo" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm">
+          <option value="">Todos</option>
+          <option value="1" {% if activo == '1' %}selected{% endif %}>Activo</option>
+          <option value="0" {% if activo == '0' %}selected{% endif %}>Inactivo</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="mt-4 flex justify-end space-x-2">
+      <a href="{{ url_for('personnel.index') }}" class="bg-gray-100 hover:bg-gray-200 text-gray-700 py-1.5 px-3 rounded text-sm transition">Limpiar</a>
+      <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white py-1.5 px-4 rounded text-sm transition">Filtrar</button>
+    </div>
+  </form>
+
+  <!-- Tabla de Resultados -->
+  <div class="bg-white shadow rounded-lg overflow-hidden border border-gray-200">
+    <table class="min-w-full divide-y divide-gray-200 text-sm">
+      <thead class="bg-gray-50 text-gray-500 font-medium">
+        <tr>
+          <th class="px-6 py-3 text-left">DNI</th>
+          <th class="px-6 py-3 text-left">Apellido y Nombre</th>
+          <th class="px-6 py-3 text-left">Tipo</th>
+          <th class="px-6 py-3 text-left">Sector</th>
+          <th class="px-6 py-3 text-left">Menú Preferido</th>
+          <th class="px-6 py-3 text-left">Estado</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-200">
+        {% for p in personal %}
+        <tr class="hover:bg-gray-50">
+          <td class="px-6 py-4 font-mono text-gray-700">{{ p.dni }}</td>
+          <td class="px-6 py-4 font-medium text-gray-900">{{ p.apellido }}, {{ p.nombre }}</td>
+          <td class="px-6 py-4 text-gray-600">{{ p.personnel_type.nombre }}</td>
+          <td class="px-6 py-4 text-gray-600">
+            {% if p.sector %}{{ p.sector.nombre }}{% else %}<span class="text-gray-400 italic">Sin sector fijo</span>{% endif %}
+          </td>
+          <td class="px-6 py-4 text-gray-600">{{ p.menu_type.nombre }}</td>
+          <td class="px-6 py-4">
+            {% if p.activo %}
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Activo</span>
+            {% else %}
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">Inactivo</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="6" class="px-6 py-8 text-center text-gray-500">No se encontraron registros de personal.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <!-- Paginación -->
+    <div class="bg-gray-50 px-6 py-4 flex items-center justify-between border-t border-gray-200">
+      <div>
+        <p class="text-sm text-gray-700">
+          Página <span class="font-medium">{{ pagina.page }}</span> de <span class="font-medium">{{ pagina.pages }}</span>
+        </p>
+      </div>
+      <div class="flex space-x-2">
+        {% if pagina.has_prev %}
+          <a href="{{ url_for(request.endpoint, page=pagina.prev_num, dni=dni, nombre_apellido=nombre_apellido, sector_id=sector_id, personnel_type_id=personnel_type_id, activo=activo) }}" class="px-3 py-1 bg-white border border-gray-300 rounded text-sm text-gray-700 hover:bg-gray-50">Anterior</a>
+        {% endif %}
+        {% if pagina.has_next %}
+          <a href="{{ url_for(request.endpoint, page=pagina.next_num, dni=dni, nombre_apellido=nombre_apellido, sector_id=sector_id, personnel_type_id=personnel_type_id, activo=activo) }}" class="px-3 py-1 bg-white border border-gray-300 rounded text-sm text-gray-700 hover:bg-gray-50">Siguiente</a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
