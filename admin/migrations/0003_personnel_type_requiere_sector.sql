@@ -1,0 +1,6 @@
+﻿BEGIN;
+
+ALTER TABLE personnel_types
+ADD COLUMN IF NOT EXISTS requiere_sector BOOLEAN NOT NULL DEFAULT TRUE;
+
+COMMIT;

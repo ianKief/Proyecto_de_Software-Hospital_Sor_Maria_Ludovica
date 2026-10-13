@@ -1,4 +1,4 @@
-# Proyecto de Software - Sistema para la gestión del comedor del Hospital Sor Maria Ludovica 
+# Proyecto de Software - Sistema para la gestión del comedor del Hospital Sor Maria Ludovica
 
 ## Requisitos previos
 - [Python 3.14](https://www.python.org/downloads/)
