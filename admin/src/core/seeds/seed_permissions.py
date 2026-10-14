@@ -32,6 +32,7 @@ PERMISOS_POR_ROL = {
         "delivery_index",
         "delivery_show",
         "authorized_meals_index",
+        "summary_deliveries",
     ],
     "Sector Comedor": [
         "delivery_index",

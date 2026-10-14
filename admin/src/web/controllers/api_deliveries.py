@@ -11,6 +11,7 @@ from src.core.deliveries import (
     obtener_entrega,
     registrar_entrega,
     resumen_entregas,
+    resumen_entregas_por_periodo,
     totales_comidas_autorizadas,
     totales_resumen_entregas,
 )
@@ -22,6 +23,7 @@ from src.web.helpers.entregas_validaciones import (
     validar_fecha_opcional,
     validar_filtros_comidas_autorizadas,
     validar_filtros_entregas,
+    validar_filtros_resumen_periodo,
     validar_filtros_resumen_entregas,
 )
 from src.web.helpers.paginacion import respuesta_paginada, validar_pagina
@@ -149,6 +151,36 @@ def deliveries_summary():
         "fecha": resultado["fecha"].isoformat(),
         "items": items,
         "totales": totales_resumen_entregas(items),
+    }), 200
+
+
+# Es parte de Resúmenes, pero va en este blueprint (prefijo "/api") para no
+# tener que registrar otro en create_app ni tocar el de /api/summaries.
+@api_deliveries_bp.get("/summaries/deliveries")
+@api_permission_required("summary_deliveries")
+def summary_deliveries():
+    """Comidas autorizadas contra entregadas, agrupadas por período, sector, comida o menú.
+
+    Usa los mismos parámetros que los otros ``/api/summaries/*``:
+    ``fecha_desde``, ``fecha_hasta``, ``sector_id``, ``tipo_comida``,
+    ``tipo_menu`` (nombres) y ``agrupamiento``; todos opcionales.
+    Responde 400 si algún parámetro no es válido o la comida o el menú
+    no existen.
+    """
+    es_valido, resultado = validar_filtros_resumen_periodo(request.args)
+
+    if not es_valido:
+        return jsonify(resultado), 400
+
+    try:
+        resultados = resumen_entregas_por_periodo(**resultado)
+    except ValueError as error:
+        return jsonify({"error": str(error)}), 400
+
+    return jsonify({
+        "agrupamiento": resultado["agrupamiento"] or "total",
+        "resultados": resultados,
+        "totales": totales_resumen_entregas(resultados.values()),
     }), 200
 
 
