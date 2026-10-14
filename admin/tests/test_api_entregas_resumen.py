@@ -75,8 +75,16 @@ def datos(app):
         name="Servicio de Alimentación", permissions=[delivery_index]
     )
     sin_permisos = Role(name="Sin permisos")
-    guardia = Sector(nombre="Guardia", activo=True)
-    pediatria = Sector(nombre="Pediatría", activo=True)
+    guardia = Sector(
+        nombre="Guardia",
+        descripcion="Sector de prueba",
+        activo=True,
+    )
+    pediatria = Sector(
+        nombre="Pediatría",
+        descripcion="Sector de prueba",
+        activo=True,
+    )
     tipo_personal = PersonnelType(nombre="Personal Fijo")
     vegetariano = MenuType(nombre="Vegetariano")
     general = MenuType(nombre="General")

@@ -45,8 +45,16 @@ def al_mediodia(monkeypatch):
 @pytest.fixture
 def datos(app, al_mediodia):
     """Crea sectores, comidas, menú, un usuario del Comedor y dos personas."""
-    guardia = Sector(nombre="Guardia", activo=True)
-    pediatria = Sector(nombre="Pediatría", activo=True)
+    guardia = Sector(
+        nombre="Guardia",
+        descripcion="Sector de prueba",
+        activo=True,
+    )
+    pediatria = Sector(
+        nombre="Pediatría",
+        descripcion="Sector de prueba",
+        activo=True,
+    )
     rol = Role(name="Sector Comedor")
     tipo_personal = PersonnelType(nombre="Personal Fijo")
     menu = MenuType(nombre="Vegetariano")

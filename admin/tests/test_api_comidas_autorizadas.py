@@ -52,7 +52,11 @@ def datos(app):
     permiso = Permission(name="authorized_meals_index")
     comedor = Role(name="Sector Comedor", permissions=[permiso])
     sin_permisos = Role(name="Jefe de Servicio")
-    guardia = Sector(nombre="Guardia", activo=True)
+    guardia = Sector(
+        nombre="Guardia",
+        descripcion="Sector de prueba",
+        activo=True,
+    )
     tipo_personal = PersonnelType(nombre="Personal Fijo")
     menu = MenuType(nombre="Vegetariano")
     almuerzo = FoodType(nombre="Almuerzo")

@@ -61,7 +61,11 @@ def datos(app, al_mediodia):
     delivery_new = Permission(name="delivery_new")
     comedor = Role(name="Sector Comedor", permissions=[delivery_new])
     alimentacion = Role(name="Servicio de Alimentación")
-    guardia = Sector(nombre="Guardia", activo=True)
+    guardia = Sector(
+        nombre="Guardia",
+        descripcion="Sector de prueba",
+        activo=True,
+    )
     tipo_personal = PersonnelType(nombre="Personal Fijo")
     menu = MenuType(nombre="Vegetariano")
     almuerzo = FoodType(nombre="Almuerzo")

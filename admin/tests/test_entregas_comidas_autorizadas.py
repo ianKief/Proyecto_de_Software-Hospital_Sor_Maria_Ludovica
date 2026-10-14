@@ -44,8 +44,16 @@ def app(monkeypatch):
 @pytest.fixture
 def datos(app):
     """Crea sectores, comidas, menú, un usuario y dos personas."""
-    guardia = Sector(nombre="Guardia", activo=True)
-    pediatria = Sector(nombre="Pediatría", activo=True)
+    guardia = Sector(
+        nombre="Guardia",
+        descripcion="Sector de prueba",
+        activo=True,
+    )
+    pediatria = Sector(
+        nombre="Pediatría",
+        descripcion="Sector de prueba",
+        activo=True,
+    )
     rol = Role(name="Servicio de Alimentación")
     tipo_personal = PersonnelType(nombre="Personal Fijo")
     menu = MenuType(nombre="Vegetariano")
