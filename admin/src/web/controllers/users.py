@@ -75,10 +75,8 @@ def user_new():
         nombre = request.form.get('nombre')
         apellido = request.form.get('apellido')
         dni = request.form.get('dni')
-        password = request.form.get('password')
         role_id = request.form.get('role_id')
         sector_id = request.form.get('sector_id') or None
-        activo = request.form.get('activo') == 'on'
 
         if not email or not nombre or not apellido or not dni or not role_id:
             flash("Todos los campos obligatorios deben completarse.", "error")
@@ -104,6 +102,8 @@ def user_new():
             flash("Ya existe un usuario registrado con ese DNI.", "error")
             return redirect(url_for('users.user_new'))
 
+        # El usuario se crea siempre inactivo: su cuenta se activa cuando
+        # configura su contraseña a través del enlace de activación enviado por email.
         nuevo_usuario = crear_usuario(
             email=email,
             nombre=nombre,
@@ -111,7 +111,7 @@ def user_new():
             dni=dni,
             role_id=role_id,
             sector_id=sector_id,
-            activo=activo
+            activo=False
         )
 
         # Generar token y enviar correo de activación
