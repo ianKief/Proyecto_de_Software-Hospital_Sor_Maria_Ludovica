@@ -9,7 +9,7 @@ from src.core.sectors import (
     add_jefes_to_sector,
     remove_jefe_from_sector
     )
-from src.core.sectors.exceptions import SectorAlreadyExistsError, SectorValidationError
+from src.core.sectors.exceptions import SectorAlreadyExistsError, SectorValidationError, SectorInactiveExistsError
 from src.web.helpers.auth import permission_required
 from src.core.users.models import User
 from src.core.auth.models import Role
@@ -63,7 +63,7 @@ def index():
 def create():
     errors = {}
     data = {'nombre': '', 'descripcion': '', 'jefes_ids': []}
-
+    needs_confirmation = False
     # Buscar usuarios disponibles (activos, sin sector, y con rol 'jefe_servicio')
     jefes_disponibles = get_jefes_disponibles()
 
@@ -71,6 +71,7 @@ def create():
         data['nombre'] = request.form.get('nombre', '').strip()
         data['descripcion'] = request.form.get('descripcion', '').strip()
         data['jefes_ids'] = request.form.getlist('jefes_ids', type=int)
+        reactivar_confirmado = request.form.get('confirmar_reactivacion') == 'true'
 
         # Validación sintáctica inicial en el controlador
         if not data['nombre']:
@@ -90,16 +91,22 @@ def create():
                 sector_creado, advertencias = create_sector(
                     nombre=data['nombre'],
                     descripcion=data['descripcion'],
-                    jefes_ids=data['jefes_ids']
+                    jefes_ids=data['jefes_ids'],
+                    reactivar=reactivar_confirmado
                 )
                 
-                flash('El sector fue creado exitosamente.', 'success')
+                flash('Operación realizada exitosamente.', 'success')
                 
                 # Informamos las asignaciones que fallaron
                 for advertencia in advertencias:
                     flash(advertencia, 'warning')
                     
                 return redirect(url_for('sectors.index'))
+
+            except SectorInactiveExistsError as err:
+                # Atrapamos que está inactivo y activamos la bandera para el HTML
+                needs_confirmation = True
+                flash("Atención requerida.", "warning")
 
             except SectorAlreadyExistsError as err:
                 errors['nombre'] = str(err)
@@ -119,7 +126,8 @@ def create():
         'sectors/sector_create.html', 
         data=data, 
         errors=errors,
-        jefes_disponibles=jefes_disponibles
+        jefes_disponibles=jefes_disponibles,
+        needs_confirmation=needs_confirmation
         )
 
 @sector_bp.route('/<int:id>/editar', methods=['GET', 'POST'])
