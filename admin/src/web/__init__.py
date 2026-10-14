@@ -17,7 +17,7 @@ from src.web.controllers.summaries import summaries_bp
 from src.web.controllers.configuration import configuration_bp
 from src.web.controllers.api_configuration import api_configuration_bp
 from src.web.controllers.api_deliveries import api_deliveries_bp
-from src.web.helpers.auth import check_permission
+from src.web.helpers.auth import check_permission, verificar_timeout_sesion
 from src.web.helpers.mantenimiento import verificar_mantenimiento
 from .config import config
 
@@ -61,6 +61,7 @@ def create_app(env="development", static_folder=None):
 
     app.jinja_env.globals["check_permission"] = check_permission
     app.before_request(verificar_mantenimiento)
+    app.before_request(verificar_timeout_sesion)
 
     register_error_handlers(app)
 

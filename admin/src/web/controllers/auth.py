@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from flask import Blueprint, render_template, request, session, redirect, url_for, flash
 from src.core.auth import autenticar_usuario
 
@@ -28,6 +29,7 @@ def login():
         session['user'] = user.email
         session['role'] = user.role.name
         session['user_id'] = user.id
+        session['last_activity'] = datetime.now(timezone.utc).isoformat()
         flash("Sesión iniciada con éxito.", "success")
         return redirect(url_for('main.home'))
 
