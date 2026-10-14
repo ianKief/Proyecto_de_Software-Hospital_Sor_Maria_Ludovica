@@ -46,6 +46,8 @@ def create_app(env="development", static_folder=None):
 
     db.init_app(app)
     session_ext.init_app(app)
+    from src.core.email import mail
+    mail.init_app(app)
 
     # Blueprints
     app.register_blueprint(bp)

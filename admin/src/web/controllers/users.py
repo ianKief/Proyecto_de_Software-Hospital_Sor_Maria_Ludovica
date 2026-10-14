@@ -14,6 +14,8 @@ from src.core.users import (
     existe_usuario_con_email,
     existe_usuario_con_dni,
 )
+from src.core.tokens import generar_token_activacion
+from src.core.email import enviar_email_activacion
 
 users_bp = Blueprint('users', __name__, url_prefix='/users')
 
@@ -78,7 +80,7 @@ def user_new():
         sector_id = request.form.get('sector_id') or None
         activo = request.form.get('activo') == 'on'
 
-        if not email or not nombre or not apellido or not dni or not password or not role_id:
+        if not email or not nombre or not apellido or not dni or not role_id:
             flash("Todos los campos obligatorios deben completarse.", "error")
             return redirect(url_for('users.user_new'))
             
@@ -102,18 +104,22 @@ def user_new():
             flash("Ya existe un usuario registrado con ese DNI.", "error")
             return redirect(url_for('users.user_new'))
 
-        crear_usuario(
+        nuevo_usuario = crear_usuario(
             email=email,
             nombre=nombre,
             apellido=apellido,
             dni=dni,
-            password=password,
             role_id=role_id,
             sector_id=sector_id,
             activo=activo
         )
 
-        flash("Usuario creado con éxito.", "success")
+        # Generar token y enviar correo de activación
+        token = generar_token_activacion(nuevo_usuario.id)
+        url_activacion = url_for('auth.set_password', token=token, _external=True)
+        enviar_email_activacion(nuevo_usuario, url_activacion)
+
+        flash(f"Usuario {nuevo_usuario.nombre} {nuevo_usuario.apellido} creado con éxito. Se ha enviado un correo a {nuevo_usuario.email} para que active su cuenta y configure su contraseña.", "success")
         return redirect(url_for('users.user_index'))
 
     # Para peticiones GET
