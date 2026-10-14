@@ -302,3 +302,91 @@ def validar_fecha_opcional(args):
         }
 
     return True, fecha
+
+
+# Mismos nombres de parámetros que los otros /api/summaries/* (Julián),
+# para que el cliente los use igual. ``estado`` no va: acá solo cuentan
+# los pedidos autorizados.
+FILTROS_RESUMEN_PERIODO = [
+    "fecha_desde",
+    "fecha_hasta",
+    "sector_id",
+    "tipo_comida",
+    "tipo_menu",
+    "agrupamiento",
+]
+
+AGRUPAMIENTOS = ["dia", "semana", "mes", "sector", "comida", "menu"]
+
+
+def validar_filtros_resumen_periodo(args):
+    """Valida el query string de ``GET /api/summaries/deliveries``.
+
+    ``args`` es ``request.args`` (o cualquier diccionario de textos).
+    Los textos vacíos o con solo espacios cuentan como que no vinieron.
+    Todos los filtros son opcionales. ``tipo_comida`` y ``tipo_menu`` son
+    nombres: si existen o no lo controla el núcleo, porque acá no se
+    consulta la base.
+
+    Devuelve ``(True, filtros)``, con las seis claves (las que no vinieron
+    en ``None``), o ``(False, {"error": mensaje, "campos": [...]})``.
+    """
+    campos_extra = set(args) - set(FILTROS_RESUMEN_PERIODO)
+
+    if campos_extra:
+        return False, {
+            "error": "Se recibieron parámetros no permitidos",
+            "campos": sorted(campos_extra),
+        }
+
+    textos = {}
+    for campo in FILTROS_RESUMEN_PERIODO:
+        texto = args.get(campo, "").strip()
+        textos[campo] = texto or None
+
+    filtros = {
+        "fecha_desde": None,
+        "fecha_hasta": None,
+        "sector_id": None,
+        "tipo_comida": textos["tipo_comida"],
+        "tipo_menu": textos["tipo_menu"],
+        "agrupamiento": textos["agrupamiento"],
+    }
+
+    for campo in ["fecha_desde", "fecha_hasta"]:
+        if textos[campo] is not None:
+            filtros[campo] = _leer_fecha(textos[campo])
+            if filtros[campo] is None:
+                return False, {
+                    "error": f"{campo} debe tener formato AAAA-MM-DD",
+                    "campos": [campo],
+                }
+
+    if (
+        filtros["fecha_desde"] is not None
+        and filtros["fecha_hasta"] is not None
+        and filtros["fecha_desde"] > filtros["fecha_hasta"]
+    ):
+        return False, {
+            "error": "fecha_hasta no puede ser anterior a fecha_desde",
+            "campos": ["fecha_desde", "fecha_hasta"],
+        }
+
+    if textos["sector_id"] is not None:
+        filtros["sector_id"] = _leer_id(textos["sector_id"])
+        if filtros["sector_id"] is None:
+            return False, {
+                "error": "sector_id debe ser un entero positivo",
+                "campos": ["sector_id"],
+            }
+
+    if (
+        filtros["agrupamiento"] is not None
+        and filtros["agrupamiento"] not in AGRUPAMIENTOS
+    ):
+        return False, {
+            "error": f"agrupamiento debe ser uno de: {', '.join(AGRUPAMIENTOS)}",
+            "campos": ["agrupamiento"],
+        }
+
+    return True, filtros
