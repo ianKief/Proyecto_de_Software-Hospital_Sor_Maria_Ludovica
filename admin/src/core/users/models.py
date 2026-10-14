@@ -17,7 +17,7 @@ class User(db.Model):
     dni = db.Column(db.String(50), unique=True, nullable=False)
     password = db.Column(db.String(255), nullable=False)
     activo = db.Column(db.Boolean, default=True)
-
+    
     role_id = db.Column(
         db.Integer,
         db.ForeignKey("roles.id"),
@@ -30,7 +30,7 @@ class User(db.Model):
         db.ForeignKey("sectors.id"),
         nullable=True,
     )
-    sector = db.relationship("Sector")
+    sector = db.relationship('Sector', back_populates='jefes_servicio')
 
     created_at = db.Column(
         db.DateTime,

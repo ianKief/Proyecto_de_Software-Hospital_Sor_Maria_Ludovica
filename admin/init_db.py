@@ -237,3 +237,19 @@ if __name__ == '__main__':
             print("  Pass : alimentacion123")
         else:
             print("El usuario de Servicio de Alimentación ya estaba creado.")
+
+        print("Creando Jefe de Servicio de prueba...")
+        jefe_role = Role.query.filter_by(name="Jefe de Servicio").first()
+        if not User.query.filter_by(email="house@hospital.com").first():
+            hashed_pw = bcrypt.hashpw(b"house123", bcrypt.gensalt()).decode("utf-8")
+            house = User(
+                email="house@hospital.com",
+                nombre="Gregory",
+                apellido="House",
+                dni="11222333",
+                password=hashed_pw,
+                activo=True,
+                role_id=jefe_role.id
+            )
+            db.session.add(house)
+            db.session.commit()

@@ -13,6 +13,10 @@ PERMISOS_POR_ROL = {
         "user_destroy",
         "config_show",
         "config_update",
+        "sector_index", 
+        "sector_create", 
+        "sector_update", 
+        "sector_destroy"
     ],
     "Jefe de Servicio": [
         "request_index",

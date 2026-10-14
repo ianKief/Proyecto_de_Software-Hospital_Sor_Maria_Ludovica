@@ -1,6 +1,5 @@
 from flask import Blueprint, render_template, request, session, redirect, url_for, flash
-import bcrypt
-from src.core.users.models import User
+from src.core.auth import autenticar_usuario
 
 auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
 
@@ -17,20 +16,20 @@ def login():
             flash("Debe completar todos los campos obligatorios.", "error")
             return render_template('auth/login.html')
 
-        user = User.query.filter_by(email=email).first()
+        user, error = autenticar_usuario(email, password)
 
-        if user and bcrypt.checkpw(password.encode('utf-8'), user.password.encode('utf-8')):
-            if not user.activo:
-                flash("El usuario se encuentra desactivado.", "error")
-                return render_template('auth/login.html')
-            
-            session['user'] = user.email
-            session['role'] = user.role.name
-            session['user_id'] = user.id
-            flash("Sesión iniciada con éxito.", "success")
-            return redirect(url_for('main.home'))
-        else:
+        if error == "desactivado":
+            flash("El usuario se encuentra desactivado.", "error")
+            return render_template('auth/login.html')
+        elif error:
             flash("Correo electrónico o contraseña incorrectos.", "error")
+            return render_template('auth/login.html')
+
+        session['user'] = user.email
+        session['role'] = user.role.name
+        session['user_id'] = user.id
+        flash("Sesión iniciada con éxito.", "success")
+        return redirect(url_for('main.home'))
 
     return render_template('auth/login.html')
 
