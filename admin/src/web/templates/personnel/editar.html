@@ -1,0 +1,120 @@
+{% extends "layout.html" %}
+
+{% block title %}Editar Personal{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 py-8">
+
+  <!-- Mensajes de Error / Flash -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="mb-6 space-y-2">
+        {% for category, message in messages %}
+          <div class="p-4 rounded-md border text-sm {% if category == 'error' %}bg-red-50 border-red-200 text-red-700{% else %}bg-green-50 border-green-200 text-green-700{% endif %}">
+            <span class="font-bold">{% if category == 'error' %}Atención:{% else %}Éxito:{% endif %}</span> {{ message }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+    <div class="flex justify-between items-center pb-4 mb-6 border-b border-gray-200">
+      <div>
+        <h2 class="text-xl font-bold text-gray-800">Editar Personal</h2>
+        <p class="text-xs text-gray-500 mt-1">{{ persona.apellido }}, {{ persona.nombre }}</p>
+      </div>
+      <a href="{{ url_for('personnel.index') }}" class="text-sm font-medium text-blue-600 hover:text-blue-800">
+        ← Volver al listado
+      </a>
+    </div>
+
+    <form method="POST" action="{{ url_for('personnel.update', personnel_id=persona.id) }}" class="space-y-5" novalidate>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">DNI *</label>
+        <input 
+          type="text" 
+          name="dni" 
+          value="{{ data.get('dni', '') }}" 
+          class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+        >
+        <p class="text-xs text-gray-500 mt-1">Entre 7 y 9 números sin puntos.</p>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Nombre *</label>
+          <input 
+            type="text" 
+            name="nombre" 
+            value="{{ data.get('nombre', '') }}" 
+            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+          >
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Apellido *</label>
+          <input 
+            type="text" 
+            name="apellido" 
+            value="{{ data.get('apellido', '') }}" 
+            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+          >
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Tipo de Personal *</label>
+        <select 
+          name="personnel_type_id" 
+          class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
+        >
+          {% for t in tipos_personal %}
+            <option value="{{ t.id }}" {% if data.get('personnel_type_id') == t.id|string %}selected{% endif %}>
+              {{ t.nombre }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Sector</label>
+        <select 
+          name="sector_id" 
+          class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
+        >
+          <option value="">Sin sector asignado</option>
+          {% for s in sectores %}
+            <option value="{{ s.id }}" {% if data.get('sector_id') == s.id|string %}selected{% endif %}>
+              {{ s.nombre }}
+            </option>
+          {% endfor %}
+        </select>
+        <p class="text-xs text-gray-500 mt-1">Obligatorio si es Personal Fijo.</p>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Tipo de Menú *</label>
+        <select 
+          name="menu_type_id" 
+          class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
+        >
+          {% for m in tipos_menu %}
+            <option value="{{ m.id }}" {% if data.get('menu_type_id') == m.id|string %}selected{% endif %}>
+              {{ m.nombre }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="flex justify-end space-x-3 pt-5 border-t border-gray-200">
+        <a href="{{ url_for('personnel.index') }}" class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition">
+          Cancelar
+        </a>
+        <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium shadow-sm transition">
+          Actualizar
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

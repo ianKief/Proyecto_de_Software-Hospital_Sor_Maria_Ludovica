@@ -10,7 +10,6 @@ class Personal(db.Model):
     """Representa a una persona que puede ser incluida en pedidos."""
 
     __tablename__ = "personnel"
-
     id = db.Column(db.Integer, primary_key=True)
     dni = db.Column(db.String(50), nullable=False, unique=True)
     nombre = db.Column(db.String(255), nullable=False)
@@ -62,7 +61,7 @@ class Personal(db.Model):
         back_populates="personal",
         order_by="AsignacionSector.fecha_desde",
     )
-
+Personnel = Personal
 
 class AsignacionSector(db.Model):
     """Historial de asignaciones de una persona a sectores."""
