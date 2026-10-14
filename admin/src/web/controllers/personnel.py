@@ -90,9 +90,70 @@ def create():
         tipos_menu = personnel.list_menu_types()
         sectores = personnel.list_active_sectors()
         return render_template(
-            "personnel/new.html",
+            "personnel/alta.html",
             tipos_personal=tipos_personal,
             tipos_menu=tipos_menu,
             sectores=sectores,
             data=data,
         )
+
+@bp.get("/<int:personnel_id>/editar")
+def edit(personnel_id: int):
+    persona = personnel.get_personnel_by_id(personnel_id)
+    if not persona:
+        flash("La persona solicitada no existe.", "error")
+        return redirect(url_for("personnel.index"))
+
+    tipos_personal = personnel.list_personnel_types()
+    tipos_menu = personnel.list_menu_types()
+    sectores = personnel.list_active_sectors()
+
+    data = {
+        "dni": persona.dni,
+        "nombre": persona.nombre,
+        "apellido": persona.apellido,
+        "personnel_type_id": str(persona.personnel_type_id),
+        "sector_id": str(persona.sector_id) if persona.sector_id else "",
+        "menu_type_id": str(persona.menu_type_id),
+        "activo": "true" if persona.activo else "false",
+    }
+
+    return render_template(
+        "personnel/editar.html",
+        persona=persona,
+        tipos_personal=tipos_personal,
+        tipos_menu=tipos_menu,
+        sectores=sectores,
+        data=data,
+    )
+
+@bp.post("/<int:personnel_id>/editar")
+def update(personnel_id: int):
+    data = request.form.to_dict()
+    try:
+        persona = personnel.update_personnel(personnel_id, data)
+        flash(f"Personal {persona.nombre} {persona.apellido} actualizado con éxito.", "success")
+        return redirect(url_for("personnel.index"))
+    except ValidationError as e:
+        flash(str(e), "error")
+        persona = personnel.get_personnel_by_id(personnel_id)
+        tipos_personal = personnel.list_personnel_types()
+        tipos_menu = personnel.list_menu_types()
+        sectores = personnel.list_active_sectors()
+        return render_template(
+            "personnel/editar.html",
+            persona=persona,
+            tipos_personal=tipos_personal,
+            tipos_menu=tipos_menu,
+            sectores=sectores,
+            data=data,
+        )
+
+@bp.post("/<int:personnel_id>/eliminar")
+def delete(personnel_id: int):
+    try:
+        es_fisica, mensaje = personnel.delete_personnel(personnel_id)
+        flash(mensaje, "success" if es_fisica else "warning")
+    except ValidationError as e:
+        flash(str(e), "error")
+    return redirect(url_for("personnel.index"))

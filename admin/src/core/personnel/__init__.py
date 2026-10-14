@@ -93,21 +93,23 @@ def list_personnel(
 
 
 def create_personnel(data: dict) -> Personal:
-    """Valida los datos y registra una nueva persona."""
+    """Valida los datos y registra una nueva persona siempre activa."""
     validated = validate_personnel_data(data)
+    validated["activo"] = True 
     person = Personal(**validated)
     db.session.add(person)
     db.session.commit()
     return person
 
-
 def update_personnel(personnel_id: int, data: dict) -> Personal:
-    """Valida los datos y modifica una persona existente."""
+    """Valida y modifica los datos de una persona sin alterar su estado activo."""
     person = get_personnel_by_id(personnel_id)
     if not person:
         raise ValidationError("La persona a editar no existe.")
 
     validated = validate_personnel_data(data, current_personnel_id=personnel_id)
+    validated.pop("activo", None)
+
     for key, value in validated.items():
         setattr(person, key, value)
 
