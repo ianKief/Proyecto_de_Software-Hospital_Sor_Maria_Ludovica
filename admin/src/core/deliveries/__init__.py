@@ -1,7 +1,7 @@
 """Operaciones del módulo de Entregas."""
 import logging
 from collections import defaultdict
-from datetime import timezone
+from datetime import timedelta, timezone
 
 from sqlalchemy.exc import IntegrityError
 
@@ -9,6 +9,7 @@ from src.core.db import db
 from src.core.deliveries.models import Entrega, EntregaDetalle
 from src.core.deliveries.turnos import a_hora_argentina, ahora, hoy, turno_actual
 from src.core.food_types.models import FoodType
+from src.core.menu_types.models import MenuType
 from src.core.pedidos.models import Autorizacion, Pedido, SolicitudPedido
 from src.core.personnel.models import Personal
 from src.core.sectors.models import Sector
@@ -466,3 +467,101 @@ def totales_resumen_entregas(resumen):
         "entregadas": entregadas,
         "diferencia": autorizadas - entregadas,
     }
+
+
+def _clave_de_grupo(solicitud, agrupamiento):
+    """Devuelve la clave del grupo al que pertenece la solicitud.
+
+    Son las mismas claves que usan los otros ``/api/summaries/*``: día
+    ``AAAA-MM-DD``, semana (el lunes, ``AAAA-MM-DD``), mes ``AAAA-MM``,
+    id del sector como texto, o el nombre de la comida o del menú.
+    Sin agrupamiento, todo cae en ``"total"``.
+    """
+    fecha = solicitud.pedido.fecha
+
+    if agrupamiento == "dia":
+        return fecha.isoformat()
+    if agrupamiento == "semana":
+        lunes = fecha - timedelta(days=fecha.weekday())
+        return lunes.isoformat()
+    if agrupamiento == "mes":
+        return fecha.strftime("%Y-%m")
+    if agrupamiento == "sector":
+        return str(solicitud.pedido.sector_id)
+    if agrupamiento == "comida":
+        return solicitud.food_type.nombre
+    if agrupamiento == "menu":
+        return solicitud.menu_type.nombre
+    return "total"
+
+
+def resumen_entregas_por_periodo(
+    fecha_desde=None,
+    fecha_hasta=None,
+    sector_id=None,
+    tipo_comida=None,
+    tipo_menu=None,
+    agrupamiento=None,
+):
+    """Cuenta las comidas autorizadas y las entregadas, agrupadas según ``agrupamiento``.
+
+    Recibe los filtros ya validados por ``validar_filtros_resumen_periodo``.
+    Las fechas son las del pedido (no ``created_at`` de la entrega, que
+    está en UTC). ``tipo_comida`` y ``tipo_menu`` son nombres, sin
+    distinguir mayúsculas; si no existen lanza ``ValueError`` (400).
+    Se cuenta por autorización, igual que ``resumen_entregas``.
+
+    Devuelve un diccionario ``clave -> {"autorizadas", "entregadas",
+    "diferencia"}``; vacío si no hay comidas autorizadas.
+    """
+    consulta = _consulta_autorizadas()
+
+    if fecha_desde is not None:
+        consulta = consulta.filter(Pedido.fecha >= fecha_desde)
+
+    if fecha_hasta is not None:
+        consulta = consulta.filter(Pedido.fecha <= fecha_hasta)
+
+    if sector_id is not None:
+        consulta = consulta.filter(Pedido.sector_id == sector_id)
+
+    if tipo_comida is not None:
+        comida = FoodType.query.filter(
+            db.func.lower(FoodType.nombre) == tipo_comida.lower()
+        ).first()
+        if comida is None:
+            raise ValueError("El tipo de comida no existe")
+        consulta = consulta.filter(SolicitudPedido.tipo_comida_id == comida.id)
+
+    if tipo_menu is not None:
+        menu = MenuType.query.filter(
+            db.func.lower(MenuType.nombre) == tipo_menu.lower()
+        ).first()
+        if menu is None:
+            raise ValueError("El tipo de menú no existe")
+        # Se filtra por solicitud: cada persona tiene su tipo de menú.
+        consulta = consulta.filter(SolicitudPedido.tipo_menu_id == menu.id)
+
+    filas = (
+        consulta
+        .outerjoin(
+            EntregaDetalle,
+            EntregaDetalle.autorizacion_id == Autorizacion.id,
+        )
+        .add_columns(EntregaDetalle.id)
+        .all()
+    )
+
+    resultados = defaultdict(lambda: {"autorizadas": 0, "entregadas": 0})
+    for solicitud, detalle_id in filas:
+        clave = _clave_de_grupo(solicitud, agrupamiento)
+        resultados[clave]["autorizadas"] += 1
+        if detalle_id is not None:
+            resultados[clave]["entregadas"] += 1
+
+    for cantidades in resultados.values():
+        cantidades["diferencia"] = (
+            cantidades["autorizadas"] - cantidades["entregadas"]
+        )
+
+    return dict(resultados)
