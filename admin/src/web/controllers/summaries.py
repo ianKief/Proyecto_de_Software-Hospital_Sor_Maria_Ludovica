@@ -6,17 +6,13 @@ from src.core.summaries import (
     resumen_pedidos as resumen_pedidos_core,
     resumen_autorizaciones as resumen_autorizaciones_core,
 )
+from src.web.helpers.api_auth import api_permission_required
 
 summaries_bp = Blueprint(
     "summaries",
     __name__,
     url_prefix="/api/summaries",
 )
-
-
-def _es_servicio_alimentacion():
-    """Verifica si el usuario autenticado tiene rol de Servicio de Alimentación."""
-    return session.get("role") == "Servicio de Alimentación"
 
 
 def _es_jefe_servicio():
@@ -69,13 +65,9 @@ def _obtener_filtros():
 
 
 @summaries_bp.route("/requests", methods=["GET"])
+@api_permission_required("summary_requests")
 def resumen_pedidos():
     """Obtiene el resumen de comidas pedidas."""
-
-    if not (_es_servicio_alimentacion() or _es_jefe_servicio()):
-        return jsonify({
-            "error": "No autorizado",
-        }), 403
 
     try:
         filtros = _obtener_filtros()
@@ -117,13 +109,9 @@ def resumen_pedidos():
     }), 200
 
 @summaries_bp.route("/authorizations", methods=["GET"])
+@api_permission_required("summary_authorizations")
 def resumen_autorizaciones():
     """Obtiene el resumen de comidas pedidas y autorizadas."""
-
-    if not _es_servicio_alimentacion():
-        return jsonify({
-            "error": "No autorizado",
-        }), 403
 
     try:
         filtros = _obtener_filtros()

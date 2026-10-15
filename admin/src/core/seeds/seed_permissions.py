@@ -24,6 +24,7 @@ PERMISOS_POR_ROL = {
         "request_show",
         "request_update",
         "request_destroy",
+        "summary_requests",
     ],
     "Servicio de Alimentación": [
         "authorization_index",
@@ -33,6 +34,8 @@ PERMISOS_POR_ROL = {
         "delivery_show",
         "authorized_meals_index",
         "summary_deliveries",
+        "summary_requests",
+        "summary_authorizations",
     ],
     "Sector Comedor": [
         "delivery_index",

@@ -15,6 +15,8 @@ def _fecha_semana(fecha):
 def _aplicar_filtros(query, filtros, usuario, es_jefe_servicio):
     """Aplica los filtros autorizados al listado de pedidos."""
 
+    menu_id = None
+
     if filtros.get("fecha_desde"):
         query = query.filter(
             Pedido.fecha >= filtros["fecha_desde"]
@@ -74,6 +76,22 @@ def _aplicar_filtros(query, filtros, usuario, es_jefe_servicio):
             )
         )
 
+
+    if filtros.get("tipo_comida"):
+        food_type = FoodType.query.filter(
+            db.func.lower(FoodType.nombre)
+            == filtros["tipo_comida"].lower()
+        ).first()
+
+        if not food_type:
+            raise ValueError("Tipo de comida inexistente")
+
+        query = query.filter(
+            Pedido.solicitudes.any(
+                SolicitudPedido.tipo_comida_id == food_type.id
+            )
+        )
+
     if filtros.get("tipo_menu"):
         menu_type = MenuType.query.filter(
             db.func.lower(MenuType.nombre)
@@ -83,13 +101,16 @@ def _aplicar_filtros(query, filtros, usuario, es_jefe_servicio):
         if not menu_type:
             raise ValueError("Tipo de menú inexistente")
 
+        menu_id = menu_type.id
+
         query = query.filter(
             Pedido.solicitudes.any(
-                SolicitudPedido.tipo_menu_id == menu_type.id
+                SolicitudPedido.tipo_menu_id == menu_id
             )
         )
 
-    return query
+    return query, menu_id
+
 
 
 def _clave_agrupamiento(pedido, solicitud, agrupamiento):
@@ -119,7 +140,7 @@ def _clave_agrupamiento(pedido, solicitud, agrupamiento):
 def resumen_pedidos(filtros, usuario=None, es_jefe_servicio=False):
     """Obtiene el resumen de comidas pedidas."""
 
-    query = _aplicar_filtros(
+    query, menu_id = _aplicar_filtros(
         Pedido.query,
         filtros,
         usuario,
@@ -149,6 +170,9 @@ def resumen_pedidos(filtros, usuario=None, es_jefe_servicio=False):
 
     for pedido in pedidos:
         for solicitud in pedido.solicitudes:
+            if menu_id is not None and solicitud.tipo_menu_id != menu_id:
+                continue
+
             clave = _clave_agrupamiento(
                 pedido,
                 solicitud,
@@ -179,7 +203,7 @@ def resumen_pedidos(filtros, usuario=None, es_jefe_servicio=False):
 def resumen_autorizaciones(filtros):
     """Obtiene el resumen de comidas pedidas y autorizadas."""
 
-    query = _aplicar_filtros(
+    query, menu_id = _aplicar_filtros(
         Pedido.query,
         filtros,
         None,
@@ -215,6 +239,9 @@ def resumen_autorizaciones(filtros):
 
     for pedido in pedidos:
         for solicitud in pedido.solicitudes:
+            if menu_id is not None and solicitud.tipo_menu_id != menu_id:
+                continue
+
             clave = _clave_agrupamiento(
                 pedido,
                 solicitud,
