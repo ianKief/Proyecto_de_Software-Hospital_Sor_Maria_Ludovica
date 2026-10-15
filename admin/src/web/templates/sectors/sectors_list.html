@@ -158,15 +158,13 @@
                             </td>
                             
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                <!-- Botón para abrir el Modal Nativo -->
-                                <button type="button" onclick="document.getElementById('modal-sector-{{ sector.id }}').showModal()" 
-                                        class="inline-flex items-center text-blue-600 hover:text-blue-900 focus:outline-none focus:underline aria-label='Ver detalles del sector {{ sector.nombre }}'">
+                                <a href="{{ url_for('sectors.show', id=sector.id) }}" 
+                                class="inline-flex items-center text-blue-600 hover:text-blue-900 focus:outline-none focus:underline"
+                                aria-label="Ver detalles del sector {{ sector.nombre }}">
                                     Ver detalles
-                                </button>
+                                </a>
                             </td>
                         </tr>
-
-                        {% include 'sectors/_sector_detalle.html' %}
 
                         {% else %}
                         <tr>
