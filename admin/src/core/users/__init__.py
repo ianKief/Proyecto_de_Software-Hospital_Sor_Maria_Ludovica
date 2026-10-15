@@ -1,8 +1,10 @@
+import secrets
 import bcrypt
 from sqlalchemy import or_
 from src.core.db import db
 from src.core.users.models import User
 from src.core.auth.models import Role
+
 
 def get_jefes_disponibles() -> list[User]:
     """
@@ -14,6 +16,7 @@ def get_jefes_disponibles() -> list[User]:
         User.activo == True,
         Role.name == 'Jefe de Servicio'
     ).all()
+
 
 def buscar_usuarios(email=None, nombre_apellido=None, dni=None, activo=None, role_id=None, sector_id=None, order_by='created_at', order_dir='desc'):
     """Construye y devuelve la consulta SQLAlchemy con los filtros y ordenamiento especificados."""
@@ -63,12 +66,57 @@ def existe_usuario_con_dni(dni, excluir_id=None):
     return query.first() is not None
 
 
-def crear_usuario(email, nombre, apellido, dni, password, role_id, sector_id=None, activo=True):
-    """Crea y persiste un nuevo usuario en la base de datos."""
-    role = Role.query.get(role_id)
+
+
+def obtener_usuario(id=None, email=None, dni=None):
+    """Busca y retorna un único usuario según el criterio especificado.
+    
+    Permite filtrar por 'id', 'email' o 'dni'. Devuelve el objeto User si existe, o None.
+    """
+    if id is None and email is None and dni is None:
+        return None
+
+    query = User.query
+
+    if id is not None:
+        query = query.filter(User.id == id)
+    if email is not None:
+        query = query.filter(User.email == email.strip())
+    if dni is not None:
+        query = query.filter(User.dni == str(dni).strip())
+
+    return query.first()
+
+
+def actualizar_contrasena(user, nueva_contrasena):
+    """Actualiza la contraseña del usuario con hash seguro bcrypt, activa su cuenta y guarda los cambios."""
+    if not nueva_contrasena or len(nueva_contrasena.strip()) < 6:
+        raise ValueError("La contraseña debe tener al menos 6 caracteres.")
+
+    hashed_password = bcrypt.hashpw(nueva_contrasena.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    user.password = hashed_password
+    user.activo = True
+    db.session.commit()
+    return user
+
+
+def crear_usuario(email, nombre, apellido, dni, role_id=None, password=None, sector_id=None, activo=True):
+    """Crea y persiste un nuevo usuario en la base de datos.
+    
+    Si no se especifica una contraseña, genera una contraseña temporal aleatoria segura.
+    Soporta llamada con role_id o con password en 5ta posición por compatibilidad.
+    """
+    # Compatibilidad posicional si se pasó password como 5to argumento
+    if isinstance(role_id, str) and not role_id.isdigit() and (password is None or isinstance(password, int)):
+        role_id, password = password, role_id
+
+    role = Role.query.get(role_id) if role_id else None
     # Regla de negocio: solo Jefe de Servicio tiene sector asignado
     if not role or role.name != "Jefe de Servicio":
         sector_id = None
+
+    if not password or not str(password).strip():
+        password = secrets.token_urlsafe(16)
 
     hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
@@ -86,6 +134,8 @@ def crear_usuario(email, nombre, apellido, dni, password, role_id, sector_id=Non
     db.session.add(new_user)
     db.session.commit()
     return new_user
+
+
 
 
 def actualizar_usuario(user, email, nombre, apellido, dni, role_id, sector_id=None, activo=True, password=None):

@@ -18,7 +18,7 @@ from src.web.controllers.configuration import configuration_bp
 from src.web.controllers.api_configuration import api_configuration_bp
 from src.web.controllers.api_deliveries import api_deliveries_bp
 from src.web.controllers.personnel import bp as personnel_bp
-from src.web.helpers.auth import check_permission
+from src.web.helpers.auth import check_permission, verificar_timeout_sesion
 from src.web.helpers.mantenimiento import verificar_mantenimiento
 from .config import config
 
@@ -47,6 +47,8 @@ def create_app(env="development", static_folder=None):
 
     db.init_app(app)
     session_ext.init_app(app)
+    from src.core.email import mail
+    mail.init_app(app)
 
     # Blueprints
     app.register_blueprint(bp)
@@ -62,6 +64,7 @@ def create_app(env="development", static_folder=None):
     app.register_blueprint(personnel_bp)
     app.jinja_env.globals["check_permission"] = check_permission
     app.before_request(verificar_mantenimiento)
+    app.before_request(verificar_timeout_sesion)
 
     register_error_handlers(app)
 

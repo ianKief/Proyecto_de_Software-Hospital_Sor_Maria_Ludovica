@@ -18,20 +18,44 @@
           {% endif %}
         {% endwith %}
 
-        <form method="POST" action="{{ url_for('auth.login') }}" class="form-auth">
-            
-            <div class="form-group">
-                <label for="email" class="form-label">Correo electrónico <span aria-hidden="true" class="required-asterisk">*</span></label>
-                <input type="email" id="email" name="email" required aria-required="true" placeholder="ejemplo@hospital.com" class="form-input">
+        <div class="form-auth">
+            <form method="POST" action="{{ url_for('auth.login') }}" class="flex flex-col gap-4">
+                <div class="form-group">
+                    <label for="email" class="form-label">Correo electrónico <span aria-hidden="true" class="required-asterisk">*</span></label>
+                    <input type="email" id="email" name="email" required aria-required="true" placeholder="ejemplo@hospital.com" class="form-input">
+                </div>
+                
+                <div class="form-group">
+                    <label for="password" class="form-label">Contraseña <span aria-hidden="true" class="required-asterisk">*</span></label>
+                    <input type="password" id="password" name="password" required aria-required="true" class="form-input">
+                </div>
+                
+                <button type="submit" class="btn w-full mt-2">Ingresar con contraseña</button>
+            </form>
+
+            <div class="relative my-2">
+                <div class="absolute inset-0 flex items-center">
+                    <div class="w-full border-t border-gray-300"></div>
+                </div>
+                <div class="relative flex justify-center text-sm">
+                    <span class="px-2 bg-white text-gray-500 font-medium">O también podés</span>
+                </div>
             </div>
-            
-            <div class="form-group">
-                <label for="password" class="form-label">Contraseña <span aria-hidden="true" class="required-asterisk">*</span></label>
-                <input type="password" id="password" name="password" required aria-required="true" class="form-input">
-            </div>
-            
-            <button type="submit" class="btn w-full mt-4">Ingresar</button>
-        </form>
+
+            <form method="POST" action="{{ url_for('auth.magic_login_request') }}" class="flex flex-col gap-3">
+                <p class="text-xs text-gray-600 text-center">
+                    ¿Preferís ingresar sin contraseña? Ingresá tu correo y te enviaremos un enlace de acceso directo.
+                </p>
+                <div class="form-group">
+                    <label for="magic_email" class="form-label">Correo electrónico</label>
+                    <input type="email" id="magic_email" name="email" required placeholder="ejemplo@hospital.com" class="form-input">
+                </div>
+                <button type="submit" class="w-full inline-flex items-center justify-center gap-2 px-4 py-2 border border-blue-600 text-sm font-medium rounded-md shadow-sm text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                    <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                    Iniciar sesión con enlace al correo
+                </button>
+            </form>
+        </div>
     </div>
 </main>
 {% endblock %}
