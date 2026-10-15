@@ -163,18 +163,19 @@ def actualizar_usuario(user, email, nombre, apellido, dni, role_id, sector_id=No
     return user
 
 
-def dar_de_baja_usuario(user):
-    """Aplica la baja lógica sobre un usuario."""
+def bloquear_usuario(user):
+    """Bloquea a un usuario en el sistema."""
     if user.role.name == "Administrador":
-        raise ValueError("Los usuarios con rol Administrador no pueden ser bloqueados ni dados de baja.")
+        raise ValueError("Los usuarios con rol Administrador no pueden ser bloqueados.")
 
     user.activo = False
     db.session.commit()
     return user
 
 
-def reactivar_usuario(user):
-    """Reactiva lógicamente a un usuario previamente dado de baja."""
+def desbloquear_usuario(user):
+    """Desbloquea a un usuario en el sistema."""
     user.activo = True
     db.session.commit()
     return user
+

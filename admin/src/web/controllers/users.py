@@ -9,8 +9,8 @@ from src.core.users import (
     buscar_usuarios,
     crear_usuario,
     actualizar_usuario,
-    dar_de_baja_usuario,
-    reactivar_usuario,
+    bloquear_usuario,
+    desbloquear_usuario,
     existe_usuario_con_email,
     existe_usuario_con_dni,
 )
@@ -203,23 +203,23 @@ def user_update(id):
     sectors = Sector.query.all()
     return render_template('users/user_edit.html', user=user, roles=roles, sectors=sectors)
 
-@users_bp.route('/<int:id>/eliminar', methods=['POST'])
-@permission_required('user_destroy')
-def user_destroy(id):
+@users_bp.route('/<int:id>/bloquear', methods=['POST'])
+@permission_required('user_block')
+def user_block(id):
     user = User.query.get_or_404(id)
     try:
-        dar_de_baja_usuario(user)
+        bloquear_usuario(user)
     except ValueError as e:
         flash(str(e), "error")
         return redirect(url_for('users.user_index'))
 
-    flash(f"El usuario {user.nombre} {user.apellido} ha sido dado de baja exitosamente.", "success")
+    flash(f"El usuario {user.nombre} {user.apellido} ha sido bloqueado exitosamente.", "success")
     return redirect(url_for('users.user_index'))
 
-@users_bp.route('/<int:id>/activar', methods=['POST'])
-@permission_required('user_update')
-def user_activate(id):
+@users_bp.route('/<int:id>/desbloquear', methods=['POST'])
+@permission_required('user_unblock')
+def user_unblock(id):
     user = User.query.get_or_404(id)
-    reactivar_usuario(user)
-    flash(f"El usuario {user.nombre} {user.apellido} ha sido reactivado exitosamente.", "success")
+    desbloquear_usuario(user)
+    flash(f"El usuario {user.nombre} {user.apellido} ha sido desbloqueado exitosamente.", "success")
     return redirect(url_for('users.user_index'))
