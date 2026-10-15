@@ -13,7 +13,10 @@ from src.core.users import (
     reactivar_usuario,
     existe_usuario_con_email,
     existe_usuario_con_dni,
+    assign_role,
+    get_all_roles
 )
+from src.core.users.exceptions import UserNotFoundError, RoleNotFoundError
 
 users_bp = Blueprint('users', __name__, url_prefix='/users')
 
@@ -217,3 +220,21 @@ def user_activate(id):
     reactivar_usuario(user)
     flash(f"El usuario {user.nombre} {user.apellido} ha sido reactivado exitosamente.", "success")
     return redirect(url_for('users.user_index'))
+
+@users_bp.route('/<int:id>/rol', methods=['POST'])
+@permission_required('user_update')
+def change_role(id):
+    role_id = request.form.get('role_id', type=int)
+    
+    if not role_id:
+        flash("Debe seleccionar un rol válido.", "error")
+        return user_index(), 400 
+
+    try:
+        usuario_actualizado = assign_role(id, role_id)
+        flash("Rol actualizado correctamente.", "success")
+        return redirect(url_for('users.user_index'))
+        
+    except (UserNotFoundError, RoleNotFoundError) as e:
+        flash(str(e), "error")
+        return user_index(), 400 
