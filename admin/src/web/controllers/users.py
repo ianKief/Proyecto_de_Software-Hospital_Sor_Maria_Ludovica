@@ -11,6 +11,7 @@ from src.core.users import (
     actualizar_usuario,
     bloquear_usuario,
     desbloquear_usuario,
+    eliminar_usuario_fisicamente,
     existe_usuario_con_email,
     existe_usuario_con_dni,
 )
@@ -216,4 +217,18 @@ def user_unblock(id):
     user = User.query.get_or_404(id)
     desbloquear_usuario(user)
     flash(f"El usuario {user.nombre} {user.apellido} ha sido desbloqueado exitosamente.", "success")
+    return redirect(url_for('users.user_index'))
+
+@users_bp.route('/<int:id>/eliminar_fisicamente', methods=['POST'])
+@permission_required('user_destroy')
+def user_delete_physical(id):
+    user = User.query.get_or_404(id)
+    try:
+        eliminar_usuario_fisicamente(user)
+        flash("El usuario fue eliminado permanentemente del sistema.", "success")
+    except ValueError as e:
+        flash(str(e), "error")
+    except Exception:
+        flash("No se pudo eliminar el usuario permanentemente.", "error")
+
     return redirect(url_for('users.user_index'))

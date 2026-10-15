@@ -12,6 +12,7 @@ PERMISOS_POR_ROL = {
         "user_update",
         "user_block",
         "user_unblock",
+        "user_destroy",
         "config_show",
         "config_update",
         "sector_index", 

@@ -98,6 +98,13 @@
                     </button>
                 </form>
                 {% endif %}
+                <form method="POST" action="{{ url_for('users.user_delete_physical', id=user.id) }}"
+                    onsubmit="return confirm('¿ATENCIÓN: Estás seguro de eliminar PERMANENTEMENTE a {{ user.nombre }} {{ user.apellido }}? Esta acción borrará el registro de la base de datos y no se puede deshacer.');">
+                    <button type="submit"
+                        class="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm transition-colors text-white bg-red-700 hover:bg-red-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 cursor-pointer">
+                        Eliminar Definitivamente
+                    </button>
+                </form>
                 {% endif %}
                 <a href="{{ url_for('users.user_update', id=user.id) }}"
                     class="inline-flex items-center justify-center px-4 py-2 border text-sm font-medium rounded-md shadow-sm transition-colors border-gray-300 text-gray-700 bg-white hover:bg-gray-50">
