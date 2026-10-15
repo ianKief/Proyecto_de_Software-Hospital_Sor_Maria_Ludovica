@@ -4,6 +4,41 @@ from sqlalchemy import or_
 from src.core.db import db
 from src.core.users.models import User
 from src.core.auth.models import Role
+from src.core.users.exceptions import UserNotFoundError, RoleNotFoundError
+
+def get_user_by_id(user_id):
+    """Obtiene un usuario por su ID."""
+    return User.query.get(user_id)
+
+def get_all_roles():
+    """Obtiene todos los roles disponibles en el sistema (útil para el formulario web)."""
+    return Role.query.order_by(Role.name).all()
+
+def assign_role(user_id, role_id):
+    """
+    Asigna un nuevo rol a un usuario existente.
+    Si el usuario deja de ser Jefe de Servicio, se lo desvincula de sus sectores.
+    """
+    user = get_user_by_id(user_id)
+    if not user:
+        raise UserNotFoundError("El usuario especificado no existe.")
+
+    new_role = Role.query.get(role_id)
+    if not new_role:
+        raise RoleNotFoundError("El rol especificado no es válido.")
+
+    if user.role_id == new_role.id:
+        return user
+
+    old_role = Role.query.get(user.role_id)
+    if old_role and old_role.name == "Jefe de Servicio":
+       user.sector_id = None
+
+    user.role_id = new_role.id
+    
+    db.session.commit()
+    
+    return user
 
 
 def get_jefes_disponibles() -> list[User]:
