@@ -164,6 +164,11 @@
                                         </button>
                                     </form>
                                 {% endif %}
+                                <form method="POST" action="{{ url_for('users.user_delete_physical', id=u.id) }}" class="inline" onsubmit="return confirm('¿ATENCIÓN: Estás seguro de eliminar PERMANENTEMENTE a {{ u.nombre }} {{ u.apellido }}? Esta acción borrará el registro de la base de datos y no se puede deshacer.');">
+                                    <button type="submit" class="text-red-700 hover:text-red-900 font-semibold cursor-pointer" aria-label="Eliminar definitivamente usuario {{ u.nombre }} {{ u.apellido }}">
+                                        Eliminar Definitivamente
+                                    </button>
+                                </form>
                             {% endif %}
                         </div>
                     </td>

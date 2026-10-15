@@ -179,3 +179,18 @@ def desbloquear_usuario(user):
     db.session.commit()
     return user
 
+
+def eliminar_usuario_fisicamente(user):
+    """Elimina permanentemente a un usuario de la base de datos (Baja Física)."""
+    if user.role and user.role.name == "Administrador":
+        raise ValueError("Los usuarios con rol Administrador no pueden ser eliminados.")
+
+    try:
+        db.session.delete(user)
+        db.session.commit()
+        return True
+    except Exception:
+        db.session.rollback()
+        raise
+
+
