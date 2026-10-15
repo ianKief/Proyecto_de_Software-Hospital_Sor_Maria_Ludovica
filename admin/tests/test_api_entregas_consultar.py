@@ -21,6 +21,7 @@ from src.core.personnel.models import Personal
 from src.core.personnel_types.models import PersonnelType
 from src.core.sectors.models import Sector
 from src.core.users.models import User
+from tests.helpers_token import cliente_con_token
 
 FECHA = date(2026, 10, 13)
 OTRA_FECHA = date(2026, 10, 12)
@@ -191,19 +192,10 @@ def crear_entrega(datos, persona, sector, fecha, comida):
     return entrega
 
 
-def cliente_con_sesion(app, usuario):
-    """Devuelve un cliente de pruebas con la sesión de ``usuario`` iniciada."""
-    client = app.test_client()
-    with client.session_transaction() as session:
-        session["user"] = usuario.email
-        session["user_id"] = usuario.id
-    return client
-
-
 @pytest.fixture
 def comedor(app, datos):
     """Cliente logueado como usuario del Sector Comedor."""
-    return cliente_con_sesion(app, datos["usuario_comedor"])
+    return cliente_con_token(app, datos["usuario_comedor"])
 
 
 def fijar_hora(monkeypatch, momento):
@@ -218,8 +210,8 @@ def ids_de_items(respuesta):
 
 # Acceso
 
-def test_sin_sesion_responde_401(app):
-    """Sin sesión, listado y detalle responden 401."""
+def test_sin_token_responde_401(app):
+    """Sin token, listado y detalle responden 401."""
     client = app.test_client()
 
     assert client.get(URL).status_code == 401
@@ -228,7 +220,7 @@ def test_sin_sesion_responde_401(app):
 
 def test_rol_sin_permiso_responde_403(app, datos):
     """Un rol sin ``delivery_index`` ni ``delivery_show`` recibe 403."""
-    client = cliente_con_sesion(app, datos["usuario_sin_permisos"])
+    client = cliente_con_token(app, datos["usuario_sin_permisos"])
 
     assert client.get(URL).status_code == 403
     assert client.get(f"{URL}/1").status_code == 403

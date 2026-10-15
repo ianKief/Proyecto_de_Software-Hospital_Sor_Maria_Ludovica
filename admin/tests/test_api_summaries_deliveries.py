@@ -20,6 +20,7 @@ from src.core.personnel.models import Personal
 from src.core.personnel_types.models import PersonnelType
 from src.core.sectors.models import Sector
 from src.core.users.models import User
+from tests.helpers_token import cliente_con_token
 
 MARTES = date(2026, 10, 13)
 LUNES = date(2026, 10, 12)
@@ -196,19 +197,10 @@ def entregar(datos, autorizacion):
     db.session.commit()
 
 
-def cliente_con_sesion(app, usuario):
-    """Devuelve un cliente de pruebas con la sesión de ``usuario`` iniciada."""
-    client = app.test_client()
-    with client.session_transaction() as session:
-        session["user"] = usuario.email
-        session["user_id"] = usuario.id
-    return client
-
-
 @pytest.fixture
 def alimentacion(app, datos):
     """Cliente logueado como usuario de Servicio de Alimentación."""
-    return cliente_con_sesion(app, datos["usuario_alimentacion"])
+    return cliente_con_token(app, datos["usuario_alimentacion"])
 
 
 @pytest.fixture
@@ -252,14 +244,14 @@ def cantidades(autorizadas, entregadas):
 
 # Acceso
 
-def test_sin_sesion_responde_401(app):
-    """Sin sesión responde 401."""
+def test_sin_token_responde_401(app):
+    """Sin token responde 401."""
     assert app.test_client().get(URL).status_code == 401
 
 
 def test_comedor_sin_permiso_responde_403(app, datos):
     """El Comedor tiene ``delivery_index`` pero no ``summary_deliveries``."""
-    client = cliente_con_sesion(app, datos["usuario_comedor"])
+    client = cliente_con_token(app, datos["usuario_comedor"])
 
     assert client.get(URL).status_code == 403
 

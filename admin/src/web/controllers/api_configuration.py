@@ -14,7 +14,7 @@ api_configuration_bp = Blueprint("api_configuration", __name__, url_prefix="/api
 def configuration_show():
     """Devuelve en JSON los ajustes del sistema.
 
-    Lo puede pedir cualquier usuario con sesión (no hace falta un permiso).
+    Lo puede pedir cualquier usuario con token válido (no hace falta un permiso).
     ``mensaje_mantenimiento`` sale ``null`` si no hay mensaje guardado.
     """
     configuracion = obtener_configuracion()
