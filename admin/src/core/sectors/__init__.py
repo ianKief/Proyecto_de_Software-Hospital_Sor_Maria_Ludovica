@@ -110,7 +110,7 @@ def update_sector(sector_id: int, nombre: str = None, descripcion: str = None, j
 
     # Si se envía un nombre, lo validamos (excluyendo el id actual de la unicidad) y lo asignamos
     if nombre and nombre.strip():
-        nombre_limpio = validate_nombre(nombre, exclude_sector_id=sector_id)
+        nombre_limpio = validate_nombre(nombre)
         validate_nombre_disponible(nombre_limpio, sector_id_ignorar=sector_id)
         sector.nombre = nombre_limpio
 
