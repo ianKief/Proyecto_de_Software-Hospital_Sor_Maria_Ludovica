@@ -1,7 +1,7 @@
 from src.core.sectors.models import Sector
 from src.core.sectors.exceptions import SectorValidationError, SectorAlreadyExistsError, SectorInactiveExistsError
 from src.core.personnel.models import Personal
-#from src.core.pedidos.models import Pedido
+from src.core.pedidos.models import Pedido
 
 
 MAX_NOMBRE_LENGTH = 255
@@ -102,13 +102,11 @@ def validate_deletion(sector) -> None:
         )
         
     # 3. Validar que no tenga pedidos asociados (Comentado hasta implementar)
-    """
     pedidos_asociados = Pedido.query.filter_by(sector_id=sector.id).first()
     if pedidos_asociados:
         raise SectorValidationError(
             "existen pedidos registrados a nombre de este sector"
         )
-    """
 
 def validate_jefes_servicio(jefes_ids: list[int] | None, current_sector_id: int | None = None) -> tuple[list, list[str]]:
     """
