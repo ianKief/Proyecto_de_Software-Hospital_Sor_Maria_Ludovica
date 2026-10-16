@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import Blueprint, render_template, request, redirect, url_for, flash, Response
 from src.core import personnel
 from src.core.personnel.validators import ValidationError
 from src.web.helpers.paginacion import validar_pagina
@@ -167,3 +167,46 @@ def delete(personnel_id: int):
     except ValidationError as e:
         flash(str(e), "error")
     return redirect(url_for("personnel.index"))
+
+@bp.get("/importar")
+@permission_required("personnel_import")
+def import_csv():
+    return render_template("personnel/importar.html", resultado=None)
+
+
+@bp.post("/importar")
+@permission_required("personnel_import")
+def process_import_csv():
+    if "archivo_csv" not in request.files:
+        flash("No se ha enviado ningún archivo.", "error")
+        return redirect(url_for("personnel.import_csv"))
+
+    archivo = request.files["archivo_csv"]
+    if not archivo or archivo.filename == "":
+        flash("Debe seleccionar un archivo .csv.", "error")
+        return redirect(url_for("personnel.import_csv"))
+
+    if not archivo.filename.lower().endswith(".csv"):
+        flash("El archivo seleccionado debe ser de extensión .csv", "error")
+        return redirect(url_for("personnel.import_csv"))
+
+    resultado = personnel.importar_personal_csv(archivo.stream)
+
+    if resultado["importados"] > 0:
+        flash(f"Se importaron exitosamente {resultado['importados']} registros.", "success")
+    if resultado["rechazados"] > 0:
+        flash(f"Se rechazaron {resultado['rechazados']} registros. Revise los motivos detallados abajo.", "error")
+
+    return render_template("personnel/importar.html", resultado=resultado)
+
+@bp.get("/plantilla-csv")
+@permission_required("personnel_import")
+def download_template_csv():
+    """Genera y descarga un CSV de ejemplo listo para completar."""
+    columnas = "dni,nombre,apellido,tipo_personal,tipo_menu,sector\n"
+    ejemplo = "40111222,Juan,Perez,Planta Permanente,General,Urgencias\n"
+    return Response(
+        columnas + ejemplo,
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=plantilla_personal.csv"},
+    )

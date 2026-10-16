@@ -1,5 +1,6 @@
 import pytest
 from src.web import create_app
+from src.core import personnel
 from src.core.personnel.models import Personal
 from src.core.personnel_types.models import PersonnelType
 from src.core.menu_types.models import MenuType
@@ -138,6 +139,11 @@ def test_baja_logica_cuando_posee_pedidos(test_setup):
     menus = personnel.list_menu_types()
     sectores = personnel.list_active_sectors()
 
+    prev = Personal.query.filter_by(dni=dni_test).first()
+    if prev:
+        db.session.delete(prev)
+        db.session.commit()
+
     data = {
         "dni": dni_test,
         "nombre": "Roman",
@@ -153,12 +159,11 @@ def test_baja_logica_cuando_posee_pedidos(test_setup):
     personnel.has_order_history = lambda pid: True
 
     try:
-        client.post(f"/personal/{persona.id}/eliminar", follow_redirects=True)
+        res = client.post(f"/personal/{persona.id}/eliminar", follow_redirects=True)
+        assert res.status_code == 200
         db.session.refresh(persona)
         assert persona.activo is False
     finally:
         personnel.has_order_history = orig_has_order
         db.session.delete(persona)
         db.session.commit()
-    p_borrado = Personal.query.get(p_id)
-    assert p_borrado is None or not p_borrado.activo
