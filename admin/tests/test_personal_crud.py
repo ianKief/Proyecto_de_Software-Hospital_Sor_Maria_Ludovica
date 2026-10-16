@@ -7,6 +7,7 @@ from src.core.sectors.models import Sector
 from src.core.users.models import User
 from src.core.auth.models import Role, Permission
 from src.core.db import db
+from src.core import personnel
 
 
 @pytest.fixture
@@ -126,7 +127,7 @@ def test_ciclo_completo_personal(test_setup):
     res_del = client.post(f"/personal/{p_id}/eliminar", follow_redirects=True)
     assert res_del.status_code == 200
 
-    eliminada = Personal.query.get(persona_id)
+    eliminada = Personal.query.get(p_id)
     assert eliminada is None
 
 
@@ -142,10 +143,11 @@ def test_baja_logica_cuando_posee_pedidos(test_setup):
         "nombre": "Roman",
         "apellido": "Riquelme",
         "personnel_type_id": str(tipos[0].id),
-        "sector_id": str(sectores[0].id) if sectores else "",
+        "sector_id": str(sectores[0].id),
         "menu_type_id": str(menus[0].id),
     }
     persona = personnel.create_personnel(data)
+    p_id = persona.id
 
     orig_has_order = personnel.has_order_history
     personnel.has_order_history = lambda pid: True
