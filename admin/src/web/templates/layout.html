@@ -21,6 +21,15 @@
                     {% if session.get('user') %}
                         <li><a href="{{ url_for('users.user_index') }}" class="text-gray-600 hover:text-gray-900 font-medium px-3 py-2 rounded-md transition-colors">Usuarios</a></li>
                         <li><a href="{{ url_for('sectors.index') }}" class="text-gray-600 hover:text-gray-900 font-medium px-3 py-2 rounded-md transition-colors">Sectores</a></li>
+                        
+                        {% if check_permission("personnel_index") %}
+                        <li><a href="{{ url_for('personnel.index') }}" class="text-gray-600 hover:text-gray-900 font-medium px-3 py-2 rounded-md transition-colors">Personal</a></li>
+                        {% endif %}
+
+                        {% if check_permission("quota_index") %}
+                        <li><a href="{{ url_for('quotas.index') }}" class="text-gray-600 hover:text-gray-900 font-medium px-3 py-2 rounded-md transition-colors">Cupos</a></li>
+                        {% endif %}
+
                         {% if check_permission("config_show") %}
                         <li><a href="{{ url_for('configuration.config_show') }}" class="text-gray-600 hover:text-gray-900 font-medium px-3 py-2 rounded-md transition-colors">Parámetros generales del sistema</a></li>
                         {% endif %}

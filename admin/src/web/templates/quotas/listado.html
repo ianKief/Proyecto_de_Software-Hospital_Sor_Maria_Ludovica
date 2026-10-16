@@ -1,0 +1,157 @@
+{% extends "layout.html" %}
+
+{% block title %}Gestión de Cupos{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+  <!-- Mensajes Flash -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="mb-6 space-y-2">
+        {% for category, message in messages %}
+          <div class="p-4 rounded-md border text-sm {% if category == 'error' %}bg-red-50 border-red-200 text-red-700{% else %}bg-green-50 border-green-200 text-green-700{% endif %}">
+            <span class="font-bold">{% if category == 'error' %}Atención:{% else %}Éxito:{% endif %}</span> {{ message }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <div class="flex justify-between items-center mb-6">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-800">Cupos por Sector</h1>
+      <p class="text-xs text-gray-500 mt-1">Límites diarios de comensales regulares para cada comida.</p>
+    </div>
+    {% if not es_jefe %}
+    <a href="{{ url_for('quotas.new') }}" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg shadow-sm transition">
+      + Asignar Cupo
+    </a>
+    {% endif %}
+  </div>
+
+  <!-- Filtros y Ordenamiento -->
+  <form method="GET" action="{{ url_for('quotas.index') }}" class="bg-white p-4 rounded-lg shadow-sm mb-6 border border-gray-200">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div>
+        <label class="block text-xs font-semibold text-gray-600 uppercase mb-1">Sector</label>
+        <select name="sector_id" class="w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm bg-white" {% if es_jefe %}disabled{% endif %}>
+          {% if not es_jefe %}
+            <option value="">Todos los sectores</option>
+          {% endif %}
+          {% for s in sectores %}
+            <option value="{{ s.id }}" {% if sector_id == s.id %}selected{% endif %}>{{ s.nombre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-600 uppercase mb-1">Tipo de Comida</label>
+        <select name="tipo_comida_id" class="w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm bg-white">
+          <option value="">Todas las comidas</option>
+          {% for t in tipos_comida %}
+            <option value="{{ t.id }}" {% if tipo_comida_id == t.id %}selected{% endif %}>{{ t.nombre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-600 uppercase mb-1">Orden por Sector</label>
+        <select name="order" class="w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm bg-white">
+          <option value="asc" {% if order == 'asc' %}selected{% endif %}>A - Z (Ascendente)</option>
+          <option value="desc" {% if order == 'desc' %}selected{% endif %}>Z - A (Descendente)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="mt-4 flex justify-end space-x-2">
+      <a href="{{ url_for('quotas.index') }}" class="bg-gray-100 hover:bg-gray-200 text-gray-700 py-1.5 px-3 rounded text-sm transition">Limpiar</a>
+      <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white py-1.5 px-4 rounded text-sm transition">Filtrar</button>
+    </div>
+  </form>
+
+  <!-- Tabla de Cupos -->
+  <div class="bg-white shadow-sm rounded-lg overflow-hidden border border-gray-200">
+    <table class="min-w-full divide-y divide-gray-200 text-sm">
+      <thead class="bg-gray-50 text-gray-500 font-medium">
+        <tr>
+          <th class="px-6 py-3 text-left">Sector</th>
+          <th class="px-6 py-3 text-left">Tipo de Comida</th>
+          <th class="px-6 py-3 text-left">Cantidad Máxima</th>
+          <th class="px-6 py-3 text-left">Última Modificación</th>
+          {% if not es_jefe %}
+          <th class="px-6 py-3 text-right">Acciones</th>
+          {% endif %}
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-200">
+        {% for c in cupos %}
+        <tr class="hover:bg-gray-50">
+          <td class="px-6 py-4 font-medium text-gray-900">{{ c.sector.nombre }}</td>
+          <td class="px-6 py-4 text-gray-700">{{ c.tipo_comida.nombre }}</td>
+          <td class="px-6 py-4 font-semibold text-blue-600">{{ c.cantidad }} viandas</td>
+          <td class="px-6 py-4 text-gray-500 text-xs">
+            {{ c.updated_at.strftime('%d/%m/%Y %H:%M') if c.updated_at else '-' }}
+          </td>
+          {% if not es_jefe %}
+          <td class="px-6 py-4 text-right space-x-3 whitespace-nowrap">
+            <a href="{{ url_for('quotas.edit', quota_id=c.id) }}" class="text-blue-600 hover:text-blue-900 font-medium text-xs">
+              Editar
+            </a>
+            <button type="button" onclick="document.getElementById('modal-delete-{{ c.id }}').showModal()" class="text-red-600 hover:text-red-900 font-medium text-xs">
+              Eliminar
+            </button>
+
+            <!-- Modal de confirmación -->
+            <dialog id="modal-delete-{{ c.id }}" class="rounded-lg shadow-xl p-0 backdrop:bg-gray-900/40 border border-gray-200">
+              <div class="p-6 max-w-sm text-left">
+                <h3 class="text-lg font-bold text-gray-900 text-center mb-2">¿Eliminar cupo?</h3>
+                <p class="text-xs text-gray-500 text-center mb-6">
+                  Se removerá el cupo de <strong>{{ c.tipo_comida.nombre }}</strong> para el sector <strong>{{ c.sector.nombre }}</strong>.
+                </p>
+                <form action="{{ url_for('quotas.delete', quota_id=c.id) }}" method="POST" class="flex justify-center space-x-3">
+                  <button type="button" onclick="document.getElementById('modal-delete-{{ c.id }}').close()" class="px-4 py-2 border border-gray-300 rounded-md text-xs font-medium text-gray-700 hover:bg-gray-50">
+                    Cancelar
+                  </button>
+                  <button type="submit" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md text-xs font-medium">
+                    Sí, eliminar
+                  </button>
+                </form>
+              </div>
+            </dialog>
+          </td>
+          {% endif %}
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="{% if not es_jefe %}5{% else %}4{% endif %}" class="px-6 py-8 text-center text-gray-500">
+            No se encontraron cupos registrados.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <!-- Paginación -->
+    <div class="bg-gray-50 px-6 py-4 flex items-center justify-between border-t border-gray-200">
+      <div>
+        <p class="text-sm text-gray-700">
+          Página <span class="font-medium">{{ pagina.page }}</span> de <span class="font-medium">{{ pagina.pages }}</span>
+        </p>
+      </div>
+      <div class="flex space-x-2">
+        {% if pagina.has_prev %}
+          <a href="{{ url_for(request.endpoint, page=pagina.prev_num, sector_id=sector_id, tipo_comida_id=tipo_comida_id, order=order) }}" 
+             class="px-3 py-1 bg-white border border-gray-300 rounded text-sm text-gray-700 hover:bg-gray-50 transition">
+            Anterior
+          </a>
+        {% endif %}
+        {% if pagina.has_next %}
+          <a href="{{ url_for(request.endpoint, page=pagina.next_num, sector_id=sector_id, tipo_comida_id=tipo_comida_id, order=order) }}" 
+             class="px-3 py-1 bg-white border border-gray-300 rounded text-sm text-gray-700 hover:bg-gray-50 transition">
+            Siguiente
+          </a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

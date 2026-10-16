@@ -7,7 +7,6 @@ from src.core.paginacion import paginar
 from src.core.personnel.models import Personal
 from src.core.personnel.validators import validate_personnel_data, ValidationError
 
-# Imports según la nueva estructura de carpetas de tu equipo:
 from src.core.personnel_types.models import PersonnelType
 from src.core.menu_types.models import MenuType
 from src.core.sectors.models import Sector

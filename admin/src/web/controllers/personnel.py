@@ -2,11 +2,13 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash
 from src.core import personnel
 from src.core.personnel.validators import ValidationError
 from src.web.helpers.paginacion import validar_pagina
+from src.web.helpers.auth import permission_required
 
 bp = Blueprint("personnel", __name__, url_prefix="/personal")
 
 
 @bp.get("/")
+@permission_required("personnel_index")
 def index():
     # lee la pagina
     numero = validar_pagina(request.args.get("page")) or 1
@@ -14,7 +16,7 @@ def index():
     # lee el filtrado y orden
     dni = request.args.get("dni", "").strip()
     nombre_apellido = request.args.get("nombre_apellido", "").strip()
-    
+
     sector_id_raw = request.args.get("sector_id", "")
     sector_id = int(sector_id_raw) if sector_id_raw.isdigit() else None
 
@@ -64,6 +66,7 @@ def index():
 
 
 @bp.get("/nuevo")
+@permission_required("personnel_new")
 def new():
     tipos_personal = personnel.list_personnel_types()
     tipos_menu = personnel.list_menu_types()
@@ -78,6 +81,7 @@ def new():
 
 
 @bp.post("/nuevo")
+@permission_required("personnel_new")
 def create():
     data = request.form.to_dict()
     try:
@@ -97,7 +101,9 @@ def create():
             data=data,
         )
 
+
 @bp.get("/<int:personnel_id>/editar")
+@permission_required("personnel_update")
 def edit(personnel_id: int):
     persona = personnel.get_personnel_by_id(personnel_id)
     if not persona:
@@ -127,7 +133,9 @@ def edit(personnel_id: int):
         data=data,
     )
 
+
 @bp.post("/<int:personnel_id>/editar")
+@permission_required("personnel_update")
 def update(personnel_id: int):
     data = request.form.to_dict()
     try:
@@ -149,7 +157,9 @@ def update(personnel_id: int):
             data=data,
         )
 
+
 @bp.post("/<int:personnel_id>/eliminar")
+@permission_required("personnel_destroy")
 def delete(personnel_id: int):
     try:
         es_fisica, mensaje = personnel.delete_personnel(personnel_id)

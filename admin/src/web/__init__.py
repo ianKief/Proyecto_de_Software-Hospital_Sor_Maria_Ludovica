@@ -20,6 +20,7 @@ from src.web.controllers.api_deliveries import api_deliveries_bp
 from src.web.controllers.personnel import bp as personnel_bp
 from src.web.helpers.auth import check_permission
 from src.web.helpers.mantenimiento import verificar_mantenimiento
+from src.web.controllers.quotas import bp as quotas_bp
 from .config import config
 
 from src.core.db import db
@@ -60,6 +61,7 @@ def create_app(env="development", static_folder=None):
     app.register_blueprint(api_configuration_bp)
     app.register_blueprint(api_deliveries_bp)
     app.register_blueprint(personnel_bp)
+    app.register_blueprint(quotas_bp)
     app.jinja_env.globals["check_permission"] = check_permission
     app.before_request(verificar_mantenimiento)
 
