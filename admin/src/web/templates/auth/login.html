@@ -2,7 +2,7 @@
 
 {% block content %}
 <main id="main-content" class="container" tabindex="-1">
-    <div style="max-width: 400px; margin: 0 auto; padding: var(--spacing-lg) 0;">
+    <div class="auth-wrapper">
         <h1 class="text-center">Iniciar Sesión</h1>
         
         <!-- Contenedor accesible para notificaciones -->
@@ -10,7 +10,7 @@
           {% if messages %}
             <div role="alert" aria-live="polite" class="flash-messages">
               {% for category, message in messages %}
-                <div style="padding: var(--spacing-sm); margin-bottom: var(--spacing-sm); border-radius: var(--radius); background-color: {% if category == 'error' %}#f8d7da{% else %}#d4edda{% endif %}; color: {% if category == 'error' %}#721c24{% else %}#155724{% endif %}; border: 1px solid {% if category == 'error' %}#f5c6cb{% else %}#c3e6cb{% endif %};">
+                <div class="alert alert-{{ category }}">
                   {{ message }}
                 </div>
               {% endfor %}
@@ -18,22 +18,44 @@
           {% endif %}
         {% endwith %}
 
-        <form method="POST" action="{{ url_for('auth.login') }}" style="display: flex; flex-direction: column; gap: var(--spacing-md); background: var(--color-bg); padding: var(--spacing-lg); border-radius: var(--radius); color: var(--color-text); border: 1px solid var(--color-border);">
-            
-            <div style="display: flex; flex-direction: column; gap: 0.25rem;">
-                <label for="email" style="font-weight: 500;">Correo electrónico <span aria-hidden="true" style="color: #dc2626;">*</span></label>
-                <input type="email" id="email" name="email" required aria-required="true" placeholder="ejemplo@hospital.com" 
-                       style="padding: 0.75rem; border: 1px solid var(--color-border); border-radius: var(--radius); min-height: 44px; font-size: 1rem;">
+        <div class="form-auth">
+            <form method="POST" action="{{ url_for('auth.login') }}" class="flex flex-col gap-4">
+                <div class="form-group">
+                    <label for="email" class="form-label">Correo electrónico <span aria-hidden="true" class="required-asterisk">*</span></label>
+                    <input type="email" id="email" name="email" required aria-required="true" placeholder="ejemplo@hospital.com" class="form-input">
+                </div>
+                
+                <div class="form-group">
+                    <label for="password" class="form-label">Contraseña <span aria-hidden="true" class="required-asterisk">*</span></label>
+                    <input type="password" id="password" name="password" required aria-required="true" class="form-input">
+                </div>
+                
+                <button type="submit" class="btn w-full mt-2">Ingresar con contraseña</button>
+            </form>
+
+            <div class="relative my-2">
+                <div class="absolute inset-0 flex items-center">
+                    <div class="w-full border-t border-gray-300"></div>
+                </div>
+                <div class="relative flex justify-center text-sm">
+                    <span class="px-2 bg-white text-gray-500 font-medium">O también podés</span>
+                </div>
             </div>
-            
-            <div style="display: flex; flex-direction: column; gap: 0.25rem;">
-                <label for="password" style="font-weight: 500;">Contraseña <span aria-hidden="true" style="color: #dc2626;">*</span></label>
-                <input type="password" id="password" name="password" required aria-required="true" 
-                       style="padding: 0.75rem; border: 1px solid var(--color-border); border-radius: var(--radius); min-height: 44px; font-size: 1rem;">
-            </div>
-            
-            <button type="submit" class="btn" style="width: 100%; min-height: 44px; font-size: 1rem; margin-top: var(--spacing-sm);">Ingresar</button>
-        </form>
+
+            <form method="POST" action="{{ url_for('auth.magic_login_request') }}" class="flex flex-col gap-3">
+                <p class="text-xs text-gray-600 text-center">
+                    ¿Preferís ingresar sin contraseña? Ingresá tu correo y te enviaremos un enlace de acceso directo.
+                </p>
+                <div class="form-group">
+                    <label for="magic_email" class="form-label">Correo electrónico</label>
+                    <input type="email" id="magic_email" name="email" required placeholder="ejemplo@hospital.com" class="form-input">
+                </div>
+                <button type="submit" class="w-full inline-flex items-center justify-center gap-2 px-4 py-2 border border-blue-600 text-sm font-medium rounded-md shadow-sm text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                    <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                    Iniciar sesión con enlace al correo
+                </button>
+            </form>
+        </div>
     </div>
 </main>
 {% endblock %}

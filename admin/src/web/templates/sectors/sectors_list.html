@@ -1,0 +1,242 @@
+{% extends "layout.html" %}
+
+{% block content %}
+
+<main id="main-content" class="flex-grow py-8" tabindex="-1">
+    <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+        
+        <!-- Mensajes Flash / Alertas -->
+        <div role="status" aria-live="polite" class="space-y-3 mb-6">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        {% set alert_classes = 'bg-red-50 border-red-500 text-red-800' if category in ['danger', 'error'] else ('bg-yellow-50 border-yellow-400 text-yellow-800' if category == 'warning' else 'bg-green-50 border-green-500 text-green-800') %}
+                        <div class="border-l-4 p-4 rounded-r-md {{ alert_classes }}" role="alert">
+                            <p class="text-sm font-medium">{{ message }}</p>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
+
+        <!-- Encabezado de la página -->
+        <div class="sm:flex sm:items-center sm:justify-between mb-8">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Sectores</h1>
+                <p class="mt-2 text-sm text-gray-600">
+                    Listado de los sectores registrados en el sistema.
+                </p>
+            </div>
+            <div class="mt-4 sm:mt-0">
+                <a href="{{ url_for('sectors.create') }}" 
+                   class="inline-flex items-center justify-center w-full sm:w-auto px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-600 transition-colors">
+                    Crear nuevo sector
+                </a>
+            </div>
+        </div>
+
+        <!-- Formulario de Filtros de Búsqueda -->
+        <section class="bg-white p-5 rounded-lg border border-gray-200 shadow-sm mb-6" aria-labelledby="filtros-title">
+            <h2 id="filtros-title" class="sr-only">Filtros de búsqueda de sectores</h2>
+            
+            <form method="GET" action="{{ url_for('sectors.index') }}" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 items-end">
+                
+                <input type="hidden" name="sort_by" value="{{ sort_by }}">
+                <input type="hidden" name="order" value="{{ order }}">
+                
+                <!-- Filtro: Nombre -->
+                <div>
+                    <label for="search_nombre" class="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
+                    <input type="text" name="search_nombre" id="search_nombre" value="{{ search_nombre }}" placeholder="Ej: Cocina..." 
+                           class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border transition-colors">
+                </div>
+
+                <!-- Filtro: Estado -->
+                <div>
+                    <label for="search_estado" class="block text-sm font-medium text-gray-700 mb-1">Estado</label>
+                    <select name="search_estado" id="search_estado" class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border transition-colors bg-white">
+                        <option value="">Todos los estados</option>
+                        <option value="activo" {% if search_estado == 'activo' %}selected{% endif %}>Activo</option>
+                        <option value="inactivo" {% if search_estado == 'inactivo' %}selected{% endif %}>Inactivo</option>
+                    </select>
+                </div>
+
+                <!-- Filtro: Jefe de Servicio -->
+                <div>
+                    <label for="search_jefe" class="block text-sm font-medium text-gray-700 mb-1">Jefe de Servicio</label>
+                    <input type="text" name="search_jefe" id="search_jefe" value="{{ search_jefe }}" placeholder="Nombre o apellido..." 
+                           class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border transition-colors">
+                </div>
+
+                <!-- Botones de Acción -->
+                <div class="flex space-x-2">
+                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 border border-transparent rounded-md shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                        Buscar
+                    </button>
+                    <a href="{{ url_for('sectors.index') }}" class="w-full inline-flex justify-center items-center bg-white hover:bg-gray-50 text-gray-700 font-medium py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                        Limpiar
+                    </a>
+                </div>
+            </form>
+        </section>
+
+        <!-- Tabla de datos (Vista Resumida) -->
+        <div class="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200 text-sm">
+                    <caption class="sr-only">Listado paginado de sectores del hospital</caption>
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <!-- Columna Nombre Ordenable -->
+                            {% set nombre_order = 'desc' if sort_by == 'nombre' and order == 'asc' else 'asc' %}
+                            <th scope="col" class="px-6 py-3 text-left font-semibold text-gray-900" 
+                                {% if sort_by == 'nombre' %} aria-sort="{{ 'ascending' if order == 'asc' else 'descending' }}" {% endif %}>
+                                
+                                <a href="{{ url_for('sectors.index', sort_by='nombre', order=nombre_order, page=pagina.page, search_nombre=search_nombre, search_estado=search_estado, search_jefe=search_jefe) }}" 
+                                   class="group inline-flex items-center hover:text-blue-600 focus:outline-none focus:underline whitespace-nowrap">
+                                    Nombre
+                                    <span class="ml-2 flex-none rounded text-gray-400 group-hover:text-blue-600">
+                                        {% if sort_by == 'nombre' %}
+                                            {% if order == 'asc' %}
+                                                <svg class="icon-sort" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" /></svg>
+                                            {% else %}
+                                                <svg class="icon-sort" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                                            {% endif %}
+                                        {% else %}
+                                            <svg class="icon-sort opacity-0 group-hover:opacity-50 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" /></svg>
+                                        {% endif %}
+                                    </span>
+                                </a>
+                            </th>
+
+                            <!-- Columna Fecha de Creación Ordenable -->
+                            {% set fecha_order = 'desc' if sort_by == 'created_at' and order == 'asc' else 'asc' %}
+                            <th scope="col" class="px-6 py-3 text-left font-semibold text-gray-900"
+                                {% if sort_by == 'created_at' %} aria-sort="{{ 'ascending' if order == 'asc' else 'descending' }}" {% endif %}>
+                                
+                                <a href="{{ url_for('sectors.index', sort_by='created_at', order=fecha_order, page=pagina.page, search_nombre=search_nombre, search_estado=search_estado, search_jefe=search_jefe) }}" 
+                                   class="group inline-flex items-center hover:text-blue-600 focus:outline-none focus:underline whitespace-nowrap">
+                                    Fecha de Creación
+                                    <span class="ml-2 flex-none rounded text-gray-400 group-hover:text-blue-600">
+                                        {% if sort_by == 'created_at' %}
+                                            {% if order == 'asc' %}
+                                                <svg class="icon-sort" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" /></svg>
+                                            {% else %}
+                                                <svg class="icon-sort" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                                            {% endif %}
+                                        {% else %}
+                                            <svg class="icon-sort opacity-0 group-hover:opacity-50 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" /></svg>
+                                        {% endif %}
+                                    </span>
+                                </a>
+                            </th>
+
+                            <!-- Columna Estado -->
+                            <th scope="col" class="px-6 py-3 text-left font-semibold text-gray-900">Estado</th>
+                            
+                            <!-- Columna Acciones -->
+                            <th scope="col" class="px-6 py-3 text-right font-semibold text-gray-900">
+                                <span class="sr-only">Acciones</span>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200 bg-white">
+                        {% for sector in sectores %}
+                        <tr class="hover:bg-gray-50 transition-colors">
+                            <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-900">{{ sector.nombre }}</td>
+                            
+                            <td class="px-6 py-4 whitespace-nowrap text-gray-600">
+                                {{ sector.created_at.strftime('%d/%m/%Y %H:%M') if sector.created_at else '-' }}
+                            </td>
+                            
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                {% if sector.activo %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">Activo</span>
+                                {% else %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200">Inactivo</span>
+                                {% endif %}
+                            </td>
+                            
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <a href="{{ url_for('sectors.show', id=sector.id) }}" 
+                                class="inline-flex items-center text-blue-600 hover:text-blue-900 focus:outline-none focus:underline"
+                                aria-label="Ver detalles del sector {{ sector.nombre }}">
+                                    Ver detalles
+                                </a>
+                            </td>
+                        </tr>
+
+                        {% else %}
+                        <tr>
+                            <td colspan="4" class="px-6 py-8 text-center text-gray-500">
+                                No se encontraron sectores que coincidan con la búsqueda.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Controles de Paginación -->
+            {% if pagina.pages > 1 %}
+            <div class="bg-white px-4 py-3 border-t border-gray-200 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div class="hidden sm:block">
+                    <p class="text-sm text-gray-700">
+                        Mostrando <span class="font-medium">{{ pagina.first_item }}</span> a <span class="font-medium">{{ pagina.last_item }}</span> de <span class="font-medium">{{ pagina.total }}</span> resultados
+                    </p>
+                </div>
+
+                <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px w-full sm:w-auto overflow-x-auto" aria-label="Navegación de páginas">
+                    <!-- Botón Anterior -->
+                    {% if pagina.has_prev %}
+                        <a href="{{ url_for('sectors.index', page=pagina.prev_num, sort_by=sort_by, order=order, search_nombre=search_nombre, search_estado=search_estado, search_jefe=search_jefe) }}" 
+                        class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 focus:z-10 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                        aria-label="Ir a la página anterior">
+                            <span aria-hidden="true">&laquo; Anterior</span>
+                        </a>
+                    {% else %}
+                        <button disabled aria-disabled="true" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-gray-50 text-sm font-medium text-gray-400 cursor-not-allowed">
+                            <span aria-hidden="true">&laquo; Anterior</span>
+                        </button>
+                    {% endif %}
+
+                    <!-- Números de página -->
+                    {% for p in pagina.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=1) %}
+                        {% if p %}
+                            {% if p == pagina.page %}
+                                <span aria-current="page" class="z-10 bg-blue-50 border-blue-500 text-blue-600 relative inline-flex items-center px-4 py-2 border text-sm font-medium">
+                                    <span class="sr-only">Página actual, página </span>{{ p }}
+                                </span>
+                            {% else %}
+                                <a href="{{ url_for('sectors.index', page=p, sort_by=sort_by, order=order, search_nombre=search_nombre, search_estado=search_estado, search_jefe=search_jefe) }}" 
+                                class="bg-white border-gray-300 text-gray-500 hover:bg-gray-50 relative inline-flex items-center px-4 py-2 border text-sm font-medium focus:z-10 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors">
+                                    <span class="sr-only">Ir a la página </span>{{ p }}
+                                </a>
+                            {% endif %}
+                        {% else %}
+                            <span class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700" aria-hidden="true">
+                                ...
+                            </span>
+                        {% endif %}
+                    {% endfor %}
+
+                    <!-- Botón Siguiente -->
+                    {% if pagina.has_next %}
+                        <a href="{{ url_for('sectors.index', page=pagina.next_num, sort_by=sort_by, order=order, search_nombre=search_nombre, search_estado=search_estado, search_jefe=search_jefe) }}" 
+                        class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 focus:z-10 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                        aria-label="Ir a la página siguiente">
+                            <span aria-hidden="true">Siguiente &raquo;</span>
+                        </a>
+                    {% else %}
+                        <button disabled aria-disabled="true" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-gray-50 text-sm font-medium text-gray-400 cursor-not-allowed">
+                            <span aria-hidden="true">Siguiente &raquo;</span>
+                        </button>
+                    {% endif %}
+                </nav>
+            </div>
+            {% endif %}
+        </div>
+
+    </div>
+</main>
+{% endblock %}
