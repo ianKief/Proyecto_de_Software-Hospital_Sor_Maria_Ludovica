@@ -1,4 +1,4 @@
-from datetime import date
+﻿from datetime import date
 from types import SimpleNamespace
 
 from src.web import create_app
@@ -11,25 +11,24 @@ def preparar_cliente(monkeypatch):
     app.config.update(TESTING=True, SECRET_KEY="test-secret")
     client = app.test_client()
 
+    permisos = [
+        SimpleNamespace(name="request_update"),
+        SimpleNamespace(name="request_destroy"),
+    ]
+
+    usuario = SimpleNamespace(
+        id=1,
+        activo=True,
+        role=SimpleNamespace(permissions=permisos),
+    )
+
     monkeypatch.setattr(
         api_auth,
-        "check_permission",
-        lambda permission_name: True,
+        "_obtener_usuario_desde_token",
+        lambda: (usuario, None),
     )
-
-    monkeypatch.setattr(
-        pedidos_controller,
-        "_obtener_usuario_autenticado",
-        lambda: SimpleNamespace(activo=True),
-    )
-
-    with client.session_transaction() as session:
-        session["user"] = "jefe@hospital.com"
-        session["user_id"] = 1
-        session["role"] = "Jefe de Servicio"
 
     return client
-
 
 def test_modificar_pedido_correctamente(monkeypatch):
     pedido = SimpleNamespace(

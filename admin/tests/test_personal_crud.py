@@ -76,13 +76,14 @@ def test_baja_logica_cuando_posee_pedidos(test_setup):
     dni_test = "77445566"
     tipos = personnel.list_personnel_types()
     menus = personnel.list_menu_types()
+    sectores = personnel.list_active_sectors()
 
     data = {
         "dni": dni_test,
         "nombre": "Roman",
         "apellido": "Riquelme",
         "personnel_type_id": str(tipos[0].id),
-        "sector_id": "",
+        "sector_id": str(sectores[0].id) if sectores else "",
         "menu_type_id": str(menus[0].id),
     }
     persona = personnel.create_personnel(data)

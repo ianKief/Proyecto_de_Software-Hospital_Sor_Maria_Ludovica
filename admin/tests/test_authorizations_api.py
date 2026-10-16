@@ -10,26 +10,25 @@ def preparar_cliente(monkeypatch):
     app.config.update(TESTING=True, SECRET_KEY="test-secret")
     client = app.test_client()
 
-    usuario = SimpleNamespace(id=9, activo=True)
+    permisos = [
+        SimpleNamespace(name="authorization_index"),
+        SimpleNamespace(name="authorization_show"),
+        SimpleNamespace(name="authorization_update"),
+    ]
+
+    usuario = SimpleNamespace(
+        id=9,
+        activo=True,
+        role=SimpleNamespace(permissions=permisos),
+    )
 
     monkeypatch.setattr(
         api_auth,
-        "check_permission",
-        lambda permission_name: True,
+        "_obtener_usuario_desde_token",
+        lambda: (usuario, None),
     )
-    monkeypatch.setattr(
-        controller,
-        "_obtener_usuario_autenticado",
-        lambda: usuario,
-    )
-
-    with client.session_transaction() as session:
-        session["user"] = "alimentacion@hospital.com"
-        session["user_id"] = 9
-        session["role"] = "Servicio de Alimentación"
 
     return client
-
 
 def test_rechazar_pedido_correctamente(monkeypatch):
     pedido = SimpleNamespace(id=3)

@@ -6,19 +6,27 @@ from types import SimpleNamespace
 
 def preparar_cliente(monkeypatch):
     app = create_app()
-    app.config.update(TESTING=True, SECRET_KEY="test-secret")
+    app.config.update(
+        TESTING=True,
+        SECRET_KEY="test-secret-key-for-jwt-tests-32-bytes",
+    )
     client = app.test_client()
+
+    usuario = SimpleNamespace(
+        id=1,
+        activo=True,
+        role=SimpleNamespace(
+            permissions=[
+                SimpleNamespace(name="request_new"),
+            ],
+        ),
+    )
 
     monkeypatch.setattr(
         api_auth,
-        "check_permission",
-        lambda permission_name: True,
+        "_obtener_usuario_desde_token",
+        lambda: (usuario, None),
     )
-
-    with client.session_transaction() as session:
-        session["user"] = "jefe@hospital.com"
-        session["user_id"] = 1
-        session["role"] = "Jefe de Servicio"
 
     return client
 
@@ -28,11 +36,6 @@ def test_todas_las_fechas_en_conflicto_devuelven_409(monkeypatch):
         pedidos_controller,
         "validar_pedido",
         lambda data: (True, {"periodicidad": "semanal"}),
-    )
-    monkeypatch.setattr(
-        pedidos_controller,
-        "_obtener_usuario_autenticado",
-        lambda: object(),
     )
     monkeypatch.setattr(
         pedidos_controller,
@@ -62,11 +65,6 @@ def test_carga_parcial_devuelve_pedidos_y_conflictos(monkeypatch):
         pedidos_controller,
         "validar_pedido",
         lambda data: (True, {"periodicidad": "semanal"}),
-    )
-    monkeypatch.setattr(
-        pedidos_controller,
-        "_obtener_usuario_autenticado",
-        lambda: object(),
     )
     monkeypatch.setattr(
         pedidos_controller,

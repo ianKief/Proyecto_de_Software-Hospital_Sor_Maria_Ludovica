@@ -12,16 +12,26 @@ def preparar_cliente(monkeypatch, rol):
     app.config.update(TESTING=True, SECRET_KEY="test-secret")
     client = app.test_client()
 
-    monkeypatch.setattr(
-        api_auth,
-        "check_permission",
-        lambda permission_name: True,
+    permisos = [
+        SimpleNamespace(name="request_index"),
+        SimpleNamespace(name="authorization_index"),
+    ]
+
+    usuario = SimpleNamespace(
+        id=1,
+        activo=True,
+        sector_id=3,
+        role=SimpleNamespace(
+            name=rol,
+            permissions=permisos,
+        ),
     )
 
-    with client.session_transaction() as session:
-        session["user"] = "usuario.prueba@hospital.com"
-        session["user_id"] = 1
-        session["role"] = rol
+    monkeypatch.setattr(
+        api_auth,
+        "_obtener_usuario_desde_token",
+        lambda: (usuario, None),
+    )
 
     return client
 
@@ -54,11 +64,6 @@ def test_listado_pedidos_usa_respuesta_paginada(monkeypatch):
 
     monkeypatch.setattr(
         pedidos_controller,
-        "_obtener_usuario_autenticado",
-        lambda: usuario,
-    )
-    monkeypatch.setattr(
-        pedidos_controller,
         "listar_pedidos_core",
         lambda **kwargs: object(),
     )
@@ -83,12 +88,6 @@ def test_listado_pedidos_usa_respuesta_paginada(monkeypatch):
 def test_listado_pedidos_rechaza_pagina_invalida(monkeypatch):
     usuario = SimpleNamespace(activo=True, sector_id=3)
 
-    monkeypatch.setattr(
-        pedidos_controller,
-        "_obtener_usuario_autenticado",
-        lambda: usuario,
-    )
-
     client = preparar_cliente(monkeypatch, "Jefe de Servicio")
     response = client.get("/api/requests?page=abc")
 
@@ -100,11 +99,6 @@ def test_listado_autorizaciones_usa_respuesta_paginada(monkeypatch):
     pagina = crear_pagina_falsa(pedido)
     usuario = SimpleNamespace(activo=True)
 
-    monkeypatch.setattr(
-        auth_controller,
-        "_obtener_usuario_autenticado",
-        lambda: usuario,
-    )
     monkeypatch.setattr(
         auth_controller,
         "listar_autorizaciones_core",
@@ -138,12 +132,6 @@ def test_listado_autorizaciones_usa_respuesta_paginada(monkeypatch):
 
 def test_listado_autorizaciones_rechaza_pagina_invalida(monkeypatch):
     usuario = SimpleNamespace(activo=True)
-
-    monkeypatch.setattr(
-        auth_controller,
-        "_obtener_usuario_autenticado",
-        lambda: usuario,
-    )
 
     client = preparar_cliente(
         monkeypatch,

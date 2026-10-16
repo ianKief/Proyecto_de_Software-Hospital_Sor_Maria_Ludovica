@@ -3,6 +3,7 @@ from datetime import date
 import pytest
 
 from src.web import create_app
+from tests.helpers_token import cliente_con_token
 from src.core.db import db
 from src.core.auth.models import Permission, Role
 from src.core.configuration.models import ID_CONFIGURACION, Configuration
@@ -44,14 +45,8 @@ def app(monkeypatch):
 
 
 def crear_cliente_con_sesion(app, usuario):
-    client = app.test_client()
+    return cliente_con_token(app, usuario)
 
-    with client.session_transaction() as session:
-        session["user"] = usuario.email
-        session["user_id"] = usuario.id
-        session["role"] = usuario.role.name
-
-    return client
 
 
 @pytest.fixture

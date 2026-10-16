@@ -1,6 +1,6 @@
 from datetime import date
 
-from flask import Blueprint, jsonify, request, session
+from flask import Blueprint, jsonify, request
 from src.web.helpers.api_auth import api_permission_required
 from src.core.pedidos.models import Pedido, SolicitudPedido, Autorizacion
 from src.core.authorizations import (
@@ -12,7 +12,7 @@ from src.core.authorizations import (
 )
 from src.core.paginacion import paginar
 from src.web.helpers.paginacion import validar_pagina, respuesta_paginada
-from src.core.users.models import User
+
 
 
 authorizations_bp = Blueprint(
@@ -22,16 +22,6 @@ authorizations_bp = Blueprint(
 )
 
 
-def _obtener_usuario_autenticado():
-    """Obtiene el usuario autenticado a partir de la sesión."""
-    user_id = session.get("user_id")
-
-    if not user_id:
-        return None
-
-    return User.query.get(user_id)
-
-
 def _obtener_pedido(request_id):
     """Obtiene un pedido por su identificador."""
     return Pedido.query.get(request_id)
@@ -39,10 +29,10 @@ def _obtener_pedido(request_id):
 
 @authorizations_bp.route("", methods=["GET"])
 @api_permission_required("authorization_index")
-def listar_autorizaciones():
+def listar_autorizaciones(current_user):
     """Lista pedidos para revisión del Servicio de Alimentación."""
 
-    usuario = _obtener_usuario_autenticado()
+    usuario = current_user
 
     if usuario is None or not usuario.activo:
         return jsonify({
@@ -121,10 +111,10 @@ def consultar_autorizacion(request_id):
 
 @authorizations_bp.route("/<int:request_id>", methods=["PUT"])
 @api_permission_required("authorization_update")
-def autorizar_pedido(request_id):
+def autorizar_pedido(request_id, current_user):
     """Autoriza individualmente las solicitudes nominadas."""
 
-    usuario = _obtener_usuario_autenticado()
+    usuario = current_user
 
     if usuario is None or not usuario.activo:
         return jsonify({
@@ -169,10 +159,10 @@ def autorizar_pedido(request_id):
     methods=["POST"]
 )
 @api_permission_required("authorization_update")
-def rechazar_pedido(request_id):
+def rechazar_pedido(request_id, current_user):
     """Rechaza un pedido."""
 
-    usuario = _obtener_usuario_autenticado()
+    usuario = current_user
 
     if usuario is None or not usuario.activo:
         return jsonify({

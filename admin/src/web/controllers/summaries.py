@@ -1,7 +1,6 @@
 from datetime import date
 
-from flask import Blueprint, jsonify, request, session
-
+from flask import Blueprint, jsonify, request
 from src.core.summaries import (
     resumen_pedidos as resumen_pedidos_core,
     resumen_autorizaciones as resumen_autorizaciones_core,
@@ -13,12 +12,6 @@ summaries_bp = Blueprint(
     __name__,
     url_prefix="/api/summaries",
 )
-
-
-def _es_jefe_servicio():
-    """Verifica si el usuario autenticado tiene rol de Jefe de Servicio."""
-    return session.get("role") == "Jefe de Servicio"
-
 
 
 def _obtener_filtros():
@@ -66,30 +59,23 @@ def _obtener_filtros():
 
 @summaries_bp.route("/requests", methods=["GET"])
 @api_permission_required("summary_requests")
-def resumen_pedidos():
+def resumen_pedidos(current_user):
     """Obtiene el resumen de comidas pedidas."""
 
     try:
         filtros = _obtener_filtros()
 
-        usuario = None
+        es_jefe_servicio = (
+            current_user.role is not None
+            and current_user.role.name == "Jefe de Servicio"
+        )
 
-        if _es_jefe_servicio():
-            from src.core.users.models import User
-
-            user_id = session.get("user_id")
-
-            if not user_id:
-                return jsonify({
-                    "error": "Usuario no autenticado",
-                }), 401
-
-            usuario = User.query.get(user_id)
+        usuario = current_user if es_jefe_servicio else None
 
         pedidos, agrupamiento, resultados = resumen_pedidos_core(
             filtros=filtros,
             usuario=usuario,
-            es_jefe_servicio=_es_jefe_servicio(),
+            es_jefe_servicio=es_jefe_servicio,
         )
 
     except PermissionError as exc:

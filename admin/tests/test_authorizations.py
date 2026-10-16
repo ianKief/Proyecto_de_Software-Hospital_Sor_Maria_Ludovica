@@ -1,4 +1,4 @@
-from types import SimpleNamespace
+﻿from types import SimpleNamespace
 from src.web.helpers import api_auth
 from src.web import create_app
 from src.web.controllers import authorizations as controller
@@ -10,19 +10,23 @@ def preparar_cliente(monkeypatch):
     app.config.update(TESTING=True, SECRET_KEY="test-secret")
     client = app.test_client()
 
-    monkeypatch.setattr(
-        api_auth,
-        "check_permission",
-        lambda permission_name: True,
+    usuario = SimpleNamespace(
+        id=1,
+        activo=True,
+        role=SimpleNamespace(
+            permissions=[
+                SimpleNamespace(name="authorization_show"),
+            ],
+        ),
     )
 
-    with client.session_transaction() as session:
-        session["user"] = "alimentacion@hospital.com"
-        session["user_id"] = 1
-        session["role"] = "Servicio de Alimentación"
+    monkeypatch.setattr(
+        api_auth,
+        "_obtener_usuario_desde_token",
+        lambda: (usuario, None),
+    )
 
     return client
-
 
 def test_detalle_autorizacion_devuelve_200(monkeypatch):
     pedido = SimpleNamespace(id=7)

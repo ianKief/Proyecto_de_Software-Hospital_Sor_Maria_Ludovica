@@ -1,6 +1,6 @@
 from datetime import date
 
-from flask import Blueprint, jsonify, request, session, current_app
+from flask import Blueprint, jsonify, request, current_app
 
 from src.core.db import db
 from src.core.pedidos import (
@@ -12,7 +12,6 @@ from src.core.pedidos import (
 )
 from src.core.pedidos.models import Pedido, SolicitudPedido
 from src.core.sectors.models import Sector
-from src.core.users.models import User
 from src.web.helpers.pedidos_validaciones import validar_pedido
 from src.web.helpers.api_auth import api_permission_required
 from src.core.paginacion import paginar
@@ -23,20 +22,9 @@ pedidos_bp = Blueprint(
     url_prefix="/api/requests",
 )
 
-
-def _obtener_usuario_autenticado():
-    """Obtiene el usuario autenticado a partir de la sesión."""
-
-    user_id = session.get("user_id")
-
-    if not user_id:
-        return None
-
-    return User.query.get(user_id)
-
 @pedidos_bp.route("", methods=["POST"])
 @api_permission_required("request_new")
-def crear_pedido():
+def crear_pedido(current_user):
     """Crea un pedido y sus solicitudes nominadas."""
 
     data = request.get_json(silent=True)
@@ -51,7 +39,7 @@ def crear_pedido():
     if not es_valido:
         return jsonify(resultado), 400
 
-    usuario = _obtener_usuario_autenticado()
+    usuario = current_user
 
     if not usuario:
         return jsonify({
@@ -113,10 +101,10 @@ def crear_pedido():
 
 @pedidos_bp.route("", methods=["GET"])
 @api_permission_required("request_index")
-def listar_pedidos():
+def listar_pedidos(current_user):
     """Lista los pedidos del sector del Jefe de Servicio autenticado."""
 
-    usuario = _obtener_usuario_autenticado()
+    usuario = current_user
 
     if not usuario:
         return jsonify({
@@ -208,10 +196,10 @@ def listar_pedidos():
 
 @pedidos_bp.route("/<int:request_id>", methods=["GET"])
 @api_permission_required("request_show")
-def consultar_pedido(request_id):
+def consultar_pedido(request_id, current_user):
     """Obtiene el detalle de un pedido."""
 
-    usuario = _obtener_usuario_autenticado()
+    usuario = current_user
 
     if usuario is None:
         return jsonify({
@@ -265,7 +253,7 @@ def consultar_pedido(request_id):
 
 @pedidos_bp.route("/<int:request_id>", methods=["PUT"])
 @api_permission_required("request_update")
-def modificar_pedido(request_id):
+def modificar_pedido(request_id, current_user):
     """Modifica un pedido existente."""
 
     data = request.get_json(silent=True)
@@ -275,7 +263,7 @@ def modificar_pedido(request_id):
             "error": "El cuerpo de la solicitud es obligatorio",
         }), 400
 
-    usuario = _obtener_usuario_autenticado()
+    usuario = current_user
 
     if usuario is None or not usuario.activo:
         return jsonify({
@@ -346,10 +334,10 @@ def modificar_pedido(request_id):
 
 @pedidos_bp.route("/<int:request_id>", methods=["DELETE"])
 @api_permission_required("request_destroy")
-def eliminar_pedido(request_id):
+def eliminar_pedido(request_id, current_user):
     """Elimina un pedido existente."""
 
-    usuario = _obtener_usuario_autenticado()
+    usuario = current_user
 
     if usuario is None:
         return jsonify({
