@@ -28,6 +28,8 @@ from src.web.controllers.api_configuration import api_configuration_bp
 from src.web.controllers.api_deliveries import api_deliveries_bp
 from src.web.controllers.api_sector import api_sector_bp
 from src.web.api.auth import api_auth_bp
+from src.web.api.personnel import api_personnel_bp
+from src.web.api.quotas import api_quotas_bp
 
 session_ext = Session()
 
@@ -76,6 +78,8 @@ def create_app(env="development", static_folder=None):
     app.register_blueprint(api_deliveries_bp)
     app.register_blueprint(api_sector_bp)
     app.register_blueprint(api_auth_bp)
+    app.register_blueprint(api_personnel_bp)
+    app.register_blueprint(api_quotas_bp)
 
     # Helpers y Middlewares
     app.jinja_env.globals["check_permission"] = check_permission
