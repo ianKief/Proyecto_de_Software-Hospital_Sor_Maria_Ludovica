@@ -1,12 +1,13 @@
 from src.core.db import db
 from src.core.sectors.models import Sector
-from src.core.sectors.exceptions import SectorValidationError
+from src.core.sectors.exceptions import SectorValidationError, SectorInactiveExistsError
 from src.core.sectors.validators import (
     validate_nombre, 
     validate_descripcion, 
     validate_deactivation,
     validate_deletion,
-    validate_jefes_servicio
+    validate_jefes_servicio,
+    validate_nombre_disponible
     )
 from src.core.paginacion import paginar
 
@@ -66,27 +67,36 @@ def list_sectors(
 
     return paginar(query, page)
 
-def create_sector(nombre: str, descripcion: str | None = None, jefes_ids: list[int] = None) -> tuple[Sector, list[str]]:
-    """
-    Crea un nuevo sector. Asigna únicamente los jefes de servicio que sean válidos.
-    Retorna una tupla con el Sector creado y una lista de advertencias (si hubo jefes inválidos).
-    """
+def create_sector(nombre: str, descripcion: str | None = None, jefes_ids: list[int] = None, reactivar: bool = False) -> tuple[Sector, list[str]]:
     nombre_limpio = validate_nombre(nombre)
     descripcion_limpia = validate_descripcion(descripcion, is_required=True)
-    
-    # Desempaquetamos la validación individual
     jefes_validados, advertencias_jefes = validate_jefes_servicio(jefes_ids)
 
-    sector = Sector(
-        nombre=nombre_limpio,
-        descripcion=descripcion_limpia,
-        activo=True,
-        jefes_servicio=jefes_validados
+    sector_inactivo = validate_nombre_disponible(
+        nombre_limpio=nombre_limpio, 
+        reactivacion_confirmada=reactivar
     )
-    db.session.add(sector)
+
+    if sector_inactivo:
+        # Modo Reactivación: el validador nos entregó el sector inactivo
+        sector_inactivo.activo = True
+        sector_inactivo.descripcion = descripcion_limpia
+        sector_inactivo.jefes_servicio = jefes_validados
+        sector = sector_inactivo
+        advertencias_jefes.append(f"El sector '{nombre_limpio}' fue reactivado exitosamente con los nuevos datos.")
+    else:
+        # Modo Creación Limpia: el validador nos dijo que el nombre es totalmente nuevo
+        sector = Sector(
+            nombre=nombre_limpio,
+            descripcion=descripcion_limpia,
+            activo=True,
+            jefes_servicio=jefes_validados
+        )
+        db.session.add(sector)
+        
     db.session.commit()
-    
     return sector, advertencias_jefes
+
 
 def update_sector(sector_id: int, nombre: str = None, descripcion: str = None, jefes_ids: list[int] = None) -> tuple[Sector, list[str]]:
     """
@@ -100,7 +110,9 @@ def update_sector(sector_id: int, nombre: str = None, descripcion: str = None, j
 
     # Si se envía un nombre, lo validamos (excluyendo el id actual de la unicidad) y lo asignamos
     if nombre and nombre.strip():
-        sector.nombre = validate_nombre(nombre, exclude_sector_id=sector_id)
+        nombre_limpio = validate_nombre(nombre)
+        validate_nombre_disponible(nombre_limpio, sector_id_ignorar=sector_id)
+        sector.nombre = nombre_limpio
 
     # Si se envía una descripción, la validamos y la asignamos
     if descripcion and descripcion.strip():

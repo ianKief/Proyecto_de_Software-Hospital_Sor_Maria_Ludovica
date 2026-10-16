@@ -19,7 +19,9 @@
     --color-yellow-50: oklch(98.7% 0.026 102.212);
     --color-yellow-200: oklch(94.5% 0.129 101.54);
     --color-yellow-400: oklch(85.2% 0.199 91.936);
+    --color-yellow-500: oklch(79.5% 0.184 86.047);
     --color-yellow-600: oklch(68.1% 0.162 75.834);
+    --color-yellow-700: oklch(55.4% 0.135 66.442);
     --color-yellow-800: oklch(47.6% 0.114 61.907);
     --color-green-50: oklch(98.2% 0.018 155.826);
     --color-green-100: oklch(96.2% 0.044 156.743);
@@ -325,11 +327,14 @@
   .mt-6 {
     margin-top: calc(var(--spacing) * 6);
   }
-  .mt-auto {
-    margin-top: auto;
-  }
   .mr-1 {
     margin-right: var(--spacing);
+  }
+  .mt-8 {
+    margin-top: calc(var(--spacing) * 8);
+  }
+  .mt-auto {
+    margin-top: auto;
   }
   .mr-1\.5 {
     margin-right: calc(var(--spacing) * 1.5);
@@ -728,6 +733,9 @@
   .bg-yellow-50 {
     background-color: var(--color-yellow-50);
   }
+  .bg-yellow-600 {
+    background-color: var(--color-yellow-600);
+  }
   .p-0 {
     padding: 0px;
   }
@@ -952,6 +960,9 @@
   .text-yellow-600 {
     color: var(--color-yellow-600);
   }
+  .text-yellow-700 {
+    color: var(--color-yellow-700);
+  }
   .text-yellow-800 {
     color: var(--color-yellow-800);
   }
@@ -1054,6 +1065,9 @@
     }
     .hover\:bg-red-800:hover {
       background-color: var(--color-red-800);
+    }
+    .hover\:bg-yellow-700:hover {
+      background-color: var(--color-yellow-700);
     }
     .hover\:text-blue-600:hover {
       color: var(--color-blue-600);
@@ -1165,6 +1179,9 @@
   }
   .focus\:ring-red-600:focus {
     --tw-ring-color: var(--color-red-600);
+  }
+  .focus\:ring-yellow-500:focus {
+    --tw-ring-color: var(--color-yellow-500);
   }
   .focus\:ring-offset-1:focus {
     --tw-ring-offset-width: 1px;

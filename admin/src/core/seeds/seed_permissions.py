@@ -18,7 +18,8 @@ PERMISOS_POR_ROL = {
         "sector_index", 
         "sector_create", 
         "sector_update", 
-        "sector_destroy"
+        "sector_destroy",
+        "sector_show"
     ],
     "Jefe de Servicio": [
         "request_index",
@@ -38,12 +39,16 @@ PERMISOS_POR_ROL = {
         "summary_deliveries",
         "summary_requests",
         "summary_authorizations",
+        "sector_index",
+        "sector_show"
     ],
     "Sector Comedor": [
         "delivery_index",
         "delivery_show",
         "delivery_new",
         "authorized_meals_index",
+        "sector_index",
+        "sector_show"
     ],
 }
 

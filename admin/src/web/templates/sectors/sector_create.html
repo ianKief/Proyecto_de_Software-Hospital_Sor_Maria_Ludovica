@@ -137,16 +137,51 @@
                     {% endif %}
                 </div>
 
-                <!-- Botones de Acción -->
-                <div class="pt-4 border-t border-gray-100 flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-3 gap-3">
-                    <a href="{{ url_for('sectors.index') }}" 
-                       class="w-full sm:w-auto text-center px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-600 transition-colors">
-                        Cancelar
-                    </a>
-                    <button type="submit" 
-                            class="w-full sm:w-auto inline-flex justify-center items-center px-5 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-600 transition-colors">
-                        Guardar sector
-                    </button>
+                <!-- SECCIÓN DE BOTONES O CONFIRMACIÓN -->
+                <div class="mt-8 border-t pt-5">
+                    
+                    {% if needs_confirmation %}
+                        <!-- CARTEL DE CONFIRMACIÓN -->
+                        <input type="hidden" name="confirmar_reactivacion" value="true">
+                        
+                        <div class="bg-yellow-50 border-l-4 border-yellow-400 p-5 rounded-md shadow-sm">
+                            <div class="flex">
+                                <div class="flex-shrink-0">
+                                    <!-- Icono de advertencia -->
+                                    <svg class="h-6 w-6 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                    </svg>
+                                </div>
+                                <div class="ml-3">
+                                    <h3 class="text-lg font-medium text-yellow-800">Sector Inactivo Detectado</h3>
+                                    <p class="mt-2 text-sm text-yellow-700">
+                                        Ya existe un sector llamado <strong>"{{ data.nombre }}"</strong> en el historial, pero se encuentra desactivado. 
+                                        ¿Desea reactivarlo y actualizarlo con los datos que acaba de ingresar?
+                                    </p>
+                                    <div class="mt-4 flex gap-3">
+                                        <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition-colors">
+                                            Sí, reactivar sector
+                                        </button>
+                                        <a href="{{ url_for('sectors.index') }}" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                                            Cancelar
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                    {% else %}
+                        <!-- BOTONES NORMALES -->
+                        <div class="flex justify-end gap-3">
+                            <a href="{{ url_for('sectors.index') }}" class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                                Cancelar
+                            </a>
+                            <button type="submit" class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                                Crear Sector
+                            </button>
+                        </div>
+                    {% endif %}
+                    
                 </div>
             </form>
         </section>

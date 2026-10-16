@@ -1,5 +1,5 @@
 @import "tailwindcss";
-@source "./src/web/templates";
+@source "./src/web/templates/**/*.html";
 
 @layer base {
   body {
