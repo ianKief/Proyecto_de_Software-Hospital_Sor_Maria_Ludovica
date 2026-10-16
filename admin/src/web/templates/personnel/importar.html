@@ -1,0 +1,103 @@
+{% extends "layout.html" %}
+
+{% block title %}Importación Masiva de Personal{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+  <!-- Mensajes Flash -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="mb-6 space-y-2">
+        {% for category, message in messages %}
+          <div class="p-4 rounded-md border text-sm {% if category == 'error' %}bg-red-50 border-red-200 text-red-700{% else %}bg-green-50 border-green-200 text-green-700{% endif %}">
+            <span class="font-bold">{% if category == 'error' %}Atención:{% else %}Éxito:{% endif %}</span> {{ message }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-800">Importación Masiva de Personal</h1>
+      <p class="text-xs text-gray-500 mt-1">Permite incorporar múltiples comensales simultáneamente mediante un archivo CSV.</p>
+    </div>
+    <div class="flex items-center space-x-3">
+      <a href="{{ url_for('personnel.download_template_csv') }}" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 px-3 rounded-lg text-xs transition border border-gray-300">
+        Descargar Plantilla CSV
+      </a>
+      <a href="{{ url_for('personnel.index') }}" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+        Volver al Listado
+      </a>
+    </div>
+  </div>
+
+  <!-- Formulario de Carga -->
+  <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-8">
+    <form action="{{ url_for('personnel.process_import_csv') }}" method="POST" enctype="multipart/form-data" class="space-y-4">
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-2">Seleccionar archivo CSV</label>
+        <input type="file" name="archivo_csv" accept=".csv" required 
+               class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 border border-gray-300 rounded-md p-1" />
+      </div>
+      <p class="text-xs text-gray-500">
+        Formato requerido: <code class="bg-gray-100 px-1 py-0.5 rounded text-gray-800 font-mono">dni,nombre,apellido,tipo_personal,tipo_menu,sector</code>
+      </p>
+      <div class="pt-2">
+        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg shadow-sm transition text-sm">
+          Subir e Importar
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Resumen de Importación -->
+  {% if resultado %}
+  <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+    <h2 class="text-lg font-bold text-gray-800 mb-4">Resultado del Procesamiento</h2>
+
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+      <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+        <span class="text-xs font-semibold text-gray-500 uppercase">Total Procesados</span>
+        <p class="text-2xl font-bold text-gray-800">{{ resultado.total_procesados }}</p>
+      </div>
+      <div class="bg-green-50 p-4 rounded-lg border border-green-200">
+        <span class="text-xs font-semibold text-green-700 uppercase">Importados</span>
+        <p class="text-2xl font-bold text-green-700">{{ resultado.importados }}</p>
+      </div>
+      <div class="bg-red-50 p-4 rounded-lg border border-red-200">
+        <span class="text-xs font-semibold text-red-700 uppercase">Rechazados</span>
+        <p class="text-2xl font-bold text-red-700">{{ resultado.rechazados }}</p>
+      </div>
+    </div>
+
+    <!-- Errores Detallados -->
+    {% if resultado.errores %}
+    <div class="mt-4">
+      <h3 class="text-sm font-bold text-red-700 uppercase mb-3">Errores Detectados</h3>
+      <div class="overflow-hidden border border-gray-200 rounded-lg">
+        <table class="min-w-full divide-y divide-gray-200 text-sm">
+          <thead class="bg-red-50 text-red-700">
+            <tr>
+              <th class="px-4 py-2 text-left font-semibold w-24">Fila</th>
+              <th class="px-4 py-2 text-left font-semibold">Motivo del Error</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-200 bg-white">
+            {% for err in resultado.errores %}
+            <tr>
+              <td class="px-4 py-2 font-mono text-xs text-gray-600 font-bold">#{{ err.fila }}</td>
+              <td class="px-4 py-2 text-red-600 text-xs">{{ err.motivo }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

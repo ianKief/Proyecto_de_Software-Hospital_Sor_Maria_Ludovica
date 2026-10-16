@@ -6,9 +6,16 @@
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
   <div class="flex justify-between items-center mb-6">
     <h1 class="text-2xl font-bold text-gray-800">Personal del Hospital</h1>
-    <a href="{{ url_for('personnel.new') }}" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg shadow transition">
-      + Agregar Personal
-    </a>
+    <div class="flex items-center space-x-3">
+      {% if check_permission("personnel_import") %}
+      <a href="{{ url_for('personnel.import_csv') }}" class="bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 px-4 rounded-lg shadow-sm transition text-sm">
+        Importar CSV
+      </a>
+      {% endif %}
+      <a href="{{ url_for('personnel.new') }}" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg shadow transition text-sm">
+        + Agregar Personal
+      </a>
+    </div>
   </div>
 
   <form method="GET" action="{{ url_for('personnel.index') }}" class="bg-white p-4 rounded-lg shadow mb-6 border border-gray-200">
