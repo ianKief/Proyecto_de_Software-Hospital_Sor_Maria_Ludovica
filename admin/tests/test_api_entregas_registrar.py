@@ -21,6 +21,7 @@ from src.core.personnel.models import Personal
 from src.core.personnel_types.models import PersonnelType
 from src.core.sectors.models import Sector
 from src.core.users.models import User
+from tests.helpers_token import cliente_con_token
 
 FECHA = date(2026, 10, 13)
 MEDIODIA = datetime(2026, 10, 13, 12, 0, tzinfo=ZONA_ARGENTINA)
@@ -181,25 +182,16 @@ def cuerpo_entrega(datos, personas, comida=None, responsable=None):
     }
 
 
-def cliente_con_sesion(app, usuario):
-    """Devuelve un cliente de pruebas con la sesión de ``usuario`` iniciada."""
-    client = app.test_client()
-    with client.session_transaction() as session:
-        session["user"] = usuario.email
-        session["user_id"] = usuario.id
-    return client
-
-
 @pytest.fixture
 def comedor(app, datos):
     """Cliente logueado como usuario del Sector Comedor (con ``delivery_new``)."""
-    return cliente_con_sesion(app, datos["usuario_comedor"])
+    return cliente_con_token(app, datos["usuario_comedor"])
 
 
 # Acceso
 
-def test_sin_sesion_responde_401(app):
-    """Sin sesión responde 401."""
+def test_sin_token_responde_401(app):
+    """Sin token responde 401."""
     client = app.test_client()
 
     assert client.post(URL, json={}).status_code == 401
@@ -207,7 +199,7 @@ def test_sin_sesion_responde_401(app):
 
 def test_rol_sin_permiso_responde_403(app, datos):
     """El Servicio de Alimentación no tiene ``delivery_new``: responde 403."""
-    client = cliente_con_sesion(app, datos["usuario_alimentacion"])
+    client = cliente_con_token(app, datos["usuario_alimentacion"])
 
     respuesta = client.post(URL, json=cuerpo_entrega(datos, [datos["ana"]]))
 
@@ -233,7 +225,7 @@ def test_cuerpo_no_json_responde_400(comedor):
 
 
 def test_usuario_del_cliente_se_rechaza(comedor, datos):
-    """El usuario sale de la sesión: si el cliente lo manda, responde 400."""
+    """El usuario sale del token: si el cliente lo manda, responde 400."""
     cuerpo = cuerpo_entrega(datos, [datos["ana"]])
     cuerpo["usuario_id"] = datos["usuario_comedor"].id
 

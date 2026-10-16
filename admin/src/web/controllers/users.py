@@ -9,11 +9,17 @@ from src.core.users import (
     buscar_usuarios,
     crear_usuario,
     actualizar_usuario,
-    dar_de_baja_usuario,
-    reactivar_usuario,
+    bloquear_usuario,
+    desbloquear_usuario,
+    eliminar_usuario_fisicamente,
     existe_usuario_con_email,
     existe_usuario_con_dni,
+    assign_role,
+    get_all_roles
 )
+from src.core.tokens import generar_token_activacion
+from src.core.email import enviar_email_activacion
+from src.core.users.exceptions import UserNotFoundError, RoleNotFoundError
 
 users_bp = Blueprint('users', __name__, url_prefix='/users')
 
@@ -73,12 +79,10 @@ def user_new():
         nombre = request.form.get('nombre')
         apellido = request.form.get('apellido')
         dni = request.form.get('dni')
-        password = request.form.get('password')
         role_id = request.form.get('role_id')
         sector_id = request.form.get('sector_id') or None
-        activo = request.form.get('activo') == 'on'
 
-        if not email or not nombre or not apellido or not dni or not password or not role_id:
+        if not email or not nombre or not apellido or not dni or not role_id:
             flash("Todos los campos obligatorios deben completarse.", "error")
             return redirect(url_for('users.user_new'))
             
@@ -102,18 +106,24 @@ def user_new():
             flash("Ya existe un usuario registrado con ese DNI.", "error")
             return redirect(url_for('users.user_new'))
 
-        crear_usuario(
+        # El usuario se crea siempre inactivo: su cuenta se activa cuando
+        # configura su contraseña a través del enlace de activación enviado por email.
+        nuevo_usuario = crear_usuario(
             email=email,
             nombre=nombre,
             apellido=apellido,
             dni=dni,
-            password=password,
             role_id=role_id,
             sector_id=sector_id,
-            activo=activo
+            activo=False
         )
 
-        flash("Usuario creado con éxito.", "success")
+        # Generar token y enviar correo de activación
+        token = generar_token_activacion(nuevo_usuario.id)
+        url_activacion = url_for('auth.set_password', token=token, _external=True)
+        enviar_email_activacion(nuevo_usuario, url_activacion)
+
+        flash(f"Usuario {nuevo_usuario.nombre} {nuevo_usuario.apellido} creado con éxito. Se ha enviado un correo a {nuevo_usuario.email} para que active su cuenta y configure su contraseña.", "success")
         return redirect(url_for('users.user_index'))
 
     # Para peticiones GET
@@ -197,23 +207,55 @@ def user_update(id):
     sectors = Sector.query.all()
     return render_template('users/user_edit.html', user=user, roles=roles, sectors=sectors)
 
-@users_bp.route('/<int:id>/eliminar', methods=['POST'])
-@permission_required('user_destroy')
-def user_destroy(id):
+@users_bp.route('/<int:id>/bloquear', methods=['POST'])
+@permission_required('user_block')
+def user_block(id):
     user = User.query.get_or_404(id)
     try:
-        dar_de_baja_usuario(user)
+        bloquear_usuario(user)
     except ValueError as e:
         flash(str(e), "error")
         return redirect(url_for('users.user_index'))
 
-    flash(f"El usuario {user.nombre} {user.apellido} ha sido dado de baja exitosamente.", "success")
+    flash(f"El usuario {user.nombre} {user.apellido} ha sido bloqueado exitosamente.", "success")
     return redirect(url_for('users.user_index'))
 
-@users_bp.route('/<int:id>/activar', methods=['POST'])
-@permission_required('user_update')
-def user_activate(id):
+@users_bp.route('/<int:id>/desbloquear', methods=['POST'])
+@permission_required('user_unblock')
+def user_unblock(id):
     user = User.query.get_or_404(id)
-    reactivar_usuario(user)
-    flash(f"El usuario {user.nombre} {user.apellido} ha sido reactivado exitosamente.", "success")
+    desbloquear_usuario(user)
+    flash(f"El usuario {user.nombre} {user.apellido} ha sido desbloqueado exitosamente.", "success")
     return redirect(url_for('users.user_index'))
+
+@users_bp.route('/<int:id>/eliminar_fisicamente', methods=['POST'])
+@permission_required('user_destroy')
+def user_delete_physical(id):
+    user = User.query.get_or_404(id)
+    try:
+        eliminar_usuario_fisicamente(user)
+        flash("El usuario fue eliminado permanentemente del sistema.", "success")
+    except ValueError as e:
+        flash(str(e), "error")
+    except Exception:
+        flash("No se pudo eliminar el usuario permanentemente.", "error")
+
+    return redirect(url_for('users.user_index'))
+
+@users_bp.route('/<int:id>/rol', methods=['POST'])
+@permission_required('user_update')
+def change_role(id):
+    role_id = request.form.get('role_id', type=int)
+    
+    if not role_id:
+        flash("Debe seleccionar un rol válido.", "error")
+        return user_index(), 400 
+
+    try:
+        usuario_actualizado = assign_role(id, role_id)
+        flash("Rol actualizado correctamente.", "success")
+        return redirect(url_for('users.user_index'))
+        
+    except (UserNotFoundError, RoleNotFoundError) as e:
+        flash(str(e), "error")
+        return user_index(), 400 

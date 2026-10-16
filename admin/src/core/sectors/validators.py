@@ -1,5 +1,5 @@
 from src.core.sectors.models import Sector
-from src.core.sectors.exceptions import SectorValidationError, SectorAlreadyExistsError
+from src.core.sectors.exceptions import SectorValidationError, SectorAlreadyExistsError, SectorInactiveExistsError
 from src.core.personnel.models import Personal
 #from src.core.pedidos.models import Pedido
 
@@ -11,34 +11,38 @@ MAX_DESCRIPCION_LENGTH = 1000
 # FUNCIONES DE VALIDACIÓN EXTRAÍDAS
 # ==========================================
 
-def validate_nombre(nombre: str, exclude_sector_id: int | None = None) -> str:
-    """
-    Valida y limpia el nombre del sector.
-    Comprueba que no esté vacío, respete la longitud máxima y sea único.
-    """
-    if not nombre or not nombre.strip():
-        raise SectorValidationError("El nombre del sector no puede estar vacío.")
-
+def validate_nombre(nombre: str) -> str:
+    """Validación sintáctica (sin base de datos)."""
+    if not nombre:
+         raise SectorValidationError("El nombre no puede estar vacío.")
     nombre_limpio = nombre.strip()
-
-    if len(nombre_limpio) > MAX_NOMBRE_LENGTH:
-        raise SectorValidationError(
-            f"El nombre no puede superar los {MAX_NOMBRE_LENGTH} caracteres."
-        )
-
-    # Chequeo de unicidad (case-insensitive)
-    query = Sector.query.filter(Sector.nombre.ilike(nombre_limpio))
-    
-    # Si estamos actualizando, excluimos el sector actual de la búsqueda
-    if exclude_sector_id is not None:
-        query = query.filter(Sector.id != exclude_sector_id)
-        
-    if query.first() is not None:
-        raise SectorAlreadyExistsError(
-            f"Ya existe un sector registrado con el nombre '{nombre_limpio}'."
-        )
-
+    if len(nombre_limpio) > 255:
+        raise SectorValidationError("El nombre no puede tener más de 255 caracteres.")
     return nombre_limpio
+
+def validate_nombre_disponible(nombre_limpio: str, sector_id_ignorar: int = None, reactivacion_confirmada: bool = False) -> Sector | None:
+    """
+    Validación semántica: chequea colisiones en la base de datos.
+    Retorna el sector si existe inactivo y se confirmó la reactivación. Retorna None si está libre.
+    """
+    query = Sector.query.filter(Sector.nombre.ilike(nombre_limpio))
+    if sector_id_ignorar:
+        query = query.filter(Sector.id != sector_id_ignorar)
+        
+    sector_existente = query.first()
+
+    if sector_existente:
+        if sector_existente.activo:
+            raise SectorAlreadyExistsError(f"Ya existe un sector activo con el nombre '{nombre_limpio}'.")
+        else:
+            # Está inactivo. Si no mandaron la confirmación, frenamos todo.
+            if not reactivacion_confirmada:
+                raise SectorInactiveExistsError(f"El sector '{nombre_limpio}' ya existe en el historial, pero está inactivo.")
+            
+            # Si mandaron la confirmación, devolvemos el objeto para que el Core lo actualice
+            return sector_existente
+            
+    return None
 
 
 def validate_descripcion(descripcion: str | None, is_required: bool = False) -> str | None:

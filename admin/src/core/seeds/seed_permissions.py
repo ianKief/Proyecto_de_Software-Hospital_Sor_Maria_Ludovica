@@ -10,6 +10,8 @@ PERMISOS_POR_ROL = {
         "user_new",
         "user_show",
         "user_update",
+        "user_block",
+        "user_unblock",
         "user_destroy",
         "config_show",
         "config_update",
@@ -27,6 +29,8 @@ PERMISOS_POR_ROL = {
         "personnel_update",
         "personnel_destroy",
         "personnel_import",
+        "sector_destroy",
+        "sector_show"
     ],
     "Jefe de Servicio": [
         "request_index",
@@ -42,6 +46,7 @@ PERMISOS_POR_ROL = {
         "personnel_update",
         "personnel_destroy",
         "personnel_import",
+        "summary_requests",
     ],
     "Servicio de Alimentación": [
         "authorization_index",
@@ -62,12 +67,18 @@ PERMISOS_POR_ROL = {
         "personnel_update",
         "personnel_destroy",
         "personnel_import",
+        "summary_requests",
+        "summary_authorizations",
+        "sector_index",
+        "sector_show"
     ],
     "Sector Comedor": [
         "delivery_index",
         "delivery_show",
         "delivery_new",
         "authorized_meals_index",
+        "sector_index",
+        "sector_show"
     ],
 }
 

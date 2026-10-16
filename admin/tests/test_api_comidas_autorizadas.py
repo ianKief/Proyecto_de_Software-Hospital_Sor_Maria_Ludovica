@@ -20,6 +20,7 @@ from src.core.personnel.models import Personal
 from src.core.personnel_types.models import PersonnelType
 from src.core.sectors.models import Sector
 from src.core.users.models import User
+from tests.helpers_token import cliente_con_token
 
 FECHA = date(2026, 10, 13)
 URL = "/api/authorized-meals"
@@ -171,25 +172,16 @@ def entregar(datos, solicitud):
     db.session.commit()
 
 
-def cliente_con_sesion(app, usuario):
-    """Devuelve un cliente de pruebas con la sesión de ``usuario`` iniciada."""
-    client = app.test_client()
-    with client.session_transaction() as session:
-        session["user"] = usuario.email
-        session["user_id"] = usuario.id
-    return client
-
-
 @pytest.fixture
 def comedor(app, datos):
     """Cliente logueado como usuario del Sector Comedor (con el permiso)."""
-    return cliente_con_sesion(app, datos["usuario_comedor"])
+    return cliente_con_token(app, datos["usuario_comedor"])
 
 
 # Acceso
 
-def test_sin_sesion_responde_401(app):
-    """Sin sesión, los dos endpoints responden 401."""
+def test_sin_token_responde_401(app):
+    """Sin token, los dos endpoints responden 401."""
     client = app.test_client()
 
     assert client.get(f"{URL}?fecha=2026-10-13").status_code == 401
@@ -198,7 +190,7 @@ def test_sin_sesion_responde_401(app):
 
 def test_rol_sin_permiso_responde_403(app, datos):
     """Un rol sin ``authorized_meals_index`` recibe 403 en los dos endpoints."""
-    client = cliente_con_sesion(app, datos["usuario_sin_permisos"])
+    client = cliente_con_token(app, datos["usuario_sin_permisos"])
 
     assert client.get(f"{URL}?fecha=2026-10-13").status_code == 403
     assert client.get(f"{URL}/{datos['ana'].id}").status_code == 403
