@@ -8,7 +8,7 @@ from src.core.db import db
 from src.core.email import mail
 from src.web.config import config
 from src.web.handlers.error import register_error_handlers
-from src.web.helpers.auth import check_permission, verificar_timeout_sesion
+from src.web.helpers.auth import check_permission, get_current_user, verificar_timeout_sesion
 from src.web.helpers.mantenimiento import verificar_mantenimiento
 
 # Controladores Web
@@ -79,6 +79,7 @@ def create_app(env="development", static_folder=None):
 
     # Helpers y Middlewares
     app.jinja_env.globals["check_permission"] = check_permission
+    app.jinja_env.globals["current_user"] = get_current_user
     app.before_request(verificar_mantenimiento)
     app.before_request(verificar_timeout_sesion)
 
