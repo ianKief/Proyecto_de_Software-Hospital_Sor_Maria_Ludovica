@@ -1,81 +1,103 @@
 import pytest
 from src.web import create_app
-from src.core import personnel
-from src.core.personnel.validators import ValidationError, validate_dni, validate_personnel_data
-from src.core.personnel.models import Personal
+from src.core.quotas.validators import ValidationError, validate_quota_data
+from src.core.quotas.models import Cupo
+from src.core.sectors.models import Sector
+from src.core.food_types.models import FoodType
 from src.core.db import db
 
 
-@pytest.fixture
-def app_ctx():
+def _obtener_o_crear_recursos():
+    sector = Sector.query.filter_by(activo=True).first()
+    if not sector:
+        sector = Sector(nombre="Sector Test Activo", descripcion="Sector para tests", activo=True)
+        db.session.add(sector)
+        db.session.commit()
+
+    comida = FoodType.query.first()
+    if not comida:
+        comida = FoodType(nombre="Almuerzo Test")
+        db.session.add(comida)
+        db.session.commit()
+
+    return sector, comida
+
+
+def test_cantidad_debe_ser_positiva():
     app = create_app()
     with app.app_context():
-        yield app
+        sector, comida = _obtener_o_crear_recursos()
 
-
-def test_validate_dni_formato_correcto(app_ctx):
-    assert validate_dni("1234567") == "1234567"
-    assert validate_dni("40123456") == "40123456"
-    assert validate_dni("123456789") == "123456789"
-
-
-def test_validate_dni_formato_invalido(app_ctx):
-    with pytest.raises(ValidationError, match="entre 7 y 9 números"):
-        validate_dni("123456")
-    with pytest.raises(ValidationError, match="entre 7 y 9 números"):
-        validate_dni("1234567890")
-    with pytest.raises(ValidationError, match="entre 7 y 9 números"):
-        validate_dni("40.123.456")
-    with pytest.raises(ValidationError, match="entre 7 y 9 números"):
-        validate_dni("40123A56")
-    with pytest.raises(ValidationError, match="es obligatorio"):
-        validate_dni("")
-
-
-def test_validate_dni_duplicado(app_ctx):
-    p_existente = Personal.query.filter_by(dni="88888888").first()
-    if p_existente:
-        db.session.delete(p_existente)
-        db.session.commit()
-
-    tipos = personnel.list_personnel_types()
-    menus = personnel.list_menu_types()
-    sectores = personnel.list_active_sectors()
-
-    persona = Personal(
-        dni="88888888",
-        nombre="Juan",
-        apellido="Perez",
-        personnel_type_id=tipos[0].id,
-        sector_id=sectores[0].id if sectores else None,
-        menu_type_id=menus[0].id,
-        activo=True,
-    )
-    db.session.add(persona)
-    db.session.commit()
-
-    try:
-        with pytest.raises(ValidationError, match="Ya existe una persona registrada"):
-            validate_dni("88888888")
-        assert validate_dni("88888888", current_personnel_id=persona.id) == "88888888"
-    finally:
-        db.session.delete(persona)
-        db.session.commit()
-
-
-def test_sector_obligatorio_para_personal_fijo(app_ctx):
-    tipos = personnel.list_personnel_types()
-    tipo_fijo = next((t for t in tipos if t.requiere_sector), None)
-
-    if tipo_fijo:
-        menus = personnel.list_menu_types()
-        data = {
-            "dni": "55667788",
-            "nombre": "Esteban",
-            "apellido": "Quito",
-            "personnel_type_id": str(tipo_fijo.id),
-            "sector_id": "",
-            "menu_type_id": str(menus[0].id),
+        data_cero = {
+            "sector_id": str(sector.id),
+            "tipo_comida_id": str(comida.id),
+            "cantidad": "0",
         }
-        with pytest.raises(ValidationError, match="requiere un sector obligatorio"):
-            validate_personnel_data(data)
+        with pytest.raises(ValidationError, match="estrictamente mayor que cero"):
+            validate_quota_data(data_cero)
+
+        data_negativa = {
+            "sector_id": str(sector.id),
+            "tipo_comida_id": str(comida.id),
+            "cantidad": "-5",
+        }
+        with pytest.raises(ValidationError, match="estrictamente mayor que cero"):
+            validate_quota_data(data_negativa)
+
+
+def test_sector_inactivo_no_permite_cupo():
+    app = create_app()
+    with app.app_context():
+        _, comida = _obtener_o_crear_recursos()
+
+        sector_inactivo = Sector.query.filter_by(activo=False).first()
+        creado = False
+        if not sector_inactivo:
+            sector_inactivo = Sector(nombre="Sector Inactivo Cupos", descripcion="Inactivo test", activo=False)
+            db.session.add(sector_inactivo)
+            db.session.commit()
+            creado = True
+
+        try:
+            data = {
+                "sector_id": str(sector_inactivo.id),
+                "tipo_comida_id": str(comida.id),
+                "cantidad": "10",
+            }
+            with pytest.raises(ValidationError, match="sector inactivo"):
+                validate_quota_data(data)
+        finally:
+            if creado:
+                db.session.delete(sector_inactivo)
+                db.session.commit()
+
+
+def test_no_permite_duplicar_sector_y_tipo_comida():
+    app = create_app()
+    with app.app_context():
+        sector, comida = _obtener_o_crear_recursos()
+        s_id = sector.id
+        c_id = comida.id
+
+        prev = Cupo.query.filter_by(sector_id=s_id, tipo_comida_id=c_id).first()
+        if prev:
+            db.session.delete(prev)
+            db.session.commit()
+
+        cupo_creado = Cupo(sector_id=s_id, tipo_comida_id=c_id, cantidad=15)
+        db.session.add(cupo_creado)
+        db.session.commit()
+
+        try:
+            data_duplicada = {
+                "sector_id": str(s_id),
+                "tipo_comida_id": str(c_id),
+                "cantidad": "20",
+            }
+            with pytest.raises(ValidationError, match="Ya existe un cupo definido"):
+                validate_quota_data(data_duplicada)
+
+            assert validate_quota_data(data_duplicada, current_quota_id=cupo_creado.id)["cantidad"] == 20
+        finally:
+            db.session.delete(cupo_creado)
+            db.session.commit()
