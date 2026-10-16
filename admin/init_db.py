@@ -62,14 +62,10 @@ if __name__ == '__main__':
             db.session.commit()
 
         print("Cargando tipos de personal...")
-        tipos_personal = [
-            "Personal Fijo",
-            "Residente",
-        ]
-
-        for nombre in tipos_personal:
+        tipos_personal = {"Personal Fijo": True, "Residente": False}
+        for nombre, requiere_sector in tipos_personal.items():
             if not PersonnelType.query.filter_by(nombre=nombre).first():
-                db.session.add(PersonnelType(nombre=nombre))
+                db.session.add(PersonnelType(nombre=nombre, requiere_sector=requiere_sector))
 
         print("Cargando tipos de menú...")
         tipos_menu = [
@@ -170,12 +166,6 @@ if __name__ == '__main__':
         for role_name in roles:
             if not Role.query.filter_by(name=role_name).first():
                 db.session.add(Role(name=role_name))
-
-        print("Cargando tipos de personal base...")
-        personnel_types = ["Personal Fijo", "Residente", "Eventual"]
-        for pt_name in personnel_types:
-            if not PersonnelType.query.filter_by(nombre=pt_name).first():
-                db.session.add(PersonnelType(nombre=pt_name))
 
         print("Cargando tipos de menú base...")
         menu_types = ["General", "Vegetariano", "Celiaco"]

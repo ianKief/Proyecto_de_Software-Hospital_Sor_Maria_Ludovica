@@ -1,12 +1,23 @@
 from functools import wraps
 from datetime import datetime, timezone, timedelta
 from flask import session, redirect, url_for, flash, abort, request
+from src.core.db import db
 from src.core.users.models import User
 
 TIMEOUT_INACTIVIDAD = timedelta(minutes=30)
 
 def is_authenticated():
     return session.get("user") is not None
+
+def get_current_user():
+    """Devuelve el usuario logueado, o None si no hay sesión.
+
+    Se registra como global de Jinja para que el layout pueda mostrar
+    el nombre y apellido del usuario.
+    """
+    if not is_authenticated():
+        return None
+    return db.session.get(User, session.get("user_id"))
 
 def verificar_timeout_sesion():
     """Cierra la sesión automáticamente si el usuario estuvo inactivo más de 30 minutos.

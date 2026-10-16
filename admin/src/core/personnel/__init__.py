@@ -1,11 +1,13 @@
 from datetime import date, timedelta
 import re
+import csv
+import io
 from sqlalchemy import or_
 
 from src.core.db import db
 from src.core.paginacion import paginar
 from src.core.personnel.models import Personal
-from src.core.personnel.validators import validate_personnel_data, ValidationError
+from src.core.personnel.validators import validate_personnel_data, validate_csv_row, ValidationError
 
 from src.core.personnel_types.models import PersonnelType
 from src.core.menu_types.models import MenuType
@@ -208,3 +210,95 @@ def cambiar_asignacion_sector(personal_id: int, sector_id: int | None, fecha_des
         personal.sector_id = sector_id
         db.session.commit()
         return personal
+
+def importar_personal_csv(file_stream):
+    """
+    Lee un stream CSV, valida cada registro e inserta el personal.
+    Retorna métricas y lista de errores por fila.
+    """
+    resumen = {
+        "total_procesados": 0,
+        "importados": 0,
+        "rechazados": 0,
+        "errores": [],
+    }
+
+    try:
+        contenido = file_stream.read().decode("utf-8-sig")
+    except UnicodeDecodeError:
+        resumen["errores"].append({
+            "fila": 0,
+            "motivo": "El archivo debe tener codificación UTF-8.",
+        })
+        return resumen
+
+    reader = csv.reader(io.StringIO(contenido))
+
+    # Leer encabezado
+    try:
+        header = next(reader)
+    except StopIteration:
+        resumen["errores"].append({
+            "fila": 0,
+            "motivo": "El archivo CSV está vacío.",
+        })
+        return resumen
+
+    cabeceras = [col.strip().lower() for col in header]
+    esperadas = ["dni", "nombre", "apellido", "tipo_personal", "tipo_menu", "sector"]
+
+    if cabeceras != esperadas:
+        resumen["errores"].append({
+            "fila": 1,
+            "motivo": f"Cabecera incorrecta. Columnas esperadas: {', '.join(esperadas)}",
+        })
+        return resumen
+
+    dnis_procesados = set()
+    fila_actual = 1
+
+    for row in reader:
+        fila_actual += 1
+        # Ignorar filas totalmente vacías
+        if not row or not any(str(c).strip() for c in row):
+            continue
+
+        resumen["total_procesados"] += 1
+
+        if len(row) < 6:
+            resumen["rechazados"] += 1
+            resumen["errores"].append({
+                "fila": fila_actual,
+                "motivo": f"Se esperaban 6 columnas y se encontraron {len(row)}.",
+            })
+            continue
+
+        row_data = {
+            "dni": row[0],
+            "nombre": row[1],
+            "apellido": row[2],
+            "tipo_personal": row[3],
+            "tipo_menu": row[4],
+            "sector": row[5],
+        }
+
+        try:
+            # Delegar validación completa
+            datos_validados = validate_csv_row(row_data, dnis_procesados)
+            nuevo_personal = Personal(**datos_validados)
+            db.session.add(nuevo_personal)
+
+            dnis_procesados.add(datos_validados["dni"])
+            resumen["importados"] += 1
+        except ValidationError as e:
+            resumen["rechazados"] += 1
+            resumen["errores"].append({
+                "fila": fila_actual,
+                "motivo": str(e),
+            })
+
+    # Guardar en base de datos si hubo importados
+    if resumen["importados"] > 0:
+        db.session.commit()
+
+    return resumen

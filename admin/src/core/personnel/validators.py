@@ -86,3 +86,53 @@ def validate_personnel_data(data: dict, current_personnel_id: int | None = None)
         "menu_type_id": menu_type.id,
         "activo": bool(activo),
     }
+
+
+def validate_csv_row(row_data: dict, dnis_procesados_archivo: set) -> dict:
+    """
+    Traduce los nombres de texto provenientes del CSV (tipo_personal, tipo_menu, sector)
+    a sus IDs respectivos y ejecuta las validaciones de negocio.
+    """
+    dni = str(row_data.get("dni", "")).strip()
+
+    # Validar duplicados dentro del mismo lote del CSV
+    if dni in dnis_procesados_archivo:
+        raise ValidationError(f"El DNI {dni} se encuentra duplicado en el mismo archivo CSV.")
+
+    # Resolución de Tipo de Personal por nombre
+    tp_nombre = str(row_data.get("tipo_personal", "")).strip()
+    if not tp_nombre:
+        raise ValidationError("El tipo de personal es obligatorio.")
+    tp = PersonnelType.query.filter(PersonnelType.nombre.ilike(tp_nombre)).first()
+    if not tp:
+        raise ValidationError(f"El tipo de personal '{tp_nombre}' no existe en el sistema.")
+
+    # Resolución de Tipo de Menú por nombre
+    tm_nombre = str(row_data.get("tipo_menu", "")).strip()
+    if not tm_nombre:
+        raise ValidationError("El tipo de menú es obligatorio.")
+    tm = MenuType.query.filter(MenuType.nombre.ilike(tm_nombre)).first()
+    if not tm:
+        raise ValidationError(f"El tipo de menú '{tm_nombre}' no existe en el sistema.")
+
+    # Resolución de Sector por nombre (si fue especificado)
+    sec_nombre = str(row_data.get("sector", "")).strip()
+    sec_id = None
+    if sec_nombre:
+        sec = Sector.query.filter(Sector.nombre.ilike(sec_nombre)).first()
+        if not sec:
+            raise ValidationError(f"El sector '{sec_nombre}' no existe en el sistema.")
+        sec_id = sec.id
+
+    # Armamos el payload estándar y delegamos en validate_personnel_data
+    payload = {
+        "dni": dni,
+        "nombre": row_data.get("nombre"),
+        "apellido": row_data.get("apellido"),
+        "personnel_type_id": tp.id,
+        "menu_type_id": tm.id,
+        "sector_id": sec_id,
+        "activo": True,
+    }
+
+    return validate_personnel_data(payload)

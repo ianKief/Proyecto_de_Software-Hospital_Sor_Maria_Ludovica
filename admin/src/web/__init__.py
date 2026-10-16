@@ -8,7 +8,7 @@ from src.core.db import db
 from src.core.email import mail
 from src.web.config import config
 from src.web.handlers.error import register_error_handlers
-from src.web.helpers.auth import check_permission, verificar_timeout_sesion
+from src.web.helpers.auth import check_permission, get_current_user, verificar_timeout_sesion
 from src.web.helpers.mantenimiento import verificar_mantenimiento
 
 # Controladores Web
@@ -28,6 +28,8 @@ from src.web.controllers.api_configuration import api_configuration_bp
 from src.web.controllers.api_deliveries import api_deliveries_bp
 from src.web.controllers.api_sector import api_sector_bp
 from src.web.api.auth import api_auth_bp
+from src.web.api.personnel import api_personnel_bp
+from src.web.api.quotas import api_quotas_bp
 
 session_ext = Session()
 
@@ -76,9 +78,12 @@ def create_app(env="development", static_folder=None):
     app.register_blueprint(api_deliveries_bp)
     app.register_blueprint(api_sector_bp)
     app.register_blueprint(api_auth_bp)
+    app.register_blueprint(api_personnel_bp)
+    app.register_blueprint(api_quotas_bp)
 
     # Helpers y Middlewares
     app.jinja_env.globals["check_permission"] = check_permission
+    app.jinja_env.globals["current_user"] = get_current_user
     app.before_request(verificar_mantenimiento)
     app.before_request(verificar_timeout_sesion)
 
