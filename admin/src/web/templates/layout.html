@@ -15,25 +15,53 @@
                 <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
                 <strong class="text-lg text-gray-900">Hospital Sor María Ludovica</strong>
             </div>
+            {# Sección activa: nombre del blueprint del endpoint actual (en páginas de error puede ser None). #}
+            {% set seccion = (request.endpoint or '').split('.')[0] %}
+            {% set clase_link = "text-gray-600 hover:text-gray-900 font-medium px-3 py-2 rounded-md transition-colors" %}
+            {% set clase_activo = "bg-blue-50 text-blue-700 font-semibold px-3 py-2 rounded-md transition-colors" %}
             <nav aria-label="Navegación principal">
-                <ul class="flex items-center gap-4">
-                    <li><a href="{{ url_for('main.home') }}" class="text-gray-600 hover:text-gray-900 font-medium px-3 py-2 rounded-md transition-colors">Inicio</a></li>
+                <ul class="flex flex-wrap items-center gap-4">
+                    <li><a href="{{ url_for('main.home') }}" class="{{ clase_activo if seccion == 'main' else clase_link }}" {% if seccion == 'main' %}aria-current="page"{% endif %}>Inicio</a></li>
                     {% if session.get('user') %}
-                        <li><a href="{{ url_for('users.user_index') }}" class="text-gray-600 hover:text-gray-900 font-medium px-3 py-2 rounded-md transition-colors">Usuarios</a></li>
-                        <li><a href="{{ url_for('sectors.index') }}" class="text-gray-600 hover:text-gray-900 font-medium px-3 py-2 rounded-md transition-colors">Sectores</a></li>
-                        
+                        {% if check_permission("user_index") %}
+                        <li><a href="{{ url_for('users.user_index') }}" class="{{ clase_activo if seccion == 'users' else clase_link }}" {% if seccion == 'users' %}aria-current="page"{% endif %}>Usuarios</a></li>
+                        {% endif %}
+
+                        {% if check_permission("sector_index") %}
+                        <li><a href="{{ url_for('sectors.index') }}" class="{{ clase_activo if seccion == 'sectors' else clase_link }}" {% if seccion == 'sectors' %}aria-current="page"{% endif %}>Sectores</a></li>
+                        {% endif %}
+
                         {% if check_permission("personnel_index") %}
-                        <li><a href="{{ url_for('personnel.index') }}" class="text-gray-600 hover:text-gray-900 font-medium px-3 py-2 rounded-md transition-colors">Personal</a></li>
+                        <li><a href="{{ url_for('personnel.index') }}" class="{{ clase_activo if seccion == 'personnel' else clase_link }}" {% if seccion == 'personnel' %}aria-current="page"{% endif %}>Personal</a></li>
                         {% endif %}
 
                         {% if check_permission("quota_index") %}
-                        <li><a href="{{ url_for('quotas.index') }}" class="text-gray-600 hover:text-gray-900 font-medium px-3 py-2 rounded-md transition-colors">Cupos</a></li>
+                        <li><a href="{{ url_for('quotas.index') }}" class="{{ clase_activo if seccion == 'quotas' else clase_link }}" {% if seccion == 'quotas' %}aria-current="page"{% endif %}>Cupos</a></li>
                         {% endif %}
 
                         {% if check_permission("config_show") %}
-                        <li><a href="{{ url_for('configuration.config_show') }}" class="text-gray-600 hover:text-gray-900 font-medium px-3 py-2 rounded-md transition-colors">Parámetros generales del sistema</a></li>
+                        <li><a href="{{ url_for('configuration.config_show') }}" class="{{ clase_activo if seccion == 'configuration' else clase_link }}" {% if seccion == 'configuration' %}aria-current="page"{% endif %}>Parámetros generales del sistema</a></li>
                         {% endif %}
-                        <li><a href="{{ url_for('auth.logout') }}" class="text-red-600 hover:text-red-800 font-medium px-3 py-2 rounded-md transition-colors">Cerrar Sesión ({{ session.get('user') }})</a></li>
+
+                        {# Menú de cuenta: nombre y apellido; si faltan, el email como respaldo. #}
+                        {% set usuario = current_user() %}
+                        <li>
+                            <details class="relative">
+                                <summary class="cursor-pointer text-gray-700 font-medium px-3 py-2 rounded-md">
+                                    {% if usuario and usuario.nombre and usuario.apellido %}
+                                        {{ usuario.nombre }} {{ usuario.apellido }}
+                                    {% else %}
+                                        {{ session.get('user') }}
+                                    {% endif %}
+                                </summary>
+                                <ul class="absolute z-10 bg-white border border-gray-200 rounded-md py-1 mt-2" style="right: 0;">
+                                    {% if check_permission("user_show") %}
+                                    <li><a href="{{ url_for('users.user_show', id=session.get('user_id')) }}" class="block px-4 py-2 text-gray-700 hover:text-gray-900">Mi perfil</a></li>
+                                    {% endif %}
+                                    <li><a href="{{ url_for('auth.logout') }}" class="block px-4 py-2 text-red-600 hover:text-red-800">Cerrar sesión</a></li>
+                                </ul>
+                            </details>
+                        </li>
                     {% else %}
                         <li><a href="{{ url_for('auth.login') }}" class="bg-blue-600 text-white hover:bg-blue-700 font-medium px-4 py-2 rounded-md transition-colors">Iniciar Sesión</a></li>
                     {% endif %}
