@@ -22,7 +22,7 @@
             <form method="POST" action="{{ url_for('auth.login') }}" class="flex flex-col gap-4">
                 <div class="form-group">
                     <label for="email" class="form-label">Correo electrónico <span aria-hidden="true" class="required-asterisk">*</span></label>
-                    <input type="email" id="email" name="email" required aria-required="true" placeholder="ejemplo@hospital.com" class="form-input">
+                    <input type="email" id="email" name="email" value="{{ email or '' }}" required aria-required="true" placeholder="ejemplo@hospital.com" class="form-input">
                 </div>
                 
                 <div class="form-group">

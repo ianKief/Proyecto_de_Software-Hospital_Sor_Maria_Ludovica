@@ -21,62 +21,65 @@
           {% endif %}
         {% endwith %}
 
+        {% set current_nombre = form_data.get('nombre', '') if form_data else user.nombre %}
+        {% set current_apellido = form_data.get('apellido', '') if form_data else user.apellido %}
+        {% set current_email = form_data.get('email', '') if form_data else user.email %}
+        {% set current_dni = form_data.get('dni', '') if form_data else user.dni %}
+        {% set current_role_id = form_data.get('role_id') if form_data else user.role_id %}
+        {% set current_sector_id = form_data.get('sector_id') if form_data else user.sector_id %}
+        {% set current_activo = form_data.get('activo') if form_data else user.activo %}
+
         <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
             <form method="POST" action="{{ url_for('users.user_update', id=user.id) }}" class="flex flex-col gap-5">
                 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
                     <div class="form-group flex flex-col gap-1.5">
                         <label for="nombre" class="form-label block text-sm font-medium text-gray-700">Nombre <span aria-hidden="true" class="text-red-600 ml-1">*</span></label>
-                        <input type="text" id="nombre" name="nombre" value="{{ user.nombre }}" required aria-required="true" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border text-gray-900">
+                        <input type="text" id="nombre" name="nombre" value="{{ current_nombre }}" required aria-required="true" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border text-gray-900">
                     </div>
                     
                     <div class="form-group flex flex-col gap-1.5">
                         <label for="apellido" class="form-label block text-sm font-medium text-gray-700">Apellido <span aria-hidden="true" class="text-red-600 ml-1">*</span></label>
-                        <input type="text" id="apellido" name="apellido" value="{{ user.apellido }}" required aria-required="true" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border text-gray-900">
+                        <input type="text" id="apellido" name="apellido" value="{{ current_apellido }}" required aria-required="true" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border text-gray-900">
                     </div>
                 </div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
                     <div class="form-group flex flex-col gap-1.5">
                         <label for="email" class="form-label block text-sm font-medium text-gray-700">Correo electrónico <span aria-hidden="true" class="text-red-600 ml-1">*</span></label>
-                        <input type="email" id="email" name="email" value="{{ user.email }}" required aria-required="true" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border text-gray-900">
+                        <input type="email" id="email" name="email" value="{{ current_email }}" required aria-required="true" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border text-gray-900">
                     </div>
                     
                     <div class="form-group flex flex-col gap-1.5">
                         <label for="dni" class="form-label block text-sm font-medium text-gray-700">DNI <span aria-hidden="true" class="text-red-600 ml-1">*</span></label>
-                        <input type="text" id="dni" name="dni" value="{{ user.dni }}" required aria-required="true" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border text-gray-900">
+                        <input type="text" id="dni" name="dni" value="{{ current_dni }}" required aria-required="true" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border text-gray-900">
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                    <div class="form-group flex flex-col gap-1.5">
-                        <label for="password" class="form-label block text-sm font-medium text-gray-700">Nueva Contraseña</label>
-                        <input type="password" id="password" name="password" minlength="6" placeholder="Dejar en blanco para no cambiar" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border text-gray-900">
-                    </div>
-                    
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 items-center">
                     <div class="form-group flex flex-col gap-1.5">
                         <label for="role_id" class="form-label block text-sm font-medium text-gray-700">Rol del sistema <span aria-hidden="true" class="text-red-600 ml-1">*</span></label>
                         <select id="role_id" name="role_id" required aria-required="true" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border text-gray-900 bg-white">
                             {% for role in roles %}
-                                <option value="{{ role.id }}" {% if user.role_id == role.id %}selected{% endif %}>{{ role.name }}</option>
+                                <option value="{{ role.id }}" {% if current_role_id == role.id %}selected{% endif %}>{{ role.name }}</option>
                             {% endfor %}
                         </select>
                     </div>
-                </div>
 
-                <div class="form-group mt-2">
-                    <label class="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" name="activo" {% if user.activo %}checked{% endif %} class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
-                        <span class="text-sm font-medium text-gray-700">Usuario activo en el sistema</span>
-                    </label>
+                    <div class="form-group mt-4 sm:mt-6">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" name="activo" {% if current_activo %}checked{% endif %} class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                            <span class="text-sm font-medium text-gray-700">Usuario activo en el sistema</span>
+                        </label>
+                    </div>
                 </div>
 
                 <div id="sector-container" class="form-group flex flex-col gap-1.5 mt-4" style="display: none;">
-                    <label for="sector_id" class="form-label block text-sm font-medium text-gray-700">Sector <span aria-hidden="true" class="text-red-600 ml-1">*</span></label>
+                    <label for="sector_id" class="form-label block text-sm font-medium text-gray-700">Sector <span class="text-gray-500 font-normal ml-1">(Opcional)</span></label>
                     <select id="sector_id" name="sector_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border text-gray-900 bg-white">
-                        <option value="">-- Seleccione un sector --</option>
+                        <option value="">-- Sin sector asignado --</option>
                         {% for sector in sectors %}
-                            <option value="{{ sector.id }}" {% if user.sector_id == sector.id %}selected{% endif %}>{{ sector.nombre }}</option>
+                            <option value="{{ sector.id }}" {% if current_sector_id == sector.id %}selected{% endif %}>{{ sector.nombre }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -91,12 +94,8 @@
                             const selectedOption = roleSelect.options[roleSelect.selectedIndex];
                             if (selectedOption && selectedOption.text === "Jefe de Servicio") {
                                 sectorContainer.style.display = "block";
-                                sectorSelect.required = true;
-                                sectorSelect.setAttribute("aria-required", "true");
                             } else {
                                 sectorContainer.style.display = "none";
-                                sectorSelect.required = false;
-                                sectorSelect.removeAttribute("aria-required");
                                 sectorSelect.value = "";
                             }
                         }

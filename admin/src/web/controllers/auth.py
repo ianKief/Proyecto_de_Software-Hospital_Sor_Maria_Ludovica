@@ -17,21 +17,21 @@ def login():
         return redirect(url_for('main.home'))
 
     if request.method == 'POST':
-        email = request.form.get('email')
+        email = (request.form.get('email') or '').strip()
         password = request.form.get('password')
 
         if not email or not password:
             flash("Debe completar todos los campos obligatorios.", "error")
-            return render_template('auth/login.html')
+            return render_template('auth/login.html', email=email)
 
         user, error = autenticar_usuario(email, password)
 
         if error == "desactivado":
             flash("El usuario se encuentra desactivado.", "error")
-            return render_template('auth/login.html')
+            return render_template('auth/login.html', email=email)
         elif error:
             flash("Correo electrónico o contraseña incorrectos.", "error")
-            return render_template('auth/login.html')
+            return render_template('auth/login.html', email=email)
 
         session['user'] = user.email
         session['role'] = user.role.name

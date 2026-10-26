@@ -9,6 +9,19 @@
                 Volver al listado</a>
         </div>
 
+        <!-- Notificaciones -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div role="alert" aria-live="polite" class="flash-messages mb-6">
+              {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">
+                  {{ message }}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
         <div class="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
             <!-- Header con info principal -->
             <div class="px-6 py-5 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
@@ -72,8 +85,7 @@
 
                     <div class="sm:col-span-1">
                         <dt class="text-sm font-medium text-gray-500">Fecha de Alta</dt>
-                        <dd class="mt-1 text-sm text-gray-900 font-semibold">{{ user.created_at.strftime('%d/%m/%Y
-                            %H:%M') }}</dd>
+                        <dd class="mt-1 text-sm text-gray-900 font-semibold">{{ user.created_at.strftime('%d/%m/%Y %H:%M') }}</dd>
                     </div>
                 </dl>
             </div>
