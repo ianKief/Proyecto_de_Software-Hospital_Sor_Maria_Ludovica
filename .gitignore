@@ -1,5 +1,32 @@
+# Python
 __pycache__/
 *.py[cod]
 .venv/
+venv/
 .python-version
+.pytest_cache/
+.coverage
+htmlcov/
+flask_session/
+instance/
+
+# Variables de entorno
 .env
+.env.*
+!.env.example
+*.local
+
+# Node.js / Vue
+node_modules/
+dist/
+dist-ssr/
+.vite/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# IDEs & OS
+.vscode/
+.idea/
+.DS_Store

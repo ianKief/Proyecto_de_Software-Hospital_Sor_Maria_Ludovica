@@ -1,4 +1,20 @@
+# Environment variables
 .env
+.env.*
+!.env.example
+
+# Flask & Python
 flask_session/
+instance/
 __pycache__/
-.vscode
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDEs & OS
+.vscode/
+.idea/
+.DS_Store
