@@ -101,8 +101,6 @@ def existe_usuario_con_dni(dni, excluir_id=None):
     return query.first() is not None
 
 
-
-
 def obtener_usuario(id=None, email=None, dni=None):
     """Busca y retorna un único usuario según el criterio especificado.
     
@@ -171,10 +169,8 @@ def crear_usuario(email, nombre, apellido, dni, role_id=None, password=None, sec
     return new_user
 
 
-
-
-def actualizar_usuario(user, email, nombre, apellido, dni, role_id, sector_id=None, activo=True, password=None):
-    """Actualiza los datos de un usuario existente y persiste los cambios."""
+def actualizar_usuario(user, email, nombre, apellido, dni, role_id, sector_id=None, activo=True):
+    """Actualiza los datos administrativos de un usuario existente y persiste los cambios."""
     role = Role.query.get(role_id)
     if not role or role.name != "Jefe de Servicio":
         sector_id = None
@@ -191,8 +187,21 @@ def actualizar_usuario(user, email, nombre, apellido, dni, role_id, sector_id=No
     user.sector_id = sector_id
     user.activo = activo
 
+    db.session.commit()
+    return user
+
+
+def actualizar_perfil_usuario(user, email, nombre, apellido, dni, password=None):
+    """Actualiza los datos personales y opcionalmente la contraseña del propio usuario."""
     if password and password.strip():
+        if len(password.strip()) < 6:
+            raise ValueError("La contraseña debe tener al menos 6 caracteres.")
         user.password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+    user.email = email
+    user.nombre = nombre
+    user.apellido = apellido
+    user.dni = dni
 
     db.session.commit()
     return user

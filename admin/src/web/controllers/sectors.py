@@ -205,10 +205,16 @@ def edit(id):
             errors['general'] = "Ocurrió un error inesperado al procesar la solicitud."
             status_code = 500
 
+        data = {
+            'nombre': nombre,
+            'descripcion': descripcion,
+            'jefes_ids': jefes_ids,
+        }
+
         return render_template(
             'sectors/sector_edit.html', 
             sector=sector, 
-            data=request.form, 
+            data=data, 
             errors=errors,
             jefes_disponibles=jefes_disponibles # 4. Lo pasamos al HTML
         ), status_code
