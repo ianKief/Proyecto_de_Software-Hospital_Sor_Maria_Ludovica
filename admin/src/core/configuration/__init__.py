@@ -9,6 +9,15 @@ from src.core.configuration.models import (
     ID_CONFIGURACION,
     ELEMENTOS_POR_PAGINA_INICIAL,
     MANTENIMIENTO_ACTIVO_INICIAL,
+    DESAYUNO_INICIO_INICIAL,
+    DESAYUNO_FIN_INICIAL,
+    ALMUERZO_INICIO_INICIAL,
+    ALMUERZO_FIN_INICIAL,
+    MERIENDA_INICIO_INICIAL,
+    MERIENDA_FIN_INICIAL,
+    CENA_INICIO_INICIAL,
+    CENA_FIN_INICIAL,
+    HORARIO_CORTE_INICIAL,
 )
 
 logger = logging.getLogger(__name__)
@@ -30,6 +39,15 @@ def obtener_configuracion():
             id=ID_CONFIGURACION,
             elementos_por_pagina=ELEMENTOS_POR_PAGINA_INICIAL,
             mantenimiento_activo=MANTENIMIENTO_ACTIVO_INICIAL,
+            desayuno_inicio=DESAYUNO_INICIO_INICIAL,
+            desayuno_fin=DESAYUNO_FIN_INICIAL,
+            almuerzo_inicio=ALMUERZO_INICIO_INICIAL,
+            almuerzo_fin=ALMUERZO_FIN_INICIAL,
+            merienda_inicio=MERIENDA_INICIO_INICIAL,
+            merienda_fin=MERIENDA_FIN_INICIAL,
+            cena_inicio=CENA_INICIO_INICIAL,
+            cena_fin=CENA_FIN_INICIAL,
+            horario_corte=HORARIO_CORTE_INICIAL,
         )
         db.session.add(configuracion)
         db.session.commit()
