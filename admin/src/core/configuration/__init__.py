@@ -64,13 +64,31 @@ def obtener_configuracion():
     return configuracion
 
 
+def _guardar_horarios(configuracion, datos):
+    """Copia a la configuración los 9 horarios (``datetime.time``) ya validados.
+
+    No hace commit: lo hace ``actualizar_configuracion``, junto con el resto
+    de los campos, para que todo se guarde o nada.
+    """
+    configuracion.desayuno_inicio = datos["desayuno_inicio"]
+    configuracion.desayuno_fin = datos["desayuno_fin"]
+    configuracion.almuerzo_inicio = datos["almuerzo_inicio"]
+    configuracion.almuerzo_fin = datos["almuerzo_fin"]
+    configuracion.merienda_inicio = datos["merienda_inicio"]
+    configuracion.merienda_fin = datos["merienda_fin"]
+    configuracion.cena_inicio = datos["cena_inicio"]
+    configuracion.cena_fin = datos["cena_fin"]
+    configuracion.horario_corte = datos["horario_corte"]
+
+
 def actualizar_configuracion(datos, usuario):
     """Guarda los nuevos valores de la configuración y devuelve la fila.
 
     Recibe los datos ya validados por ``validar_configuracion``
-    (``elementos_por_pagina``, ``mantenimiento_activo`` y
-    ``mensaje_mantenimiento``) y el email del usuario que hace el cambio,
-    que se registra en el log junto con los valores que cambiaron.
+    (``elementos_por_pagina``, ``mantenimiento_activo``,
+    ``mensaje_mantenimiento`` y los 9 horarios de comidas y de corte)
+    y el email del usuario que hace el cambio, que se registra en el log
+    junto con los valores generales que cambiaron.
     Ante un error hace rollback y relanza la excepción.
     """
     configuracion = obtener_configuracion()
@@ -86,6 +104,7 @@ def actualizar_configuracion(datos, usuario):
         configuracion.elementos_por_pagina = datos["elementos_por_pagina"]
         configuracion.mantenimiento_activo = datos["mantenimiento_activo"]
         configuracion.mensaje_mantenimiento = datos["mensaje_mantenimiento"]
+        _guardar_horarios(configuracion, datos)
         db.session.commit()
     except Exception:
         db.session.rollback()
@@ -101,4 +120,5 @@ def actualizar_configuracion(datos, usuario):
     logger.info(
         "Configuración actualizada por %s. Cambios: %s", usuario, cambios or "ninguno"
     )
+    logger.info("Horarios de comidas y de corte guardados por %s", usuario)
     return configuracion

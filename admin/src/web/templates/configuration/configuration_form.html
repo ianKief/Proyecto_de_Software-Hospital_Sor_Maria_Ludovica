@@ -70,6 +70,60 @@
                         {% endif %}
                     </div>
 
+                    <h2 class="text-base font-semibold text-gray-900 pt-4 border-t border-gray-200">Horarios de las comidas</h2>
+
+                    {# Un grupo por comida, en el orden del día, con su inicio y su fin. #}
+                    {% for comida in comidas %}
+                        {% set campo_inicio = comida ~ "_inicio" %}
+                        {% set campo_fin = comida ~ "_fin" %}
+                        <fieldset class="border border-gray-200 rounded-lg p-4">
+                            <legend class="text-base font-semibold text-gray-900">{{ comida|capitalize }}</legend>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+                                <div class="form-group">
+                                    <label for="{{ campo_inicio }}" class="form-label">Inicio <span aria-hidden="true" class="required-asterisk">*</span></label>
+                                    <input type="time" id="{{ campo_inicio }}" name="{{ campo_inicio }}"
+                                           value="{{ valores[campo_inicio] }}"
+                                           required aria-required="true"
+                                           {% if errores[campo_inicio] %}aria-invalid="true" aria-describedby="{{ campo_inicio }}-error"{% endif %}
+                                           class="form-input">
+                                    {% if errores[campo_inicio] %}
+                                        <p id="{{ campo_inicio }}-error" class="text-sm text-red-600">{{ errores[campo_inicio] }}</p>
+                                    {% endif %}
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="{{ campo_fin }}" class="form-label">Fin <span aria-hidden="true" class="required-asterisk">*</span></label>
+                                    <input type="time" id="{{ campo_fin }}" name="{{ campo_fin }}"
+                                           value="{{ valores[campo_fin] }}"
+                                           required aria-required="true"
+                                           {% if errores[campo_fin] %}aria-invalid="true" aria-describedby="{{ campo_fin }}-error"{% endif %}
+                                           class="form-input">
+                                    {% if errores[campo_fin] %}
+                                        <p id="{{ campo_fin }}-error" class="text-sm text-red-600">{{ errores[campo_fin] }}</p>
+                                    {% endif %}
+                                </div>
+
+                            </div>
+                        </fieldset>
+                    {% endfor %}
+
+                    <div class="form-group">
+                        <label for="horario_corte" class="form-label">Horario de corte de pedidos <span aria-hidden="true" class="required-asterisk">*</span></label>
+                        <input type="time" id="horario_corte" name="horario_corte"
+                               value="{{ valores.horario_corte }}"
+                               required aria-required="true"
+                               aria-describedby="horario_corte-ayuda{% if errores.horario_corte %} horario_corte-error{% endif %}"
+                               {% if errores.horario_corte %}aria-invalid="true"{% endif %}
+                               class="form-input">
+                        <p id="horario_corte-ayuda" class="text-sm text-gray-500">
+                            Hora límite del día anterior para cargar o modificar pedidos.
+                        </p>
+                        {% if errores.horario_corte %}
+                            <p id="horario_corte-error" class="text-sm text-red-600">{{ errores.horario_corte }}</p>
+                        {% endif %}
+                    </div>
+
                 </fieldset>
 
                 {% if puede_editar %}
