@@ -2,7 +2,11 @@
 from flask import Blueprint, render_template, request, session, flash, redirect, url_for
 from sqlalchemy.exc import SQLAlchemyError
 
-from src.core.configuration import obtener_configuracion, actualizar_configuracion
+from src.core.configuration import (
+    obtener_configuracion,
+    actualizar_configuracion,
+    hora_a_texto,
+)
 from src.web.helpers.auth import permission_required, check_permission
 from src.web.helpers.configuracion_validaciones import (
     validar_configuracion,
@@ -38,26 +42,21 @@ def _render_formulario(valores, errores=None, error_general=None, codigo=200):
     ), codigo
 
 
-def _formatear_hora(hora):
-    """Devuelve la hora como "HH:MM", el formato que espera un <input type="time">."""
-    return hora.strftime("%H:%M")
-
-
 def _valores_guardados(configuracion):
     """Arma los valores a mostrar en el formulario a partir de la fila guardada."""
     return {
         "elementos_por_pagina": configuracion.elementos_por_pagina,
         "mantenimiento_activo": configuracion.mantenimiento_activo,
         "mensaje_mantenimiento": configuracion.mensaje_mantenimiento or "",
-        "desayuno_inicio": _formatear_hora(configuracion.desayuno_inicio),
-        "desayuno_fin": _formatear_hora(configuracion.desayuno_fin),
-        "almuerzo_inicio": _formatear_hora(configuracion.almuerzo_inicio),
-        "almuerzo_fin": _formatear_hora(configuracion.almuerzo_fin),
-        "merienda_inicio": _formatear_hora(configuracion.merienda_inicio),
-        "merienda_fin": _formatear_hora(configuracion.merienda_fin),
-        "cena_inicio": _formatear_hora(configuracion.cena_inicio),
-        "cena_fin": _formatear_hora(configuracion.cena_fin),
-        "horario_corte": _formatear_hora(configuracion.horario_corte),
+        "desayuno_inicio": hora_a_texto(configuracion.desayuno_inicio),
+        "desayuno_fin": hora_a_texto(configuracion.desayuno_fin),
+        "almuerzo_inicio": hora_a_texto(configuracion.almuerzo_inicio),
+        "almuerzo_fin": hora_a_texto(configuracion.almuerzo_fin),
+        "merienda_inicio": hora_a_texto(configuracion.merienda_inicio),
+        "merienda_fin": hora_a_texto(configuracion.merienda_fin),
+        "cena_inicio": hora_a_texto(configuracion.cena_inicio),
+        "cena_fin": hora_a_texto(configuracion.cena_fin),
+        "horario_corte": hora_a_texto(configuracion.horario_corte),
     }
 
 

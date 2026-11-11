@@ -1,11 +1,11 @@
 """Tests de GET /api/configuration (usan una base SQLite en memoria).
 
-La spec pide que este endpoint lo pueda usar "cualquier usuario autenticado":
-sin token responde 401 y con el token de cualquier usuario (aunque no sea
-Administrador ni tenga permisos) responde 200 con los ajustes.
+En la etapa 2 el endpoint es público: el portal lo consulta antes del login
+para saber si hay mantenimiento y si hay conexión. Responde 200 con o sin
+token, con los parámetros generales, el horario de corte y los horarios
+de cada comida.
 
-También se prueba el modo mantenimiento en la API: el Administrador
-(``config_update``) pasa, otro rol recibe 503 y sin token sigue siendo 401.
+También se prueba el modo mantenimiento en la API sobre este endpoint.
 """
 import pytest
 
@@ -14,10 +14,25 @@ from src.core.db import db
 from src.core.auth.models import Permission, Role
 from src.core.configuration.models import ID_CONFIGURACION, Configuration
 from src.core.users.models import User
-from tests.helpers_token import cliente_con_token, headers_con_token
+from tests.helpers_token import cliente_con_token
 
 URL = "/api/configuration"
 MENSAJE = "Volvemos en una hora"
+
+# Lo que devuelve el endpoint con la fila de la fixture: los horarios no se
+# cargan ahí, así que valen los iniciales (default= del modelo).
+CONFIGURACION_ESPERADA = {
+    "elementos_por_pagina": 10,
+    "mantenimiento_activo": False,
+    "mensaje_mantenimiento": None,
+    "horario_corte": "20:00",
+    "comidas": {
+        "desayuno": {"inicio": "06:00", "fin": "10:00"},
+        "almuerzo": {"inicio": "11:30", "fin": "15:00"},
+        "merienda": {"inicio": "16:00", "fin": "18:30"},
+        "cena": {"inicio": "20:00", "fin": "23:00"},
+    },
+}
 
 
 @pytest.fixture
@@ -91,38 +106,20 @@ def en_mantenimiento(app):
 
 # Acceso
 
-def test_sin_token_responde_401(app):
-    """Sin token, el endpoint responde 401 en JSON."""
+def test_sin_token_responde_200(app):
+    """Sin token responde 200 con todos los ajustes (el endpoint es público)."""
     respuesta = app.test_client().get(URL)
 
-    assert respuesta.status_code == 401
-    assert respuesta.get_json() == {"error": "Token faltante o inválido"}
-
-
-def test_token_expirado_responde_401(app, usuario_comedor):
-    """Con un token vencido responde 401 aunque el usuario exista."""
-    headers = headers_con_token(app, usuario_comedor, horas=-1)
-
-    respuesta = app.test_client().get(URL, headers=headers)
-
-    assert respuesta.status_code == 401
-    assert respuesta.get_json() == {"error": "Token expirado"}
+    assert respuesta.status_code == 200
+    assert respuesta.get_json() == CONFIGURACION_ESPERADA
 
 
 def test_usuario_no_admin_con_token_responde_200(app, usuario_comedor):
-    """Un usuario con token que no es Administrador recibe los tres ajustes.
-
-    La spec dice "Rol(es): cualquier usuario autenticado", así que no se pide
-    ningún permiso (el rol del usuario no tiene ``config_show``).
-    """
+    """Con el token de un usuario sin permisos también responde 200 con los ajustes."""
     respuesta = cliente_con_token(app, usuario_comedor).get(URL)
 
     assert respuesta.status_code == 200
-    assert respuesta.get_json() == {
-        "elementos_por_pagina": 10,
-        "mantenimiento_activo": False,
-        "mensaje_mantenimiento": None,
-    }
+    assert respuesta.get_json() == CONFIGURACION_ESPERADA
 
 
 # Modo mantenimiento
@@ -143,9 +140,10 @@ def test_mantenimiento_otro_rol_responde_503(app, usuario_comedor, en_mantenimie
     assert respuesta.get_json() == {"error": MENSAJE}
 
 
-def test_mantenimiento_sin_token_responde_401(app, en_mantenimiento):
-    """Sin token gana el 401 sobre el 503 (la spec lo pide primero)."""
+def test_mantenimiento_sin_token_responde_200(app, en_mantenimiento):
+    """Sin token responde 200 y avisa que hay mantenimiento, con el mensaje."""
     respuesta = app.test_client().get(URL)
 
-    assert respuesta.status_code == 401
-    assert respuesta.get_json() == {"error": "Token faltante o inválido"}
+    assert respuesta.status_code == 200
+    assert respuesta.get_json()["mantenimiento_activo"] is True
+    assert respuesta.get_json()["mensaje_mantenimiento"] == MENSAJE

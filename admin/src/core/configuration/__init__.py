@@ -23,6 +23,15 @@ from src.core.configuration.models import (
 logger = logging.getLogger(__name__)
 
 
+def hora_a_texto(hora):
+    """Devuelve una hora (``datetime.time``) como texto "HH:MM".
+
+    Es el formato que usan el ``<input type="time">`` del formulario de
+    Ajustes y la API (sin segundos, que ``str(hora)`` sí mostraría).
+    """
+    return hora.strftime("%H:%M")
+
+
 def obtener_configuracion():
     """Devuelve la fila de configuración del sistema.
 
