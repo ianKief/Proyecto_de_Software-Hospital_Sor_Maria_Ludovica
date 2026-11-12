@@ -1,14 +1,13 @@
+
 from datetime import date
 from types import SimpleNamespace
 
-from src.web import create_app
 from src.web.controllers import authorizations as auth_controller
 from src.web.controllers import pedidos as pedidos_controller
 from src.web.helpers import api_auth
 
 
-def preparar_cliente(monkeypatch, rol):
-    app = create_app()
+def preparar_cliente(monkeypatch, app, rol):
     app.config.update(TESTING=True, SECRET_KEY="test-secret")
     client = app.test_client()
 
@@ -57,10 +56,9 @@ def crear_pagina_falsa(pedido):
     )
 
 
-def test_listado_pedidos_usa_respuesta_paginada(monkeypatch):
+def test_listado_pedidos_usa_respuesta_paginada(monkeypatch, app):
     pedido = crear_pedido_falso()
     pagina = crear_pagina_falsa(pedido)
-    usuario = SimpleNamespace(activo=True, sector_id=3)
 
     monkeypatch.setattr(
         pedidos_controller,
@@ -73,7 +71,7 @@ def test_listado_pedidos_usa_respuesta_paginada(monkeypatch):
         lambda consulta, numero: pagina,
     )
 
-    client = preparar_cliente(monkeypatch, "Jefe de Servicio")
+    client = preparar_cliente(monkeypatch, app, "Jefe de Servicio")
     response = client.get("/api/requests?page=2")
 
     assert response.status_code == 200
@@ -85,19 +83,16 @@ def test_listado_pedidos_usa_respuesta_paginada(monkeypatch):
     assert "pedidos" not in response.json
 
 
-def test_listado_pedidos_rechaza_pagina_invalida(monkeypatch):
-    usuario = SimpleNamespace(activo=True, sector_id=3)
-
-    client = preparar_cliente(monkeypatch, "Jefe de Servicio")
+def test_listado_pedidos_rechaza_pagina_invalida(monkeypatch, app):
+    client = preparar_cliente(monkeypatch, app, "Jefe de Servicio")
     response = client.get("/api/requests?page=abc")
 
     assert response.status_code == 400
 
 
-def test_listado_autorizaciones_usa_respuesta_paginada(monkeypatch):
+def test_listado_autorizaciones_usa_respuesta_paginada(monkeypatch, app):
     pedido = crear_pedido_falso()
     pagina = crear_pagina_falsa(pedido)
-    usuario = SimpleNamespace(activo=True)
 
     monkeypatch.setattr(
         auth_controller,
@@ -117,6 +112,7 @@ def test_listado_autorizaciones_usa_respuesta_paginada(monkeypatch):
 
     client = preparar_cliente(
         monkeypatch,
+        app,
         "Servicio de Alimentación",
     )
     response = client.get("/api/authorizations?page=2")
@@ -130,11 +126,10 @@ def test_listado_autorizaciones_usa_respuesta_paginada(monkeypatch):
     assert "pedidos" not in response.json
 
 
-def test_listado_autorizaciones_rechaza_pagina_invalida(monkeypatch):
-    usuario = SimpleNamespace(activo=True)
-
+def test_listado_autorizaciones_rechaza_pagina_invalida(monkeypatch, app):
     client = preparar_cliente(
         monkeypatch,
+        app,
         "Servicio de Alimentación",
     )
     response = client.get("/api/authorizations?page=abc")

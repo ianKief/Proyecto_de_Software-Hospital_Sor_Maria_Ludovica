@@ -1,5 +1,6 @@
+
 import pytest
-from src.web import create_app
+
 from src.core import personnel
 from src.core.personnel.models import Personal
 from src.core.personnel_types.models import PersonnelType
@@ -8,48 +9,58 @@ from src.core.sectors.models import Sector
 from src.core.users.models import User
 from src.core.auth.models import Role, Permission
 from src.core.db import db
-from src.core import personnel
 
 
 @pytest.fixture
-def test_setup():
-    app = create_app()
+def test_setup(app):
     client = app.test_client()
-    with app.app_context():
-        rol = Role.query.filter_by(name="Servicio de Alimentación").first()
-        if not rol:
-            rol = Role(name="Servicio de Alimentación")
-            db.session.add(rol)
+
+    rol = Role.query.filter_by(name="Servicio de Alimentación").first()
+    if not rol:
+        rol = Role(name="Servicio de Alimentación")
+        db.session.add(rol)
+        db.session.flush()
+
+    permisos = [
+        "personnel_index",
+        "personnel_show",
+        "personnel_new",
+        "personnel_update",
+        "personnel_destroy",
+    ]
+
+    for p_name in permisos:
+        perm = Permission.query.filter_by(name=p_name).first()
+        if not perm:
+            perm = Permission(name=p_name)
+            db.session.add(perm)
             db.session.flush()
 
-        for p_name in ["personnel_index", "personnel_show", "personnel_new", "personnel_update", "personnel_destroy"]:
-            perm = Permission.query.filter_by(name=p_name).first()
-            if not perm:
-                perm = Permission(name=p_name)
-                db.session.add(perm)
-                db.session.flush()
-            if perm not in rol.permissions:
-                rol.permissions.append(perm)
+        if perm not in rol.permissions:
+            rol.permissions.append(perm)
 
-        user = User.query.filter_by(email="test_crud_personal@hospital.com").first()
-        if not user:
-            user = User(
-                email="test_crud_personal@hospital.com",
-                nombre="Test",
-                apellido="Personal",
-                dni="88776655",
-                password="hashed_dummy_password",
-                activo=True,
-                role_id=rol.id,
-            )
-            db.session.add(user)
-            db.session.commit()
+    user = User.query.filter_by(
+        email="test_crud_personal@hospital.com"
+    ).first()
 
-        with client.session_transaction() as sess:
-            sess["user"] = user.email
-            sess["user_id"] = user.id
+    if not user:
+        user = User(
+            email="test_crud_personal@hospital.com",
+            nombre="Test",
+            apellido="Personal",
+            dni="88776655",
+            password="hashed_dummy_password",
+            activo=True,
+            role_id=rol.id,
+        )
+        db.session.add(user)
+        db.session.commit()
 
-        yield app, client
+    with client.session_transaction() as sess:
+        sess["user"] = user.email
+        sess["user_id"] = user.id
+
+    yield app, client
 
 
 def _obtener_o_crear_recursos_personal():
@@ -67,7 +78,11 @@ def _obtener_o_crear_recursos_personal():
 
     sector = Sector.query.filter_by(activo=True).first()
     if not sector:
-        sector = Sector(nombre="Sector Test Personal", descripcion="Sector test", activo=True)
+        sector = Sector(
+            nombre="Sector Test Personal",
+            descripcion="Sector test",
+            activo=True,
+        )
         db.session.add(sector)
         db.session.commit()
 
@@ -76,7 +91,9 @@ def _obtener_o_crear_recursos_personal():
 
 def test_listado_personal_responde_ok(test_setup):
     _, client = test_setup
+
     res = client.get("/personal/")
+
     assert res.status_code == 200
 
 
@@ -85,12 +102,13 @@ def test_ciclo_completo_personal(test_setup):
     tipo_p, tipo_m, sector = _obtener_o_crear_recursos_personal()
 
     dni_test = "45999888"
+
     prev = Personal.query.filter_by(dni=dni_test).first()
     if prev:
         db.session.delete(prev)
         db.session.commit()
 
-    # 1. ALTA
+    # 1. Alta.
     data_alta = {
         "dni": dni_test,
         "nombre": "Esteban",
@@ -100,14 +118,21 @@ def test_ciclo_completo_personal(test_setup):
         "sector_id": str(sector.id),
         "activo": "true",
     }
-    res_alta = client.post("/personal/nuevo", data=data_alta, follow_redirects=True)
+
+    res_alta = client.post(
+        "/personal/nuevo",
+        data=data_alta,
+        follow_redirects=True,
+    )
+
     assert res_alta.status_code == 200
 
     p = Personal.query.filter_by(dni=dni_test).first()
+
     assert p is not None
     assert p.nombre == "Esteban"
 
-    # 2. EDICIÓN
+    # 2. Edición.
     data_edit = {
         "dni": dni_test,
         "nombre": "Esteban Modificado",
@@ -117,24 +142,40 @@ def test_ciclo_completo_personal(test_setup):
         "sector_id": str(sector.id),
         "activo": "true",
     }
-    res_edit = client.post(f"/personal/{p.id}/editar", data=data_edit, follow_redirects=True)
+
+    res_edit = client.post(
+        f"/personal/{p.id}/editar",
+        data=data_edit,
+        follow_redirects=True,
+    )
+
     assert res_edit.status_code == 200
 
     db.session.refresh(p)
     assert p.nombre == "Esteban Modificado"
 
-    # 3. ELIMINACIÓN
+    # 3. Eliminación.
     p_id = p.id
-    res_del = client.post(f"/personal/{p_id}/eliminar", follow_redirects=True)
+
+    res_del = client.post(
+        f"/personal/{p_id}/eliminar",
+        follow_redirects=True,
+    )
+
     assert res_del.status_code == 200
 
-    eliminada = Personal.query.get(p_id)
+    eliminada = db.session.get(Personal, p_id)
     assert eliminada is None
 
 
-def test_baja_logica_cuando_posee_pedidos(test_setup):
+def test_baja_logica_cuando_posee_pedidos(test_setup, monkeypatch):
     _, client = test_setup
+
+    # Preparar los recursos necesarios para crear la persona.
+    _obtener_o_crear_recursos_personal()
+
     dni_test = "77445566"
+
     tipos = personnel.list_personnel_types()
     menus = personnel.list_menu_types()
     sectores = personnel.list_active_sectors()
@@ -152,18 +193,26 @@ def test_baja_logica_cuando_posee_pedidos(test_setup):
         "sector_id": str(sectores[0].id),
         "menu_type_id": str(menus[0].id),
     }
-    persona = personnel.create_personnel(data)
-    p_id = persona.id
 
-    orig_has_order = personnel.has_order_history
-    personnel.has_order_history = lambda pid: True
+    persona = personnel.create_personnel(data)
+
+    monkeypatch.setattr(
+        personnel,
+        "has_order_history",
+        lambda pid: True,
+    )
 
     try:
-        res = client.post(f"/personal/{persona.id}/eliminar", follow_redirects=True)
+        res = client.post(
+            f"/personal/{persona.id}/eliminar",
+            follow_redirects=True,
+        )
+
         assert res.status_code == 200
+
         db.session.refresh(persona)
         assert persona.activo is False
+
     finally:
-        personnel.has_order_history = orig_has_order
         db.session.delete(persona)
         db.session.commit()

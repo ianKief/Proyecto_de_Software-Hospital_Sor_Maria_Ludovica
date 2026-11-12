@@ -1,11 +1,12 @@
+
 from datetime import date
-from src.web.helpers import api_auth
-from src.web import create_app
-from src.web.controllers import pedidos as pedidos_controller
 from types import SimpleNamespace
 
-def preparar_cliente(monkeypatch):
-    app = create_app()
+from src.web.helpers import api_auth
+from src.web.controllers import pedidos as pedidos_controller
+
+
+def preparar_cliente(monkeypatch, app):
     app.config.update(
         TESTING=True,
         SECRET_KEY="test-secret-key-for-jwt-tests-32-bytes",
@@ -31,7 +32,7 @@ def preparar_cliente(monkeypatch):
     return client
 
 
-def test_todas_las_fechas_en_conflicto_devuelven_409(monkeypatch):
+def test_todas_las_fechas_en_conflicto_devuelven_409(monkeypatch, app):
     monkeypatch.setattr(
         pedidos_controller,
         "validar_pedido",
@@ -50,7 +51,7 @@ def test_todas_las_fechas_en_conflicto_devuelven_409(monkeypatch):
         ),
     )
 
-    response = preparar_cliente(monkeypatch).post(
+    response = preparar_cliente(monkeypatch, app).post(
         "/api/requests",
         json={"prueba": True},
     )
@@ -60,7 +61,7 @@ def test_todas_las_fechas_en_conflicto_devuelven_409(monkeypatch):
     assert response.json["error"].startswith("No se creó ningún pedido")
 
 
-def test_carga_parcial_devuelve_pedidos_y_conflictos(monkeypatch):
+def test_carga_parcial_devuelve_pedidos_y_conflictos(monkeypatch, app):
     monkeypatch.setattr(
         pedidos_controller,
         "validar_pedido",
@@ -88,7 +89,7 @@ def test_carga_parcial_devuelve_pedidos_y_conflictos(monkeypatch):
         ),
     )
 
-    response = preparar_cliente(monkeypatch).post(
+    response = preparar_cliente(monkeypatch, app).post(
         "/api/requests",
         json={"prueba": True},
     )
