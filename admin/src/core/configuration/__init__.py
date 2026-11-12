@@ -1,5 +1,6 @@
 """Operaciones de negocio de la configuración general del sistema."""
 import logging
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.exc import IntegrityError
 
@@ -21,6 +22,12 @@ from src.core.configuration.models import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Argentina usa UTC-3 todo el año (no tiene horario de verano).
+# Se arma a mano para no depender de zoneinfo, que en Windows necesita instalar tzdata.
+# Vive acá y no en Entregas porque turnos.py ya importa este módulo:
+# si este módulo importara turnos.py, el import sería circular.
+ZONA_ARGENTINA = timezone(timedelta(hours=-3))
 
 
 def hora_a_texto(hora):
@@ -131,3 +138,40 @@ def actualizar_configuracion(datos, usuario):
     )
     logger.info("Horarios de comidas y de corte guardados por %s", usuario)
     return configuracion
+
+
+def pedido_editable(fecha_pedido, ahora=None):
+    """Dice si un pedido para ``fecha_pedido`` todavía se puede cargar, modificar o eliminar.
+
+    Regla: la fecha tiene que ser futura y ``ahora`` tiene que ser antes del
+    horario de corte del **día anterior** a la fecha. Por ejemplo, con corte
+    20:00, un pedido para el jueves se acepta hasta el miércoles a las 19:59;
+    a las 20:00 en punto ya no.
+
+    - ``fecha_pedido``: un ``datetime.date``.
+    - ``ahora``: un ``datetime``. Si no se pasa, se usa la hora actual de
+      Argentina. Si trae zona horaria (por ejemplo UTC), se pasa a hora
+      argentina antes de comparar. Si no trae zona, se asume que ya es
+      hora argentina.
+
+    Devuelve ``True`` o ``False``. La usa el módulo de Pedidos.
+    """
+    if ahora is None:
+        ahora = datetime.now(ZONA_ARGENTINA)
+
+    # Solo se convierte si trae zona: astimezone() sobre un datetime sin zona
+    # lo tomaría como hora del servidor, que puede no ser la de Argentina.
+    if ahora.tzinfo is not None:
+        ahora = ahora.astimezone(ZONA_ARGENTINA)
+
+    # Un pedido para hoy o para una fecha pasada nunca se puede tocar.
+    if fecha_pedido <= ahora.date():
+        return False
+
+    # Si falta más de un día, todavía no llegó el corte.
+    dia_anterior = fecha_pedido - timedelta(days=1)
+    if ahora.date() < dia_anterior:
+        return True
+
+    # Es el día anterior: se puede solo hasta antes del horario de corte.
+    return ahora.time() < obtener_configuracion().horario_corte

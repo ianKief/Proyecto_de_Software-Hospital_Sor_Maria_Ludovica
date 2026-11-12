@@ -1,11 +1,9 @@
 """Turnos de comida: el rango horario en que se sirve cada comida."""
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
-from src.core.configuration import obtener_configuracion
-
-# Argentina usa UTC-3 todo el año (no tiene horario de verano).
-# Se arma a mano para no depender de zoneinfo, que en Windows necesita instalar tzdata.
-ZONA_ARGENTINA = timezone(timedelta(hours=-3))
+# ZONA_ARGENTINA está definida en configuration (la usa también pedido_editable)
+# y se importa desde acá para que Entregas la siga encontrando en turnos.
+from src.core.configuration import ZONA_ARGENTINA, obtener_configuracion
 
 
 def horarios_de_comidas():
