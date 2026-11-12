@@ -8,6 +8,10 @@ from src.core.configuration.models import Configuration, ID_CONFIGURACION
 def seed_configuration():
     """Crea la fila de configuración con los valores iniciales, si todavía no existe.
 
+    Los valores iniciales (elementos por página, mantenimiento, horarios de
+    las comidas y horario de corte) son las constantes ``*_INICIAL`` de
+    ``core/configuration/models.py``.
+
     Necesita un contexto de aplicación activo. Si la fila ya existe no la modifica,
     así no se pisan los cambios que haya hecho un Administrador.
     """
@@ -16,7 +20,8 @@ def seed_configuration():
         print("La configuración ya existía.")
         return
 
-    # obtener_configuracion() crea la fila con los valores iniciales si no existe.
+    # obtener_configuracion() crea la fila con los valores iniciales (incluidos
+    # los horarios de comidas y de corte) si no existe.
     obtener_configuracion()
     print("Configuración inicial cargada con éxito.")
 

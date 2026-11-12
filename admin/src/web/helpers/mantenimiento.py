@@ -3,21 +3,17 @@ from flask import request, render_template, jsonify
 
 from src.core.configuration import obtener_configuracion
 from src.web.helpers.auth import check_permission
-# Reusa la lectura del token de api_auth para no duplicar la validación
-from src.web.helpers.api_auth import _obtener_usuario_desde_token
 
-# Endpoints que siempre funcionan, aunque el sitio esté en mantenimiento.
+# Endpoints de la app web que siempre funcionan, aunque el sitio esté en mantenimiento.
 # "auth.login" cubre el GET (formulario) y el POST (procesarlo): es una sola función.
 ENDPOINTS_PERMITIDOS = {"static", "auth.login", "auth.logout"}
 
+# Único endpoint de la API que funciona durante el mantenimiento: el portal
+# lo consulta para mostrar la pantalla de mantenimiento y para saber si hay
+# conexión con el servidor.
+ENDPOINTS_API_PERMITIDOS = {"api_configuration.configuration_show"}
+
 PERMISO_MANTENIMIENTO = "config_update"
-
-
-def _usuario_tiene_permiso(usuario, nombre_permiso):
-    """Indica si el rol de ``usuario`` tiene el permiso ``nombre_permiso``."""
-    if not usuario.role:
-        return False
-    return any(p.name == nombre_permiso for p in usuario.role.permissions)
 
 
 def verificar_mantenimiento():
@@ -27,18 +23,23 @@ def verificar_mantenimiento():
     la llama antes de cada vista. Si devuelve ``None`` el pedido sigue
     normal; si devuelve una respuesta, Flask responde eso y no llama a la vista.
 
-    Siempre pasan el login, el logout, los archivos estáticos y quien tenga
-    el permiso ``config_update`` (el Administrador, que es quien puede
-    desactivar el mantenimiento). En la web el usuario sale de la sesión y
-    se muestra una página HTML; en ``/api/`` sale del token JWT y se
-    responde JSON.
+    En ``/api/`` todo responde 503 en JSON con el mensaje, con o sin token
+    (también el login), salvo ``GET /api/configuration``.
 
-    En ``/api/`` también pasa el pedido sin un token válido: la spec pide
-    que el 401 vaya antes que cualquier otra regla, y ese 401 lo da el
-    decorador de la vista (``api_login_required`` o ``api_permission_required``).
+    En la web siempre pasan el login, el logout, los archivos estáticos y
+    quien tenga el permiso ``config_update`` (el Administrador, que es quien
+    desactiva el mantenimiento desde Ajustes); el resto ve una página HTML.
     """
+    # Cuando agreguemos CORS para el portal, el navegador manda un OPTIONS
+    # antes de cada pedido. Si ese OPTIONS recibe 503, el navegador corta la
+    # conexión y el portal mostraría "sin conexión" en vez del mantenimiento.
+    if request.method == "OPTIONS":
+        return None
+
     # Primero lo exceptuado, para no consultar la base en cada CSS o imagen.
     if request.endpoint in ENDPOINTS_PERMITIDOS:
+        return None
+    if request.endpoint in ENDPOINTS_API_PERMITIDOS:
         return None
 
     configuracion = obtener_configuracion()
@@ -48,13 +49,6 @@ def verificar_mantenimiento():
     mensaje = configuracion.mensaje_mantenimiento
 
     if request.path.startswith("/api/"):
-        # El error se ignora: token ausente, inválido, expirado o usuario
-        # inactivo siguen de largo para que la vista responda 401 y no 503.
-        usuario, _error = _obtener_usuario_desde_token()
-        if usuario is None:
-            return None
-        if _usuario_tiene_permiso(usuario, PERMISO_MANTENIMIENTO):
-            return None
         return jsonify({"error": mensaje}), 503
 
     if check_permission(PERMISO_MANTENIMIENTO):

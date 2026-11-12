@@ -1,10 +1,51 @@
 """Validaciones del lado del servidor para la configuración del sistema."""
+from datetime import datetime
 
+
+# Las comidas en el orden en que ocurren en el día: se usa para controlar
+# que una comida no se superponga con la siguiente.
+COMIDAS_EN_ORDEN = ["desayuno", "almuerzo", "merienda", "cena"]
+
+# Con el artículo, para armar mensajes con el género correcto.
+COMIDAS_CON_ARTICULO = {
+    "desayuno": "el desayuno",
+    "almuerzo": "el almuerzo",
+    "merienda": "la merienda",
+    "cena": "la cena",
+}
+
+CAMPOS_HORARIOS = [
+    "desayuno_inicio",
+    "desayuno_fin",
+    "almuerzo_inicio",
+    "almuerzo_fin",
+    "merienda_inicio",
+    "merienda_fin",
+    "cena_inicio",
+    "cena_fin",
+    "horario_corte",
+]
+
+# Nombre legible de cada horario, para los mensajes de error.
+NOMBRES_HORARIOS = {
+    "desayuno_inicio": "inicio del desayuno",
+    "desayuno_fin": "fin del desayuno",
+    "almuerzo_inicio": "inicio del almuerzo",
+    "almuerzo_fin": "fin del almuerzo",
+    "merienda_inicio": "inicio de la merienda",
+    "merienda_fin": "fin de la merienda",
+    "cena_inicio": "inicio de la cena",
+    "cena_fin": "fin de la cena",
+    "horario_corte": "horario de corte",
+}
+
+FORMATO_HORA = "%H:%M"
 
 CAMPOS_PERMITIDOS = {
     "elementos_por_pagina",
     "mantenimiento_activo",
     "mensaje_mantenimiento",
+    *CAMPOS_HORARIOS,
 }
 
 # Campos que agrega el propio formulario HTML: se ignoran, no son datos de la configuración.
@@ -25,6 +66,8 @@ def validar_configuracion(data):
     Ignora ``csrf_token`` y ``submit``, y rechaza cualquier otro campo
     que no sea de la configuración. Si falta ``mantenimiento_activo``
     se toma como False, porque un checkbox destildado no se envía.
+    Al final valida los horarios con ``validar_horarios`` y los agrega
+    a los datos limpios como ``datetime.time``.
 
     Devuelve ``(True, datos_limpios)`` si todo es válido, o
     ``(False, {"error": mensaje, "campos": [...]})`` con el primer error encontrado.
@@ -99,8 +142,105 @@ def validar_configuracion(data):
             "campos": ["mensaje_mantenimiento"],
         }
 
-    return True, {
+    horarios_validos, resultado_horarios = validar_horarios(data)
+
+    if not horarios_validos:
+        return False, resultado_horarios
+
+    datos_limpios = {
         "elementos_por_pagina": elementos_por_pagina,
         "mantenimiento_activo": mantenimiento_activo,
         "mensaje_mantenimiento": mensaje or None,
     }
+    datos_limpios.update(resultado_horarios)
+    return True, datos_limpios
+
+
+def convertir_hora(valor):
+    """Convierte un texto "HH:MM" en un ``datetime.time``.
+
+    Devuelve None si el valor no es un texto o no tiene ese formato
+    (por ejemplo "25:00", "abc" o "").
+    """
+    if not isinstance(valor, str):
+        return None
+
+    try:
+        return datetime.strptime(valor.strip(), FORMATO_HORA).time()
+    except ValueError:
+        return None
+
+
+def validar_horarios(data):
+    """Valida los horarios de las comidas y el horario de corte.
+
+    Los 9 campos son obligatorios y tienen formato HH:MM. Cada comida
+    tiene que empezar antes de terminar, y no puede terminar después de
+    que empiece la siguiente (puede terminar justo cuando empieza).
+    El horario de corte solo se controla que tenga formato válido,
+    porque es una hora del día anterior y no se compara con las comidas.
+
+    Devuelve ``(True, horas)`` con un ``datetime.time`` por campo, o
+    ``(False, {"error": mensaje, "campos": [...]})`` con el primer error.
+    """
+    faltantes = []
+    for campo in CAMPOS_HORARIOS:
+        if campo not in data:
+            faltantes.append(campo)
+
+    if faltantes:
+        return False, {"error": "Faltan campos obligatorios", "campos": faltantes}
+
+    horas = {}
+    for campo in CAMPOS_HORARIOS:
+        hora = convertir_hora(data[campo])
+        if hora is None:
+            return False, {
+                "error": f"El {NOMBRES_HORARIOS[campo]} debe tener el formato HH:MM",
+                "campos": [campo],
+            }
+        horas[campo] = hora
+
+    error = _verificar_inicio_antes_de_fin(horas)
+    if error:
+        return False, error
+
+    error = _verificar_sin_superposicion(horas)
+    if error:
+        return False, error
+
+    return True, horas
+
+
+def _verificar_inicio_antes_de_fin(horas):
+    """Devuelve el error de la primera comida que no empieza antes de terminar, o None."""
+    for comida in COMIDAS_EN_ORDEN:
+        inicio = f"{comida}_inicio"
+        fin = f"{comida}_fin"
+        if horas[inicio] >= horas[fin]:
+            return {
+                "error": f"El {NOMBRES_HORARIOS[inicio]} debe ser anterior a su fin",
+                "campos": [inicio, fin],
+            }
+    return None
+
+
+def _verificar_sin_superposicion(horas):
+    """Devuelve el error de la primera comida que se superpone con la siguiente, o None.
+
+    Que una comida termine a la misma hora en que empieza la siguiente es válido.
+    """
+    for posicion in range(len(COMIDAS_EN_ORDEN) - 1):
+        anterior = COMIDAS_EN_ORDEN[posicion]
+        siguiente = COMIDAS_EN_ORDEN[posicion + 1]
+        fin_anterior = f"{anterior}_fin"
+        inicio_siguiente = f"{siguiente}_inicio"
+        if horas[fin_anterior] > horas[inicio_siguiente]:
+            return {
+                "error": (
+                    f"{COMIDAS_CON_ARTICULO[anterior].capitalize()} no puede terminar "
+                    f"después de que empiece {COMIDAS_CON_ARTICULO[siguiente]}"
+                ),
+                "campos": [fin_anterior, inicio_siguiente],
+            }
+    return None
