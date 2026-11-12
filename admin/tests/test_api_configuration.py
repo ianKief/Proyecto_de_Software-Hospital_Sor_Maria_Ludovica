@@ -5,19 +5,18 @@ para saber si hay mantenimiento y si hay conexión. Responde 200 con o sin
 token, con los parámetros generales, el horario de corte y los horarios
 de cada comida.
 
-También se prueba el modo mantenimiento en la API sobre este endpoint.
+Los tests del modo mantenimiento están en ``test_api_mantenimiento.py``.
 """
 import pytest
 
 from src.web import create_app
 from src.core.db import db
-from src.core.auth.models import Permission, Role
+from src.core.auth.models import Role
 from src.core.configuration.models import ID_CONFIGURACION, Configuration
 from src.core.users.models import User
 from tests.helpers_token import cliente_con_token
 
 URL = "/api/configuration"
-MENSAJE = "Volvemos en una hora"
 
 # Lo que devuelve el endpoint con la fila de la fixture: los horarios no se
 # cargan ahí, así que valen los iniciales (default= del modelo).
@@ -82,28 +81,6 @@ def usuario_comedor(app):
     return usuario
 
 
-@pytest.fixture
-def usuario_admin(app):
-    """Crea un Administrador, con el permiso ``config_update``."""
-    rol = Role(name="Administrador", permissions=[Permission(name="config_update")])
-    db.session.add(rol)
-    db.session.flush()
-
-    usuario = crear_usuario("admin@test.com", "20000001", rol)
-    db.session.add(usuario)
-    db.session.commit()
-    return usuario
-
-
-@pytest.fixture
-def en_mantenimiento(app):
-    """Activa el modo mantenimiento con un mensaje."""
-    configuracion = db.session.get(Configuration, ID_CONFIGURACION)
-    configuracion.mantenimiento_activo = True
-    configuracion.mensaje_mantenimiento = MENSAJE
-    db.session.commit()
-
-
 # Acceso
 
 def test_sin_token_responde_200(app):
@@ -121,29 +98,3 @@ def test_usuario_no_admin_con_token_responde_200(app, usuario_comedor):
     assert respuesta.status_code == 200
     assert respuesta.get_json() == CONFIGURACION_ESPERADA
 
-
-# Modo mantenimiento
-
-def test_mantenimiento_admin_pasa(app, usuario_admin, en_mantenimiento):
-    """El Administrador sigue usando la API para poder desactivarlo."""
-    respuesta = cliente_con_token(app, usuario_admin).get(URL)
-
-    assert respuesta.status_code == 200
-    assert respuesta.get_json()["mantenimiento_activo"] is True
-
-
-def test_mantenimiento_otro_rol_responde_503(app, usuario_comedor, en_mantenimiento):
-    """Un rol sin ``config_update`` recibe 503 con el mensaje configurado."""
-    respuesta = cliente_con_token(app, usuario_comedor).get(URL)
-
-    assert respuesta.status_code == 503
-    assert respuesta.get_json() == {"error": MENSAJE}
-
-
-def test_mantenimiento_sin_token_responde_200(app, en_mantenimiento):
-    """Sin token responde 200 y avisa que hay mantenimiento, con el mensaje."""
-    respuesta = app.test_client().get(URL)
-
-    assert respuesta.status_code == 200
-    assert respuesta.get_json()["mantenimiento_activo"] is True
-    assert respuesta.get_json()["mensaje_mantenimiento"] == MENSAJE
