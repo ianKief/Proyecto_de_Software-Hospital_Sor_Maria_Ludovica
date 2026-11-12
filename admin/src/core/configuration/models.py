@@ -11,8 +11,8 @@ ID_CONFIGURACION = 1
 ELEMENTOS_POR_PAGINA_INICIAL = 25
 MANTENIMIENTO_ACTIVO_INICIAL = False
 
-# Horarios iniciales de cada comida: por ahora son los mismos que TURNOS en
-# core/deliveries/turnos.py. En la tarea CF7 turnos.py pasa a leerlos de esta tabla.
+# Horarios iniciales de cada comida. Entregas (core/deliveries/turnos.py) los lee
+# de esta tabla para saber qué comida se está sirviendo.
 DESAYUNO_INICIO_INICIAL = time(6, 0)
 DESAYUNO_FIN_INICIAL = time(10, 0)
 ALMUERZO_INICIO_INICIAL = time(11, 30)

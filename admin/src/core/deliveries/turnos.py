@@ -1,17 +1,27 @@
 """Turnos de comida: el rango horario en que se sirve cada comida."""
-from datetime import datetime, time, timedelta, timezone
+from datetime import datetime, timedelta, timezone
+
+from src.core.configuration import obtener_configuracion
 
 # Argentina usa UTC-3 todo el año (no tiene horario de verano).
 # Se arma a mano para no depender de zoneinfo, que en Windows necesita instalar tzdata.
 ZONA_ARGENTINA = timezone(timedelta(hours=-3))
 
-# Clave: nombre exacto de FoodType (seed de init_db.py). Valor: (inicio, fin), los dos incluidos.
-TURNOS = {
-    "Desayuno": (time(6, 0), time(10, 0)),
-    "Almuerzo": (time(11, 30), time(15, 0)),
-    "Merienda": (time(16, 0), time(18, 30)),
-    "Cena": (time(20, 0), time(23, 0)),
-}
+
+def horarios_de_comidas():
+    """Devuelve el horario de cada comida según la configuración del sistema.
+
+    Clave: nombre exacto de FoodType (seed de init_db.py).
+    Valor: (inicio, fin) como ``datetime.time``, los dos incluidos.
+    Se lee de la base cada vez, así un cambio en Ajustes se aplica enseguida.
+    """
+    configuracion = obtener_configuracion()
+    return {
+        "Desayuno": (configuracion.desayuno_inicio, configuracion.desayuno_fin),
+        "Almuerzo": (configuracion.almuerzo_inicio, configuracion.almuerzo_fin),
+        "Merienda": (configuracion.merienda_inicio, configuracion.merienda_fin),
+        "Cena": (configuracion.cena_inicio, configuracion.cena_fin),
+    }
 
 
 def ahora():
@@ -45,9 +55,10 @@ def turno_actual(ahora):
     Los bordes cuentan como dentro del turno: a las 10:00 todavía es Desayuno.
     Se compara por hora y minuto (se ignoran segundos), así 10:00:45 también es Desayuno.
     No llama a datetime.now(): quien la usa le pasa la hora, y así se puede testear.
+    Los horarios salen de la configuración, así que necesita la app y la base.
     """
     hora = ahora.time().replace(second=0, microsecond=0)
-    for comida, (inicio, fin) in TURNOS.items():
+    for comida, (inicio, fin) in horarios_de_comidas().items():
         if inicio <= hora <= fin:
             return comida
     return None
