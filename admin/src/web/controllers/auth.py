@@ -8,8 +8,18 @@ from src.core.tokens import (
     verificar_token_activacion,
 )
 from src.core.email import enviar_email_magic_login
+from src.web.helpers.auth import es_administrador
 
 auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
+
+
+def _iniciar_sesion_admin(user):
+    """Guarda en la sesión del servidor los datos del administrador autenticado."""
+    session['user'] = user.email
+    session['role'] = user.role.name
+    session['user_id'] = user.id
+    session['last_activity'] = datetime.now(timezone.utc).isoformat()
+
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
@@ -33,10 +43,13 @@ def login():
             flash("Correo electrónico o contraseña incorrectos.", "error")
             return render_template('auth/login.html', email=email)
 
-        session['user'] = user.email
-        session['role'] = user.role.name
-        session['user_id'] = user.id
-        session['last_activity'] = datetime.now(timezone.utc).isoformat()
+        # El panel de administración es de uso exclusivo para el rol Administrador;
+        # los roles operativos ingresan desde la aplicación pública (portal).
+        if not es_administrador(user):
+            flash("El acceso al panel de administración es exclusivo para usuarios con rol Administrador.", "error")
+            return render_template('auth/login.html', email=email)
+
+        _iniciar_sesion_admin(user)
         flash("Sesión iniciada con éxito.", "success")
         return redirect(url_for('main.home'))
 
@@ -45,7 +58,7 @@ def login():
 
 @auth_bp.route('/magic-login-request', methods=['POST'])
 def magic_login_request():
-    """Genera y envía un enlace mágico de acceso al correo del usuario."""
+    """Genera y envía un enlace mágico de acceso al correo del administrador."""
     email = request.form.get('email', '').strip()
 
     if not email:
@@ -54,13 +67,14 @@ def magic_login_request():
 
     user = obtener_usuario(email=email)
 
-    if user and user.activo:
+    # Solo se envía el enlace de acceso al panel privado si es un Administrador activo
+    if es_administrador(user):
         token = generar_token_magic_login(user.id)
         url_login = url_for('auth.magic_login', token=token, _external=True)
         enviar_email_magic_login(user, url_login)
 
     # Mensaje genérico para no filtrar si el correo existe o no
-    flash("Si el correo electrónico está registrado, recibirás un enlace de acceso en tu bandeja de entrada.", "info")
+    flash("Si el correo electrónico corresponde a una cuenta habilitada, recibirás un enlace de acceso en tu bandeja de entrada.", "info")
     return redirect(url_for('auth.login'))
 
 
@@ -83,10 +97,11 @@ def magic_login():
         flash("La cuenta no se encuentra activa o no existe.", "error")
         return redirect(url_for('auth.login'))
 
-    session['user'] = user.email
-    session['role'] = user.role.name
-    session['user_id'] = user.id
-    session['last_activity'] = datetime.now(timezone.utc).isoformat()
+    if not es_administrador(user):
+        flash("El acceso al panel de administración es exclusivo para usuarios con rol Administrador.", "error")
+        return redirect(url_for('auth.login'))
+
+    _iniciar_sesion_admin(user)
     flash("Sesión iniciada con éxito mediante enlace de correo.", "success")
     return redirect(url_for('main.home'))
 
@@ -128,12 +143,15 @@ def set_password():
             flash(str(e), "error")
             return render_template('auth/set_password.html', token=token, user=user)
 
-        session['user'] = user.email
-        session['role'] = user.role.name
-        session['user_id'] = user.id
-        session['last_activity'] = datetime.now(timezone.utc).isoformat()
-        flash("¡Tu cuenta fue activada y tu contraseña configurada con éxito!", "success")
-        return redirect(url_for('main.home'))
+        # Si el usuario activado es Administrador, iniciamos su sesión directamente en el panel.
+        # Si pertenece a un rol operativo, su cuenta queda activa para ingresar desde el portal público.
+        if es_administrador(user):
+            _iniciar_sesion_admin(user)
+            flash("¡Tu cuenta fue activada y tu contraseña configurada con éxito!", "success")
+            return redirect(url_for('main.home'))
+
+        flash("¡Tu cuenta fue activada y tu contraseña configurada con éxito! Ya podés iniciar sesión desde el portal.", "success")
+        return redirect(url_for('auth.login'))
 
     return render_template('auth/set_password.html', token=token, user=user)
 
