@@ -1,5 +1,7 @@
 """Validaciones de datos de entrada y reglas de acceso para la autenticación en la API."""
 import re
+from google.oauth2 import id_token as google_id_token
+from google.auth.transport import requests as google_requests
 
 # Roles que operan en la aplicación pública (portal).
 # El rol Administrador utiliza exclusivamente la aplicación privada de administración.
@@ -7,6 +9,11 @@ ROLES_OPERATIVOS_PORTAL = {
     "Jefe de Servicio",
     "Servicio de Alimentación",
     "Sector Comedor",
+}
+
+EMISORES_GOOGLE_VALIDOS = {
+    "accounts.google.com",
+    "https://accounts.google.com",
 }
 
 PATRON_EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -24,7 +31,7 @@ def validar_datos_login_api(data):
 
     Retorna ``(datos_limpios, mensaje_error)``. Si hay error, ``datos_limpios`` es ``None``.
     """
-    if not data or not isinstance(data, dict):
+    if data is None or not isinstance(data, dict):
         return None, "Formato JSON inválido o faltante."
 
     email = data.get("email")
@@ -41,6 +48,53 @@ def validar_datos_login_api(data):
         return None, "El formato del correo electrónico no es válido."
 
     return {"email": email, "password": password}, None
+
+
+def validar_datos_google_login_api(data):
+    """Extrae y valida la presencia del ID token de Google en POST /api/auth/google.
+
+    Acepta el campo ``id_token`` (o ``credential``, como lo entrega Google Identity Services).
+    Retorna ``(token_str, mensaje_error)``.
+    """
+    if data is None or not isinstance(data, dict):
+        return None, "Formato JSON inválido o faltante."
+
+    raw_token = data.get("id_token") or data.get("credential")
+    if not isinstance(raw_token, str) or not raw_token.strip():
+        return None, "Debe proporcionar el token de identidad de Google (id_token)."
+
+    return raw_token.strip(), None
+
+
+def verificar_id_token_google(token_str, client_id):
+    """Verifica criptográficamente el ID token de Google (firma, emisor, audiencia y vencimiento).
+
+    Retorna ``(email_verificado, mensaje_error)``.
+    """
+    if not client_id or not str(client_id).strip():
+        return None, "El inicio de sesión con Google no tiene un Client ID configurado."
+
+    try:
+        idinfo = google_id_token.verify_oauth2_token(
+            token_str,
+            google_requests.Request(),
+            audience=client_id.strip(),
+        )
+    except Exception:
+        return None, "El token de identidad de Google es inválido o ha expirado."
+
+    if idinfo.get("iss") not in EMISORES_GOOGLE_VALIDOS:
+        return None, "El emisor del token de identidad no es válido."
+
+    if idinfo.get("aud") != client_id.strip():
+        return None, "La audiencia del token no coincide con la aplicación."
+
+    email = idinfo.get("email")
+    email_verificado = idinfo.get("email_verified")
+    if not email or not isinstance(email, str) or not email_verificado:
+        return None, "La cuenta de Google no posee un correo electrónico verificado."
+
+    return email.strip(), None
 
 
 def validar_acceso_usuario_portal(user):
@@ -67,7 +121,7 @@ def validar_datos_perfil_api(data):
     Retorna ``(datos_limpios, errores_campos, mensaje_error)``.
     Si los datos son válidos, ``errores_campos`` y ``mensaje_error`` son ``None``.
     """
-    if not data or not isinstance(data, dict):
+    if data is None or not isinstance(data, dict):
         return None, {}, "Formato JSON inválido o faltante."
 
     errores = {}

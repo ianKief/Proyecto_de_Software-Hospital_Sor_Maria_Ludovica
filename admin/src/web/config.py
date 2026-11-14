@@ -14,6 +14,9 @@ class Config:
     # Orígenes permitidos para peticiones CORS desde la aplicación pública (separados por coma)
     CORS_ORIGINS = os.environ.get('CORS_ORIGINS', 'http://localhost:5173,http://127.0.0.1:5173')
 
+    # Client ID de Google Identity Services para verificar el inicio de sesión con Google
+    GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', '')
+
     # Configuración de Correo (Flask-Mail)
     MAIL_SERVER = os.environ.get('MAIL_SERVER', 'localhost')
     MAIL_PORT = int(os.environ.get('MAIL_PORT', 587))

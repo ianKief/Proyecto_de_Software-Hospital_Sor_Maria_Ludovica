@@ -14,6 +14,8 @@ from src.web.helpers.api_auth import token_required
 from src.web.helpers.auth_validaciones import (
     es_rol_operativo_portal,
     validar_datos_login_api,
+    validar_datos_google_login_api,
+    verificar_id_token_google,
     validar_acceso_usuario_portal,
     validar_datos_perfil_api,
 )
@@ -73,6 +75,38 @@ def login():
 
     # Una vez verificadas las credenciales, comprobamos que la cuenta esté activa
     # y que su rol corresponda a uno de los roles operativos del portal.
+    error_acceso, status_code = validar_acceso_usuario_portal(user)
+    if error_acceso:
+        return jsonify({"error": error_acceso}), status_code
+
+    token = _generar_token_acceso(user)
+    return jsonify({
+        "token": token,
+        "user": _serializar_usuario(user),
+    }), 200
+
+
+@api_auth_bp.route("/google", methods=["POST"])
+def login_google():
+    """Autentica a un usuario operativo validando el ID token de Google Identity Services."""
+    data = request.get_json(silent=True)
+    token_google, error_datos = validar_datos_google_login_api(data)
+    if error_datos:
+        return jsonify({"error": error_datos}), 400
+
+    client_id = current_app.config.get("GOOGLE_CLIENT_ID", "")
+    email_verificado, error_token = verificar_id_token_google(token_google, client_id)
+    if error_token:
+        return jsonify({"error": error_token}), 401
+
+    # El inicio de sesión con Google no da de alta cuentas automáticamente:
+    # el correo debe pertenecer a un usuario previamente registrado por el Administrador.
+    user = User.query.filter_by(email=email_verificado).first()
+    if not user:
+        return jsonify({
+            "error": "No existe una cuenta registrada con ese correo electrónico. Debe solicitar el alta al Administrador."
+        }), 403
+
     error_acceso, status_code = validar_acceso_usuario_portal(user)
     if error_acceso:
         return jsonify({"error": error_acceso}), status_code

@@ -8,6 +8,7 @@ from src.core.auth.models import Role
 from src.core.sectors.models import Sector
 from src.core.users.models import User
 from src.core.configuration.models import Configuration, ID_CONFIGURACION
+from src.web.helpers import auth_validaciones
 from tests.helpers_token import cliente_con_token, headers_con_token
 
 
@@ -20,7 +21,10 @@ def app(monkeypatch):
     monkeypatch.setenv("DATABASE_URL", "sqlite:///:memory:")
 
     app = create_app(env="testing")
-    app.config.update(TESTING=True)
+    app.config.update(
+        TESTING=True,
+        GOOGLE_CLIENT_ID="test-google-client-id.apps.googleusercontent.com",
+    )
 
     with app.app_context():
         db.create_all()
@@ -141,6 +145,82 @@ def test_api_login_datos_faltantes_o_invalidos_responde_400(app):
 
     assert client.post("/api/auth/login", json={}).status_code == 400
     assert client.post("/api/auth/login", json={"email": "no-es-email", "password": "123"}).status_code == 400
+
+
+def test_api_google_login_exitoso(app, monkeypatch):
+    def fake_verify(token_str, req, audience=None):
+        assert token_str == "token-valido-google"
+        return {
+            "iss": "https://accounts.google.com",
+            "aud": app.config["GOOGLE_CLIENT_ID"],
+            "email": "jefe@hospital.com",
+            "email_verified": True,
+        }
+
+    monkeypatch.setattr(auth_validaciones.google_id_token, "verify_oauth2_token", fake_verify)
+
+    resp = app.test_client().post("/api/auth/google", json={"id_token": "token-valido-google"})
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert "token" in body and isinstance(body["token"], str)
+    assert body["user"]["email"] == "jefe@hospital.com"
+    assert body["user"]["rol"] == "Jefe de Servicio"
+
+
+def test_api_google_login_sin_token_responde_400(app):
+    resp = app.test_client().post("/api/auth/google", json={})
+    assert resp.status_code == 400
+    assert "id_token" in resp.get_json()["error"]
+
+
+def test_api_google_login_token_invalido_o_vencido_responde_401(app, monkeypatch):
+    def fake_verify_error(token_str, req, audience=None):
+        raise ValueError("Token expired")
+
+    monkeypatch.setattr(auth_validaciones.google_id_token, "verify_oauth2_token", fake_verify_error)
+
+    resp = app.test_client().post("/api/auth/google", json={"id_token": "token-vencido"})
+    assert resp.status_code == 401
+    assert "inválido o ha expirado" in resp.get_json()["error"]
+
+
+def test_api_google_login_email_no_registrado_responde_403(app, monkeypatch):
+    def fake_verify(token_str, req, audience=None):
+        return {
+            "iss": "accounts.google.com",
+            "aud": app.config["GOOGLE_CLIENT_ID"],
+            "email": "desconocido@gmail.com",
+            "email_verified": True,
+        }
+
+    monkeypatch.setattr(auth_validaciones.google_id_token, "verify_oauth2_token", fake_verify)
+
+    resp = app.test_client().post("/api/auth/google", json={"id_token": "token-desconocido"})
+    assert resp.status_code == 403
+    assert "solicitar el alta al Administrador" in resp.get_json()["error"]
+
+
+def test_api_google_login_rechaza_admin_y_bloqueado_con_403(app, monkeypatch):
+    email_actual = {"valor": "admin@hospital.com"}
+
+    def fake_verify(token_str, req, audience=None):
+        return {
+            "iss": "https://accounts.google.com",
+            "aud": app.config["GOOGLE_CLIENT_ID"],
+            "email": email_actual["valor"],
+            "email_verified": True,
+        }
+
+    monkeypatch.setattr(auth_validaciones.google_id_token, "verify_oauth2_token", fake_verify)
+
+    resp_admin = app.test_client().post("/api/auth/google", json={"id_token": "token-admin"})
+    assert resp_admin.status_code == 403
+    assert "Administrador" in resp_admin.get_json()["error"]
+
+    email_actual["valor"] = "bloqueado@hospital.com"
+    resp_bloq = app.test_client().post("/api/auth/google", json={"id_token": "token-bloq"})
+    assert resp_bloq.status_code == 403
+    assert "bloqueada o inactiva" in resp_bloq.get_json()["error"]
 
 
 def test_api_me_devuelve_datos_usuario_y_valida_token(app):
