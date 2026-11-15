@@ -399,40 +399,71 @@ def validar_filtros_comidas_autorizadas(args):
     if error:
         return False, error
 
-    textos = {}
-    for campo in FILTROS_COMIDAS_AUTORIZADAS:
-        texto = args.get(campo, "").strip()
-        textos[campo] = texto or None
-
-    if all(texto is None for texto in textos.values()):
+    textos = _leer_textos(args, FILTROS_COMIDAS_AUTORIZADAS)
+    if _ninguno_vino(textos):
         return False, _error(
             "Debe indicar al menos un filtro",
             FILTROS_COMIDAS_AUTORIZADAS,
         )
 
-    filtros = {
-        "fecha": None,
+    valida, fecha = _leer_fecha_opcional(args, "fecha")
+    if not valida:
+        return False, fecha
+
+    validos, ids = _leer_ids_opcionales(textos, ["sector_id", "tipo_comida_id"])
+    if not validos:
+        return False, ids
+
+    return True, {
+        "fecha": fecha,
         "dni": textos["dni"],
         "nombre": textos["nombre"],
-        "sector_id": None,
-        "tipo_comida_id": None,
+        "sector_id": ids["sector_id"],
+        "tipo_comida_id": ids["tipo_comida_id"],
     }
 
-    valida, resultado = _leer_fecha_opcional(args, "fecha")
-    if not valida:
-        return False, resultado
-    filtros["fecha"] = resultado
 
-    for campo in ["sector_id", "tipo_comida_id"]:
-        if textos[campo] is not None:
-            filtros[campo] = _leer_id(textos[campo])
-            if filtros[campo] is None:
-                return False, _error(
-                    f"{campo} debe ser un entero positivo",
-                    [campo],
-                )
+def _leer_textos(args, campos):
+    """Lee cada campo del query string, sin espacios en los bordes.
 
-    return True, filtros
+    Devuelve un diccionario ``campo -> texto``. Un texto vacío (o con solo
+    espacios) queda en ``None``, como si no hubiera venido.
+    """
+    textos = {}
+    for campo in campos:
+        texto = args.get(campo, "").strip()
+        if texto:
+            textos[campo] = texto
+        else:
+            textos[campo] = None
+    return textos
+
+
+def _ninguno_vino(textos):
+    """Indica si todos los textos están en ``None`` (no vino ningún filtro)."""
+    for texto in textos.values():
+        if texto is not None:
+            return False
+    return True
+
+
+def _leer_ids_opcionales(textos, campos):
+    """Convierte en entero positivo cada campo de ``textos`` que haya venido.
+
+    Devuelve ``(True, ids)``, con los que no vinieron en ``None``, o
+    ``(False, error)`` con el primer campo que no es un entero positivo.
+    """
+    ids = {}
+    for campo in campos:
+        ids[campo] = None
+        if textos[campo] is None:
+            continue
+
+        ids[campo] = _leer_id(textos[campo])
+        if ids[campo] is None:
+            return False, _error(f"{campo} debe ser un entero positivo", [campo])
+
+    return True, ids
 
 
 # --- GET /api/authorized-meals/<person_id> ---
