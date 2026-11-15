@@ -5,6 +5,8 @@ import { useAuthStore } from '@/stores/auth'
 import { useUiStore } from '@/stores/ui'
 import { validateProfileForm } from '@/utils/validators'
 
+import PasswordInput from '@/components/common/PasswordInput.vue'
+
 const router = useRouter()
 const authStore = useAuthStore()
 const uiStore = useUiStore()
@@ -135,7 +137,6 @@ onMounted(() => {
   <section class="container-page profile-page" aria-labelledby="profile-heading">
     <div class="profile-header-bar">
       <div>
-        <span class="section-pill">Cuenta Operativa</span>
         <h1 id="profile-heading">Mi perfil</h1>
         <p class="section-subtitle">
           Consultá tu información institucional y actualizá tus datos personales o tu contraseña.
@@ -299,59 +300,29 @@ onMounted(() => {
           </div>
 
           <div class="fields-two-cols">
-            <div class="form-group">
-              <label for="profile-password" class="form-label">Nueva contraseña</label>
-              <input
-                id="profile-password"
-                v-model="form.password"
-                type="password"
-                name="password"
-                autocomplete="new-password"
-                placeholder="Mínimo 6 caracteres"
-                class="form-input"
-                :aria-invalid="fieldErrors.password ? 'true' : 'false'"
-                :aria-describedby="fieldErrors.password ? 'profile-password-error' : undefined"
-                :disabled="isSaving"
-                @input="fieldErrors.password = ''"
-              />
-              <p
-                v-if="fieldErrors.password"
-                id="profile-password-error"
-                class="field-error"
-                role="alert"
-              >
-                {{ fieldErrors.password }}
-              </p>
-            </div>
+            <PasswordInput
+              id="profile-password"
+              v-model="form.password"
+              label="Nueva contraseña"
+              name="password"
+              autocomplete="new-password"
+              placeholder="Mínimo 6 caracteres"
+              :error="fieldErrors.password"
+              :disabled="isSaving"
+              @update:model-value="fieldErrors.password = ''"
+            />
 
-            <div class="form-group">
-              <label for="profile-password-confirm" class="form-label">
-                Confirmar nueva contraseña
-              </label>
-              <input
-                id="profile-password-confirm"
-                v-model="form.passwordConfirm"
-                type="password"
-                name="password_confirm"
-                autocomplete="new-password"
-                placeholder="Repetí la nueva contraseña"
-                class="form-input"
-                :aria-invalid="fieldErrors.password_confirm ? 'true' : 'false'"
-                :aria-describedby="
-                  fieldErrors.password_confirm ? 'profile-password-confirm-error' : undefined
-                "
-                :disabled="isSaving"
-                @input="fieldErrors.password_confirm = ''"
-              />
-              <p
-                v-if="fieldErrors.password_confirm"
-                id="profile-password-confirm-error"
-                class="field-error"
-                role="alert"
-              >
-                {{ fieldErrors.password_confirm }}
-              </p>
-            </div>
+            <PasswordInput
+              id="profile-password-confirm"
+              v-model="form.passwordConfirm"
+              label="Confirmar nueva contraseña"
+              name="password_confirm"
+              autocomplete="new-password"
+              placeholder="Repetí la nueva contraseña"
+              :error="fieldErrors.password_confirm"
+              :disabled="isSaving"
+              @update:model-value="fieldErrors.password_confirm = ''"
+            />
           </div>
 
           <div class="form-actions">
@@ -386,18 +357,6 @@ onMounted(() => {
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
-}
-
-.section-pill {
-  display: inline-block;
-  padding: 0.2rem 0.65rem;
-  border-radius: 999px;
-  background-color: var(--color-brand-teal-soft);
-  border: 1px solid var(--color-brand-teal);
-  color: var(--color-brand-deep);
-  font-size: 0.75rem;
-  font-weight: 700;
-  margin-bottom: 0.35rem;
 }
 
 .profile-header-bar h1 {
@@ -556,14 +515,12 @@ onMounted(() => {
   margin-top: 1rem;
 }
 
-/* Tablet (768px - 1024px) */
 @media (min-width: 768px) {
   .fields-two-cols {
     grid-template-columns: 1fr 1fr;
   }
 }
 
-/* Escritorio (> 1025px) */
 @media (min-width: 1025px) {
   .profile-grid {
     grid-template-columns: 340px 1fr;

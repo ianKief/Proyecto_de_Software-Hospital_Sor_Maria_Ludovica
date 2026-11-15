@@ -1,9 +1,12 @@
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useUiStore } from '@/stores/ui'
 import { validateLoginForm } from '@/utils/validators'
+
+import PasswordInput from '@/components/common/PasswordInput.vue'
+import GoogleSignInButton from '@/components/common/GoogleSignInButton.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -22,11 +25,6 @@ const fieldErrors = reactive({
 
 const generalError = ref('')
 const isRetryableError = ref(false)
-const showPassword = ref(false)
-
-const googleClientId = (import.meta.env.VITE_GOOGLE_CLIENT_ID || '').trim()
-const googleButtonContainer = ref(null)
-const googleSdkReady = ref(false)
 
 const isSubmitting = computed(() => authStore.loading)
 
@@ -83,18 +81,8 @@ async function handleSubmit() {
   }
 }
 
-/**
- * Recibe el ID token emitido por Google Identity Services y lo envía a POST /api/auth/google.
- */
-async function handleGoogleCredentialResponse(response) {
+async function handleGoogleCredential(idToken) {
   clearErrors()
-
-  const idToken = response?.credential
-  if (!idToken) {
-    generalError.value = 'No se recibió la credencial de Google. Intentá nuevamente.'
-    return
-  }
-
   try {
     const user = await authStore.loginWithGoogle(idToken)
     uiStore.notify({
@@ -107,60 +95,10 @@ async function handleGoogleCredentialResponse(response) {
   }
 }
 
-function handleUnconfiguredGoogleClick() {
+function handleGoogleError(message) {
   clearErrors()
-  generalError.value =
-    'Para usar el inicio de sesión con Google, configurá la variable VITE_GOOGLE_CLIENT_ID en portal/.env y GOOGLE_CLIENT_ID en admin/.env.'
+  generalError.value = message
 }
-
-/**
- * Carga dinámicamente el script oficial de Google Identity Services e inicializa el botón.
- */
-function initGoogleIdentityServices() {
-  if (!googleClientId) return
-
-  const renderButton = () => {
-    if (!window.google?.accounts?.id || !googleButtonContainer.value) return
-    window.google.accounts.id.initialize({
-      client_id: googleClientId,
-      callback: handleGoogleCredentialResponse,
-    })
-    window.google.accounts.id.renderButton(googleButtonContainer.value, {
-      type: 'standard',
-      theme: 'outline',
-      size: 'large',
-      text: 'signin_with',
-      shape: 'rectangular',
-      logo_alignment: 'left',
-      width: 360,
-      locale: 'es',
-    })
-    googleSdkReady.value = true
-  }
-
-  if (window.google?.accounts?.id) {
-    renderButton()
-    return
-  }
-
-  const existingScript = document.getElementById('google-gsi-script')
-  if (existingScript) {
-    existingScript.addEventListener('load', renderButton)
-    return
-  }
-
-  const script = document.createElement('script')
-  script.id = 'google-gsi-script'
-  script.src = 'https://accounts.google.com/gsi/client'
-  script.async = true
-  script.defer = true
-  script.onload = renderButton
-  document.head.appendChild(script)
-}
-
-onMounted(() => {
-  initGoogleIdentityServices()
-})
 </script>
 
 <template>
@@ -224,80 +162,18 @@ onMounted(() => {
           </p>
         </div>
 
-        <div class="form-group">
-          <label for="login-password" class="form-label">Contraseña</label>
-          <div class="password-input-wrapper">
-            <input
-              id="login-password"
-              v-model="form.password"
-              :type="showPassword ? 'text' : 'password'"
-              name="password"
-              autocomplete="current-password"
-              placeholder="Ingresá tu contraseña"
-              class="form-input password-input"
-              :aria-invalid="fieldErrors.password ? 'true' : 'false'"
-              :aria-describedby="fieldErrors.password ? 'login-password-error' : undefined"
-              :disabled="isSubmitting"
-              required
-              @input="fieldErrors.password = ''"
-            />
-            <button
-              type="button"
-              class="password-eye-btn"
-              :aria-label="showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'"
-              :aria-pressed="showPassword ? 'true' : 'false'"
-              :disabled="isSubmitting"
-              @click="showPassword = !showPassword"
-            >
-              <!-- Ícono de ojo tachado cuando la contraseña está visible -->
-              <svg
-                v-if="showPassword"
-                xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                aria-hidden="true"
-              >
-                <path
-                  d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"
-                />
-                <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
-                <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24" />
-                <line x1="1" y1="1" x2="23" y2="23" />
-              </svg>
-              <!-- Ícono de ojo abierto cuando la contraseña está oculta -->
-              <svg
-                v-else
-                xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                <circle cx="12" cy="12" r="3" />
-              </svg>
-            </button>
-          </div>
-          <p
-            v-if="fieldErrors.password"
-            id="login-password-error"
-            class="field-error"
-            role="alert"
-          >
-            {{ fieldErrors.password }}
-          </p>
-        </div>
+        <PasswordInput
+          id="login-password"
+          v-model="form.password"
+          label="Contraseña"
+          name="password"
+          autocomplete="current-password"
+          placeholder="Ingresá tu contraseña"
+          :error="fieldErrors.password"
+          :disabled="isSubmitting"
+          required
+          @update:model-value="fieldErrors.password = ''"
+        />
 
         <button
           type="submit"
@@ -312,49 +188,11 @@ onMounted(() => {
         <span>o ingresá con tu cuenta de Google</span>
       </div>
 
-      <!-- Contenedor del botón de Google Identity Services -->
-      <div class="google-auth-section">
-        <div
-          v-if="googleClientId"
-          ref="googleButtonContainer"
-          class="google-gsi-container"
-        ></div>
-
-        <!-- Botón visible cuando todavía no se definió VITE_GOOGLE_CLIENT_ID en .env o mientras carga el SDK -->
-        <button
-          v-if="!googleClientId || !googleSdkReady"
-          type="button"
-          class="btn btn-secondary google-fallback-btn"
-          :disabled="isSubmitting"
-          @click="handleUnconfiguredGoogleClick"
-        >
-          <svg
-            class="google-icon"
-            viewBox="0 0 24 24"
-            width="20"
-            height="20"
-            aria-hidden="true"
-          >
-            <path
-              fill="#4285F4"
-              d="M23.49 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.47c-.29 1.48-1.14 2.73-2.4 3.58v3h3.86c2.26-2.09 3.56-5.17 3.56-8.82z"
-            />
-            <path
-              fill="#34A853"
-              d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.86-3c-1.08.72-2.45 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96H1.29v3.09C3.26 21.3 7.31 24 12 24z"
-            />
-            <path
-              fill="#FBBC05"
-              d="M5.27 14.29c-.25-.72-.38-1.49-.38-2.29s.14-1.57.38-2.29V6.62H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.38l3.98-3.09z"
-            />
-            <path
-              fill="#EA4335"
-              d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.98 3.09c.95-2.85 3.6-4.96 6.73-4.96z"
-            />
-          </svg>
-          <span>Iniciar sesión con Google</span>
-        </button>
-      </div>
+      <GoogleSignInButton
+        :disabled="isSubmitting"
+        @credential="handleGoogleCredential"
+        @error="handleGoogleError"
+      />
 
       <footer class="login-card-footer">
         <p>
@@ -438,47 +276,6 @@ onMounted(() => {
   padding: 0.35rem 0.85rem;
 }
 
-.password-input-wrapper {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.password-input {
-  width: 100%;
-  padding-right: 3rem;
-}
-
-.password-eye-btn {
-  position: absolute;
-  right: 0.25rem;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 42px;
-  height: 42px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-sm);
-  color: var(--color-brand-navy);
-  cursor: pointer;
-  transition:
-    color 0.15s ease,
-    background-color 0.15s ease;
-}
-
-.password-eye-btn:hover:not(:disabled) {
-  color: var(--color-brand-deep);
-  background-color: var(--color-brand-teal-soft);
-}
-
-.password-eye-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 .submit-btn {
   width: 100%;
   margin-top: 0.5rem;
@@ -505,29 +302,6 @@ onMounted(() => {
   padding: 0 0.75rem;
 }
 
-.google-auth-section {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.google-gsi-container {
-  display: flex;
-  justify-content: center;
-  width: 100%;
-  min-height: 48px;
-}
-
-.google-fallback-btn {
-  width: 100%;
-  font-weight: 600;
-}
-
-.google-icon {
-  flex-shrink: 0;
-}
-
 .login-card-footer {
   margin-top: 1.5rem;
   padding-top: 1rem;
@@ -541,7 +315,6 @@ onMounted(() => {
   margin: 0;
 }
 
-/* Tablet y Escritorio (>= 768px) */
 @media (min-width: 768px) {
   .login-wrapper {
     padding: 2rem;
