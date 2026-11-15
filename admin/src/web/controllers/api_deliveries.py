@@ -192,8 +192,10 @@ def deliveries_show(delivery_id):
 def deliveries_create(current_user):
     """Registra la entrega de una comida a una o varias personas.
 
-    El cuerpo trae solo ``personas``, ``tipo_comida_id`` y ``responsable_id``:
-    la fecha y la hora las pone el servidor y el usuario sale del token JWT.
+    El cuerpo trae ``personas``, ``tipo_comida_id`` y quién retira: una de las
+    personas (``responsable_id``) o un tercero (``responsable_dni`` y
+    ``responsable_nombre``); con una sola persona se puede omitir.
+    La fecha y la hora las pone el servidor y el usuario sale del token JWT.
     Responde 400 si el cuerpo no es JSON, no pasa la validación, está fuera
     del horario de la comida o alguna persona no tiene autorización; 409 si
     alguna persona ya retiró esa comida hoy; y 201 con la entrega registrada.

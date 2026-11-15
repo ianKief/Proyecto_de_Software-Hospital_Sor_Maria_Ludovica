@@ -174,12 +174,20 @@ def autorizar(datos, persona, comida):
 
 
 def cuerpo_entrega(datos, personas, comida=None, responsable=None):
-    """Arma el JSON que mandaría el Comedor."""
-    return {
+    """Arma el JSON que mandaría el Comedor.
+
+    Sin ``responsable`` retira la primera persona. Con la lista vacía no se
+    manda responsable, para que el error sea el de ``personas``.
+    """
+    cuerpo = {
         "personas": [persona.id for persona in personas],
         "tipo_comida_id": (comida or datos["almuerzo"]).id,
-        "responsable_id": (responsable or datos["ana"]).id,
     }
+    if responsable is None and personas:
+        responsable = personas[0]
+    if responsable is not None:
+        cuerpo["responsable_id"] = responsable.id
+    return cuerpo
 
 
 @pytest.fixture
@@ -316,3 +324,68 @@ def test_entrega_valida_responde_201(comedor, datos):
     assert cuerpo["personas"][0]["sector"]["nombre"] == "Guardia"
     assert Entrega.query.count() == 1
     assert cuerpo["id"] == Entrega.query.one().id
+
+
+# Responsable del retiro (EN1)
+
+def test_una_persona_sin_responsable_responde_201(comedor, datos):
+    """Con una sola persona y sin responsable, retira ella misma."""
+    autorizar(datos, datos["ana"], datos["almuerzo"])
+    cuerpo = {
+        "personas": [datos["ana"].id],
+        "tipo_comida_id": datos["almuerzo"].id,
+    }
+
+    respuesta = comedor.post(URL, json=cuerpo)
+
+    assert respuesta.status_code == 201
+    assert respuesta.get_json()["responsable"]["id"] == datos["ana"].id
+
+
+def test_varias_personas_sin_responsable_responde_400(comedor, datos):
+    """Con varias personas el responsable es obligatorio."""
+    autorizar(datos, datos["ana"], datos["almuerzo"])
+    autorizar(datos, datos["luis"], datos["almuerzo"])
+    cuerpo = cuerpo_entrega(datos, [datos["ana"], datos["luis"]])
+    del cuerpo["responsable_id"]
+
+    respuesta = comedor.post(URL, json=cuerpo)
+
+    assert respuesta.status_code == 400
+    assert respuesta.get_json()["campos"] == ["responsable_id"]
+    assert Entrega.query.count() == 0
+
+
+def test_tercero_responde_201(comedor, datos):
+    """Un tercero se registra con DNI y nombre, sin ``responsable_id``."""
+    autorizar(datos, datos["ana"], datos["almuerzo"])
+    autorizar(datos, datos["luis"], datos["almuerzo"])
+    cuerpo = cuerpo_entrega(datos, [datos["ana"], datos["luis"]])
+    del cuerpo["responsable_id"]
+    cuerpo["responsable_dni"] = "30111222"
+    cuerpo["responsable_nombre"] = "Juan Pérez"
+
+    respuesta = comedor.post(URL, json=cuerpo)
+
+    assert respuesta.status_code == 201
+    assert respuesta.get_json()["responsable"] == {
+        "id": None,
+        "dni": "30111222",
+        "nombre": "Juan Pérez",
+        "apellido": None,
+    }
+
+
+def test_tercero_con_dni_invalido_responde_400(comedor, datos):
+    """El DNI del tercero tiene que tener el formato de Personal."""
+    autorizar(datos, datos["ana"], datos["almuerzo"])
+    cuerpo = cuerpo_entrega(datos, [datos["ana"]])
+    del cuerpo["responsable_id"]
+    cuerpo["responsable_dni"] = "30.111.222"
+    cuerpo["responsable_nombre"] = "Juan Pérez"
+
+    respuesta = comedor.post(URL, json=cuerpo)
+
+    assert respuesta.status_code == 400
+    assert respuesta.get_json()["campos"] == ["responsable_dni"]
+    assert Entrega.query.count() == 0

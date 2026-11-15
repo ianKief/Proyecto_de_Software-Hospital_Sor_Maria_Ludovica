@@ -22,12 +22,19 @@ class Entrega(db.Model):
         nullable=False,
     )
 
-    # Persona de Personal que retira (no hace falta que esté en la entrega).
+    # Quién retira: una de las personas de la entrega (responsable_id) o un
+    # tercero (responsable_dni y responsable_nombre). Nunca las dos cosas:
+    # lo controla el validador de POST /api/deliveries.
     responsable_id = db.Column(
         db.Integer,
         db.ForeignKey("personnel.id"),
-        nullable=False,
+        nullable=True,
     )
+
+    # Datos del tercero que retira. Se guardan como texto y no como persona
+    # de Personal: el tercero puede no estar cargado en el sistema.
+    responsable_dni = db.Column(db.String(50), nullable=True)
+    responsable_nombre = db.Column(db.String(255), nullable=True)
 
     tipo_comida_id = db.Column(
         db.Integer,

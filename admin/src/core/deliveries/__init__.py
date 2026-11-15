@@ -211,7 +211,9 @@ def registrar_entrega(datos, usuario_id):
     """Registra la entrega de una comida a una o varias personas y devuelve la Entrega.
 
     Recibe los datos ya validados por ``validar_entrega`` (``personas``,
-    ``tipo_comida_id`` y ``responsable_id``) y el id del usuario del Comedor
+    ``tipo_comida_id`` y el responsable: ``responsable_id`` si es una de las
+    personas, o ``responsable_dni`` y ``responsable_nombre`` si es un
+    tercero) y el id del usuario del Comedor
     que la registra. La fecha y la hora las pone el servidor: ``created_at`` es
     el mismo momento con el que se controla el turno.
 
@@ -235,7 +237,7 @@ def registrar_entrega(datos, usuario_id):
     entrega = _guardar_entrega(
         momento,
         usuario_id,
-        datos["responsable_id"],
+        datos,
         tipo_comida,
         autorizaciones,
     )
@@ -259,7 +261,14 @@ def _buscar_tipo_comida(datos):
 
 
 def _buscar_responsable(datos):
-    """Devuelve la persona que retira la entrega. Lanza ``ValueError`` si no existe."""
+    """Devuelve la persona que retira la entrega. Lanza ``ValueError`` si no existe.
+
+    Si retira un tercero (``responsable_id`` en ``None``) devuelve ``None``:
+    sus datos vienen en el cuerpo y no hay nada que buscar en la base.
+    """
+    if datos["responsable_id"] is None:
+        return None
+
     responsable = db.session.get(Personal, datos["responsable_id"])
     if responsable is None:
         raise ValueError("El responsable del retiro no existe")
@@ -313,11 +322,14 @@ def _controlar_que_no_hayan_retirado(personas, fecha, tipo_comida):
 def _guardar_entrega(
     momento,
     usuario_id,
-    responsable_id,
+    datos,
     tipo_comida,
     autorizaciones,
 ):
     """Crea la entrega con un detalle por autorización, la guarda y la devuelve.
+
+    De ``datos`` (los validados) toma el responsable: ``responsable_id``, o
+    ``responsable_dni`` y ``responsable_nombre`` si es un tercero.
 
     Si otra entrega de la misma autorización se guardó entre los controles y
     el commit, el ``UNIQUE`` del detalle lo frena y se lanza ``RuntimeError``.
@@ -332,7 +344,9 @@ def _guardar_entrega(
         # sin zona como el default del modelo (issue #18).
         created_at=momento.astimezone(timezone.utc).replace(tzinfo=None),
         usuario_id=usuario_id,
-        responsable_id=responsable_id,
+        responsable_id=datos["responsable_id"],
+        responsable_dni=datos["responsable_dni"],
+        responsable_nombre=datos["responsable_nombre"],
         tipo_comida_id=tipo_comida.id,
         detalles=detalles,
     )
@@ -422,6 +436,29 @@ def obtener_entrega(entrega_id):
     return entrega
 
 
+def _datos_responsable(entrega):
+    """Arma el diccionario de quién retiró la entrega.
+
+    Tiene la misma forma para una persona de la entrega y para un tercero,
+    así el cliente lo muestra igual. Un tercero se reconoce porque ``id`` es
+    ``None``; su nombre y apellido vienen juntos en ``nombre``.
+    """
+    if entrega.responsable is None:
+        return {
+            "id": None,
+            "dni": entrega.responsable_dni,
+            "nombre": entrega.responsable_nombre,
+            "apellido": None,
+        }
+
+    return {
+        "id": entrega.responsable.id,
+        "dni": entrega.responsable.dni,
+        "nombre": entrega.responsable.nombre,
+        "apellido": entrega.responsable.apellido,
+    }
+
+
 def datos_entrega(entrega):
     """Arma el diccionario de una entrega, listo para la API.
 
@@ -457,12 +494,7 @@ def datos_entrega(entrega):
             "id": entrega.usuario.id,
             "email": entrega.usuario.email,
         },
-        "responsable": {
-            "id": entrega.responsable.id,
-            "dni": entrega.responsable.dni,
-            "nombre": entrega.responsable.nombre,
-            "apellido": entrega.responsable.apellido,
-        },
+        "responsable": _datos_responsable(entrega),
         "tipo_comida": {
             "id": entrega.tipo_comida.id,
             "nombre": entrega.tipo_comida.nombre,

@@ -1,4 +1,5 @@
 """Validaciones del lado del servidor del módulo de Entregas."""
+import re
 from datetime import date
 
 
@@ -8,14 +9,23 @@ CAMPOS_PERMITIDOS = {
     "personas",
     "tipo_comida_id",
     "responsable_id",
+    "responsable_dni",
+    "responsable_nombre",
 }
 
 # Lista (y no set) para que los faltantes salgan siempre en el mismo orden.
+# El responsable no es obligatorio: con una sola persona, es ella (Etapa 2).
 CAMPOS_OBLIGATORIOS = [
     "personas",
     "tipo_comida_id",
-    "responsable_id",
 ]
+
+# Mismo formato de DNI que usa Personal (src/core/personnel/validators.py):
+# de 7 a 9 dígitos, sin puntos ni espacios.
+PATRON_DNI = re.compile(r"\d{7,9}")
+
+# Mismo largo que la columna responsable_nombre (y que Personal.nombre).
+LARGO_MAXIMO_NOMBRE = 255
 
 # --- Query string de GET /api/authorized-meals ---
 
@@ -151,6 +161,8 @@ def validar_entrega(data):
 
     Devuelve ``(True, datos_limpios)`` si todo es válido, o
     ``(False, {"error": mensaje, "campos": [...]})`` con el primer error encontrado.
+    Los datos limpios traen siempre ``responsable_id``, ``responsable_dni`` y
+    ``responsable_nombre`` (los que no corresponden, en ``None``).
     """
     # Va primero: los otros controles necesitan que sea un diccionario.
     if not isinstance(data, dict):
@@ -164,15 +176,20 @@ def validar_entrega(data):
     if error:
         return False, error
 
-    error = _controlar_ids_entrega(data)
+    error = _controlar_tipo_comida(data["tipo_comida_id"])
     if error:
         return False, error
 
-    return True, {
+    error = _controlar_responsable(data)
+    if error:
+        return False, error
+
+    datos_limpios = {
         "personas": data["personas"],
         "tipo_comida_id": data["tipo_comida_id"],
-        "responsable_id": data["responsable_id"],
     }
+    datos_limpios.update(_datos_del_responsable(data))
+    return True, datos_limpios
 
 
 def _controlar_campos_entrega(data):
@@ -219,24 +236,147 @@ def _controlar_personas(personas):
     return None
 
 
-def _controlar_ids_entrega(data):
-    """Controla que ``tipo_comida_id`` y ``responsable_id`` sean enteros positivos.
+def _controlar_tipo_comida(tipo_comida_id):
+    """Controla que ``tipo_comida_id`` sea un entero positivo.
 
-    Devuelve el error o ``None`` si los dos están bien.
+    Devuelve el error o ``None`` si está bien.
     """
-    if not es_id_valido(data["tipo_comida_id"]):
+    if not es_id_valido(tipo_comida_id):
         return _error(
             "El tipo de comida debe ser un entero positivo",
             ["tipo_comida_id"],
         )
+    return None
 
-    if not es_id_valido(data["responsable_id"]):
+
+def _vino(data, campo):
+    """Indica si el cliente mandó ``campo`` con algún valor.
+
+    Un campo en ``null`` cuenta como que no vino: así el formulario puede
+    mandar los tres campos del responsable y dejar en ``null`` los que no usa.
+    """
+    return data.get(campo) is not None
+
+
+def _controlar_responsable(data):
+    """Controla quién retira la entrega.
+
+    Puede ser una de las personas de la entrega (``responsable_id``) o un
+    tercero (``responsable_dni`` y ``responsable_nombre``), pero no las dos
+    cosas. Si no viene ninguno, solo se acepta cuando la entrega es de una
+    sola persona (ella es el responsable). Devuelve el error o ``None``.
+    """
+    viene_id = _vino(data, "responsable_id")
+    viene_tercero = (
+        _vino(data, "responsable_dni") or _vino(data, "responsable_nombre")
+    )
+
+    if viene_id and viene_tercero:
+        return _error(
+            "Indique responsable_id o el DNI y nombre de un tercero, no ambos",
+            ["responsable_id", "responsable_dni", "responsable_nombre"],
+        )
+
+    if viene_id:
+        return _controlar_responsable_incluido(data)
+
+    if viene_tercero:
+        return _controlar_tercero(data)
+
+    if len(data["personas"]) > 1:
+        return _error(
+            "El responsable es obligatorio cuando el retiro incluye más de una persona",
+            ["responsable_id"],
+        )
+
+    return None
+
+
+def _controlar_responsable_incluido(data):
+    """Controla que ``responsable_id`` sea un id válido y una de las personas de la entrega.
+
+    Si retira alguien que no está en la entrega (aunque esté en Personal),
+    se registra como tercero con DNI y nombre.
+    Devuelve el error o ``None``.
+    """
+    responsable_id = data["responsable_id"]
+
+    if not es_id_valido(responsable_id):
         return _error(
             "El responsable debe ser un entero positivo",
             ["responsable_id"],
         )
 
+    if responsable_id not in data["personas"]:
+        return _error(
+            "El responsable debe ser una de las personas de la entrega; "
+            "si retira otra persona, envíe responsable_dni y responsable_nombre",
+            ["responsable_id"],
+        )
+
     return None
+
+
+def _controlar_tercero(data):
+    """Controla el DNI y el nombre del tercero que retira.
+
+    Hacen falta los dos. El DNI va como texto, con el mismo formato que
+    Personal. Devuelve el error o ``None``.
+    """
+    faltantes = []
+    for campo in ["responsable_dni", "responsable_nombre"]:
+        if not _vino(data, campo):
+            faltantes.append(campo)
+
+    if faltantes:
+        return _error("Para un tercero se necesitan el DNI y el nombre", faltantes)
+
+    dni = data["responsable_dni"]
+    if not isinstance(dni, str) or not PATRON_DNI.fullmatch(dni.strip()):
+        return _error(
+            "El DNI del responsable debe tener entre 7 y 9 números, sin puntos ni espacios",
+            ["responsable_dni"],
+        )
+
+    nombre = data["responsable_nombre"]
+    if not isinstance(nombre, str) or not nombre.strip():
+        return _error(
+            "El nombre del responsable no puede estar vacío",
+            ["responsable_nombre"],
+        )
+
+    if len(nombre.strip()) > LARGO_MAXIMO_NOMBRE:
+        return _error(
+            f"El nombre del responsable no puede superar los {LARGO_MAXIMO_NOMBRE} caracteres",
+            ["responsable_nombre"],
+        )
+
+    return None
+
+
+def _datos_del_responsable(data):
+    """Arma las tres claves del responsable para los datos limpios.
+
+    Se llama después de ``_controlar_responsable``, así que los datos ya
+    son válidos. Las claves que no corresponden quedan en ``None``.
+    """
+    if _vino(data, "responsable_dni"):
+        return {
+            "responsable_id": None,
+            "responsable_dni": data["responsable_dni"].strip(),
+            "responsable_nombre": data["responsable_nombre"].strip(),
+        }
+
+    responsable_id = data.get("responsable_id")
+    if responsable_id is None:
+        # Con una sola persona y sin responsable, retira ella misma.
+        responsable_id = data["personas"][0]
+
+    return {
+        "responsable_id": responsable_id,
+        "responsable_dni": None,
+        "responsable_nombre": None,
+    }
 
 
 # --- GET /api/authorized-meals ---

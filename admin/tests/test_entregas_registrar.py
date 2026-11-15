@@ -149,11 +149,16 @@ def autorizar(datos, persona, sector, comida, fecha=FECHA):
 
 
 def pedido_de_entrega(datos, personas, comida=None, responsable=None):
-    """Arma el diccionario que devolvería el validador de E3."""
+    """Arma el diccionario que devolvería el validador de E3.
+
+    Sin ``responsable`` retira la primera persona, como pide EN1.
+    """
     return {
         "personas": [persona.id for persona in personas],
         "tipo_comida_id": (comida or datos["almuerzo"]).id,
-        "responsable_id": (responsable or datos["ana"]).id,
+        "responsable_id": (responsable or personas[0]).id,
+        "responsable_dni": None,
+        "responsable_nombre": None,
     }
 
 
@@ -203,6 +208,23 @@ def test_responsable_inexistente(datos):
 
     with pytest.raises(ValueError, match="responsable"):
         registrar_entrega(entrega, datos["usuario"].id)
+
+
+def test_tercero_guarda_dni_y_nombre(datos):
+    ana, luis = datos["ana"], datos["luis"]
+    autorizar(datos, ana, datos["guardia"], datos["almuerzo"])
+    autorizar(datos, luis, datos["pediatria"], datos["almuerzo"])
+    pedido = pedido_de_entrega(datos, [ana, luis])
+    pedido["responsable_id"] = None
+    pedido["responsable_dni"] = "30111222"
+    pedido["responsable_nombre"] = "Juan Pérez"
+
+    entrega = registrar_entrega(pedido, datos["usuario"].id)
+
+    assert entrega.responsable_id is None
+    assert entrega.responsable_dni == "30111222"
+    assert entrega.responsable_nombre == "Juan Pérez"
+    assert EntregaDetalle.query.count() == 2
 
 
 def test_persona_sin_autorizacion_no_crea_nada(datos):
