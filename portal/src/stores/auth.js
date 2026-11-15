@@ -1,6 +1,7 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
-import { api, getStoredToken, setStoredToken, ApiError } from '@/services/api'
+import { getStoredToken, setStoredToken, ApiError } from '@/services/api'
+import { authService } from '@/services/auth.service'
 
 const STORAGE_USER_KEY = 'portal_auth_user'
 
@@ -101,9 +102,7 @@ export const useAuthStore = defineStore('auth', () => {
    * del usuario autenticado y verificar que posea un rol operativo válido.
    */
   async function fetchCurrentUser() {
-    const response = await api.get('/auth/me', undefined, {
-      skipAuthRedirect: true,
-    })
+    const response = await authService.getCurrentUser()
     const profile = response?.user || response
 
     if (!profile || !LISTA_ROLES_PERMITIDOS.includes(profile.rol)) {
@@ -149,11 +148,7 @@ export const useAuthStore = defineStore('auth', () => {
   async function login(email, password) {
     loading.value = true
     try {
-      const data = await api.post(
-        '/auth/login',
-        { email, password },
-        { skipAuthRedirect: true },
-      )
+      const data = await authService.loginWithCredentials(email, password)
       setSession(data.token, data.user || null)
       const currentUser = await fetchCurrentUser()
       initialized.value = true
@@ -173,11 +168,7 @@ export const useAuthStore = defineStore('auth', () => {
   async function loginWithGoogle(idToken) {
     loading.value = true
     try {
-      const data = await api.post(
-        '/auth/google',
-        { id_token: idToken },
-        { skipAuthRedirect: true },
-      )
+      const data = await authService.loginWithGoogleToken(idToken)
       setSession(data.token, data.user || null)
       const currentUser = await fetchCurrentUser()
       initialized.value = true
@@ -196,7 +187,7 @@ export const useAuthStore = defineStore('auth', () => {
   async function updateProfile(payload) {
     loading.value = true
     try {
-      const data = await api.put('/auth/me', payload)
+      const data = await authService.updateCurrentUserProfile(payload)
       if (data?.user) {
         user.value = data.user
         saveStoredUser(data.user)
@@ -214,7 +205,7 @@ export const useAuthStore = defineStore('auth', () => {
     loading.value = true
     try {
       if (token.value) {
-        await api.post('/auth/logout', {}, { skipAuthRedirect: true })
+        await authService.logoutSession()
       }
     } catch {
       // Incluso si el token ya había expirado en el servidor, limpiamos la sesión local
