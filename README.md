@@ -62,9 +62,8 @@ poetry run flask --app main run
 - **Administrador** (acceso en `http://localhost:5000/auth/login`):
   - Email: `admin@hospital.com` | Contraseña: `admin123`
 - **Roles operativos de prueba** (acceso en el portal público `http://localhost:5173/login`):
-  - Jefe de Servicio: `jefe@hospital.com` | Contraseña: `user123`
-  - Servicio de Alimentación: `alimentacion@hospital.com` | Contraseña: `user123`
-  - Sector Comedor: `comedor@hospital.com` | Contraseña: `user123`
+  - Jefe de Servicio: `house@hospital.com` | Contraseña: `house123`
+  - Servicio de Alimentación: `alimentacion@hospital.com` | Contraseña: `alimentacion123`
 
 ---
 
