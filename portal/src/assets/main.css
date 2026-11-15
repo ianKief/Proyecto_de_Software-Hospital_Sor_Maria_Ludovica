@@ -1,14 +1,29 @@
-/* Estilos globales y variables de diseño para el Portal Público del Hospital */
+/* Paleta institucional del Hospital Sor María Ludovica:
+ * - Celeste escudo: #63AEBF
+ * - Azul marino:    #223A59
+ * - Azul profundo:  #020659
+ * - Blanco puro:    #FFFFFF
+ */
 :root {
-  --color-primary: #0284c7;
-  --color-primary-hover: #0369a1;
-  --color-primary-light: #e0f2fe;
-  --color-secondary: #0f172a;
+  --color-brand-teal: #63aebf;
+  --color-brand-teal-soft: #eaf5f8;
+  --color-brand-teal-border: #a8d5e0;
+  --color-brand-navy: #223a59;
+  --color-brand-deep: #020659;
+
+  --color-primary: #223a59;
+  --color-primary-hover: #020659;
+  --color-primary-light: #eaf5f8;
+  --color-accent: #63aebf;
+  --color-secondary: #020659;
+
   --color-surface: #ffffff;
-  --color-bg: #f8fafc;
-  --color-border: #cbd5e1;
-  --color-text: #1e293b;
-  --color-text-muted: #475569;
+  --color-bg: #f4f9fb;
+  --color-border: #bdd6df;
+  --color-input-border: #8abec9;
+  --color-text: #16263b;
+  --color-text-muted: #3b5575;
+
   --color-danger: #b91c1c;
   --color-danger-bg: #fef2f2;
   --color-danger-border: #fecaca;
@@ -18,15 +33,16 @@
   --color-warning: #b45309;
   --color-warning-bg: #fffbeb;
   --color-warning-border: #fde68a;
-  --color-info: #0369a1;
-  --color-info-bg: #f0f9ff;
-  --color-info-border: #bae6fd;
+  --color-info: #223a59;
+  --color-info-bg: #eaf5f8;
+  --color-info-border: #63aebf;
+
   --radius-sm: 0.375rem;
   --radius-md: 0.5rem;
   --radius-lg: 0.75rem;
-  --shadow-sm: 0 1px 2px 0 rgba(15, 23, 42, 0.06);
-  --shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.1), 0 2px 4px -2px rgba(15, 23, 42, 0.08);
-  --shadow-lg: 0 10px 15px -3px rgba(15, 23, 42, 0.1), 0 4px 6px -4px rgba(15, 23, 42, 0.08);
+  --shadow-sm: 0 1px 3px 0 rgba(34, 58, 89, 0.08);
+  --shadow-md: 0 4px 10px -2px rgba(34, 58, 89, 0.12), 0 2px 4px -2px rgba(2, 6, 89, 0.06);
+  --shadow-lg: 0 12px 24px -4px rgba(34, 58, 89, 0.16), 0 4px 8px -4px rgba(2, 6, 89, 0.08);
 }
 
 *,
@@ -62,13 +78,13 @@ body {
   flex-direction: column;
 }
 
-/* Foco visible accesible por teclado (WCAG AA) */
+/* Foco visible accesible por teclado (WCAG AA) combinando #020659 y #63AEBF */
 :focus-visible {
-  outline: 3px solid var(--color-primary);
+  outline: 3px solid var(--color-brand-teal);
   outline-offset: 2px;
 }
 
-/* Elementos interactivos con tamaño mínimo táctil de 48x48px */
+/* Botones con área táctil mínima de 48x48px */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -79,14 +95,15 @@ body {
   font-size: 0.95rem;
   font-weight: 600;
   border-radius: var(--radius-md);
-  border: 1px solid transparent;
+  border: 1.5px solid transparent;
   cursor: pointer;
   text-decoration: none;
   transition:
-    background-color 0.15s ease,
-    border-color 0.15s ease,
-    color 0.15s ease,
-    opacity 0.15s ease;
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    box-shadow 0.18s ease,
+    opacity 0.18s ease;
 }
 
 .btn:disabled {
@@ -95,34 +112,52 @@ body {
 }
 
 .btn-primary {
-  background-color: var(--color-primary);
+  background-color: var(--color-brand-navy);
+  border-color: var(--color-brand-navy);
   color: #ffffff;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background-color: var(--color-primary-hover);
+  background-color: var(--color-brand-deep);
+  border-color: var(--color-brand-deep);
+  box-shadow: 0 3px 8px rgba(2, 6, 89, 0.22);
+}
+
+.btn-accent {
+  background-color: var(--color-brand-teal);
+  border-color: var(--color-brand-navy);
+  color: var(--color-brand-deep);
+}
+
+.btn-accent:hover:not(:disabled) {
+  background-color: #4f9db0;
+  color: #ffffff;
 }
 
 .btn-secondary {
   background-color: #ffffff;
-  color: var(--color-text);
-  border-color: var(--color-border);
+  color: var(--color-brand-navy);
+  border-color: var(--color-brand-teal);
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background-color: #f1f5f9;
+  background-color: var(--color-brand-teal-soft);
+  border-color: var(--color-brand-navy);
+  color: var(--color-brand-deep);
 }
 
 .btn-danger {
   background-color: var(--color-danger);
+  border-color: var(--color-danger);
   color: #ffffff;
 }
 
 .btn-danger:hover:not(:disabled) {
   background-color: #991b1b;
+  border-color: #991b1b;
 }
 
-/* Campos de formulario accesibles */
+/* Campos de formulario con bordes en la gama #63AEBF / #223A59 */
 .form-group {
   display: flex;
   flex-direction: column;
@@ -133,7 +168,7 @@ body {
 .form-label {
   font-size: 0.9rem;
   font-weight: 600;
-  color: var(--color-text);
+  color: var(--color-brand-navy);
 }
 
 .form-input {
@@ -142,14 +177,20 @@ body {
   font-size: 1rem;
   color: var(--color-text);
   background-color: #ffffff;
-  border: 1px solid var(--color-border);
+  border: 1.5px solid var(--color-input-border);
   border-radius: var(--radius-md);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.form-input::placeholder {
+  color: #6b859e;
 }
 
 .form-input:focus {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.18);
+  border-color: var(--color-brand-deep);
+  box-shadow: 0 0 0 3px rgba(99, 174, 191, 0.35);
   outline: none;
 }
 
@@ -165,12 +206,13 @@ body {
   color: var(--color-danger);
 }
 
-/* Tarjetas y contenedores */
+/* Tarjetas blancas con acento superior celeste (#63AEBF) */
 .card {
   background-color: var(--color-surface);
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--color-border);
+  border-top: 4px solid var(--color-brand-teal);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-md);
   padding: 1.5rem;
 }
 

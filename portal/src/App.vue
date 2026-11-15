@@ -96,11 +96,12 @@ async function handleLogout() {
       <div class="header-inner">
         <div class="brand-area">
           <RouterLink :to="authStore.homeRouteByRole" class="brand-link">
-            <span class="brand-badge" aria-hidden="true">H</span>
-            <div class="brand-titles">
-              <span class="brand-name">Hospital Sor María Ludovica</span>
-              <span class="brand-subtitle">Servicio de Alimentación</span>
-            </div>
+            <img
+              src="/logo-hospital.png"
+              alt="HIAEP Sor María Ludovica - La Plata"
+              class="brand-logo-img"
+            />
+            <span class="brand-system-tag">Servicio de Alimentación</span>
           </RouterLink>
         </div>
 
@@ -142,7 +143,7 @@ async function handleLogout() {
             </RouterLink>
             <button
               type="button"
-              class="btn btn-danger btn-sm"
+              class="btn btn-primary btn-sm"
               :disabled="authStore.loading"
               @click="handleLogout"
             >
@@ -203,7 +204,7 @@ async function handleLogout() {
           </RouterLink>
           <button
             type="button"
-            class="btn btn-danger"
+            class="btn btn-primary"
             :disabled="authStore.loading"
             @click="handleLogout"
           >
@@ -248,6 +249,15 @@ async function handleLogout() {
       <MaintenanceView v-if="uiStore.maintenanceActive" />
       <RouterView v-else />
     </main>
+
+    <!-- Insignia institucional permanente en esquina entre todas las pantallas -->
+    <aside class="persistent-corner-logo" aria-label="Identidad institucional del hospital">
+      <img
+        src="/logo-hospital.png"
+        alt="Hospital Interzonal de Agudos Especializado en Pediatría Sor María Ludovica"
+        class="corner-logo-img"
+      />
+    </aside>
   </div>
 </template>
 
@@ -256,14 +266,16 @@ async function handleLogout() {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  padding-bottom: 3.5rem;
 }
 
 .app-shell-kiosk {
-  background-color: #f1f5f9;
+  background-color: var(--color-bg);
 }
 
 .top-header {
   background-color: #ffffff;
+  border-top: 4px solid var(--color-brand-deep);
   border-bottom: 1px solid var(--color-border);
   box-shadow: var(--shadow-sm);
   position: sticky;
@@ -274,7 +286,7 @@ async function handleLogout() {
 .header-inner {
   max-width: 1280px;
   margin: 0 auto;
-  padding: 0.75rem 1rem;
+  padding: 0.65rem 1rem;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -285,38 +297,27 @@ async function handleLogout() {
 .brand-link {
   display: inline-flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.85rem;
   text-decoration: none;
-  color: var(--color-text);
+  color: var(--color-brand-navy);
 }
 
-.brand-badge {
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: var(--radius-md);
-  background-color: var(--color-primary);
-  color: #ffffff;
-  font-weight: 800;
-  font-size: 1.2rem;
+.brand-logo-img {
+  height: 48px;
+  width: auto;
+  object-fit: contain;
+}
+
+.brand-system-tag {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-}
-
-.brand-titles {
-  display: flex;
-  flex-direction: column;
-}
-
-.brand-name {
-  font-weight: 700;
-  font-size: 1rem;
-  line-height: 1.2;
-}
-
-.brand-subtitle {
-  font-size: 0.8rem;
-  color: var(--color-text-muted);
+  padding: 0.25rem 0.7rem;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-brand-navy);
+  color: #ffffff;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
 }
 
 .mobile-menu-toggle {
@@ -337,8 +338,9 @@ async function handleLogout() {
 }
 
 .user-fullname {
-  font-weight: 600;
+  font-weight: 700;
   font-size: 0.95rem;
+  color: var(--color-brand-deep);
 }
 
 .user-badges {
@@ -350,21 +352,21 @@ async function handleLogout() {
 .badge {
   display: inline-flex;
   align-items: center;
-  padding: 0.15rem 0.6rem;
+  padding: 0.15rem 0.65rem;
   border-radius: 999px;
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .badge-role {
-  background-color: var(--color-primary-light);
-  color: var(--color-primary-hover);
+  background-color: var(--color-brand-teal-soft);
+  color: var(--color-brand-deep);
+  border: 1px solid var(--color-brand-teal);
 }
 
 .badge-sector {
-  background-color: #f1f5f9;
-  color: var(--color-secondary);
-  border: 1px solid var(--color-border);
+  background-color: var(--color-brand-navy);
+  color: #ffffff;
 }
 
 .user-actions {
@@ -380,14 +382,15 @@ async function handleLogout() {
 }
 
 .nav-profile-active {
-  border-color: var(--color-primary);
-  color: var(--color-primary-hover);
-  background-color: var(--color-primary-light);
+  border-color: var(--color-brand-deep);
+  color: #ffffff;
+  background-color: var(--color-brand-navy);
 }
 
+/* Barra de navegación con fondo #223A59 y acento activo #63AEBF */
 .main-nav {
-  background-color: #f8fafc;
-  border-top: 1px solid #e2e8f0;
+  background-color: var(--color-brand-navy);
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 .nav-list {
@@ -404,12 +407,12 @@ async function handleLogout() {
   display: inline-flex;
   align-items: center;
   min-height: 48px;
-  padding: 0.5rem 1rem;
-  color: var(--color-text-muted);
+  padding: 0.5rem 1.1rem;
+  color: rgba(255, 255, 255, 0.88);
   text-decoration: none;
   font-weight: 600;
   font-size: 0.925rem;
-  border-bottom: 3px solid transparent;
+  border-bottom: 4px solid transparent;
   transition:
     color 0.15s ease,
     border-color 0.15s ease,
@@ -417,14 +420,14 @@ async function handleLogout() {
 }
 
 .nav-link:hover {
-  color: var(--color-text);
-  background-color: #f1f5f9;
+  color: #ffffff;
+  background-color: rgba(99, 174, 191, 0.18);
 }
 
 .nav-link-active {
-  color: var(--color-primary-hover);
-  border-bottom-color: var(--color-primary);
-  background-color: #ffffff;
+  color: #ffffff;
+  border-bottom-color: var(--color-brand-teal);
+  background-color: var(--color-brand-deep);
 }
 
 /* Controles discretos para el Modo Kiosco */
@@ -451,6 +454,7 @@ async function handleLogout() {
   display: flex;
   flex-direction: column;
   font-size: 0.9rem;
+  color: var(--color-brand-navy);
 }
 
 .kiosk-operator-info span {
@@ -489,8 +493,40 @@ async function handleLogout() {
   flex-direction: column;
 }
 
-/* Responsive móvil (< 767px): colapsa menú en desplegable */
+/* Logo institucional fijo en la esquina inferior derecha en todas las vistas */
+.persistent-corner-logo {
+  position: fixed;
+  bottom: 0.75rem;
+  right: 0.85rem;
+  z-index: 25;
+  background-color: rgba(255, 255, 255, 0.96);
+  border: 1.5px solid var(--color-brand-teal);
+  border-left: 4px solid var(--color-brand-navy);
+  border-radius: var(--radius-md);
+  padding: 0.3rem 0.65rem;
+  box-shadow: var(--shadow-md);
+  pointer-events: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+.corner-logo-img {
+  height: 34px;
+  width: auto;
+  object-fit: contain;
+  display: block;
+}
+
+/* Responsive móvil (< 767px) */
 @media (max-width: 767px) {
+  .brand-system-tag {
+    display: none;
+  }
+
+  .brand-logo-img {
+    height: 40px;
+  }
+
   .mobile-menu-toggle {
     display: inline-flex;
   }
@@ -506,7 +542,7 @@ async function handleLogout() {
     flex-direction: column;
     align-items: stretch;
     padding-top: 0.75rem;
-    border-top: 1px solid #e2e8f0;
+    border-top: 1px solid var(--color-border);
   }
 
   .user-meta {
@@ -534,13 +570,17 @@ async function handleLogout() {
   .nav-link {
     width: 100%;
     border-bottom: none;
-    border-left: 3px solid transparent;
+    border-left: 4px solid transparent;
     border-radius: var(--radius-sm);
   }
 
   .nav-link-active {
-    border-left-color: var(--color-primary);
-    background-color: var(--color-primary-light);
+    border-left-color: var(--color-brand-teal);
+    background-color: var(--color-brand-deep);
+  }
+
+  .corner-logo-img {
+    height: 28px;
   }
 }
 </style>
