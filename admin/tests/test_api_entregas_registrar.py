@@ -253,8 +253,8 @@ def test_sin_personas_responde_400(comedor, datos):
 
 # Reglas de negocio
 
-def test_fuera_de_horario_responde_400(comedor, datos):
-    """Al mediodía no se puede entregar la Cena aunque esté autorizada."""
+def test_cena_antes_de_su_horario_responde_201(comedor, datos):
+    """Al mediodía se puede entregar la Cena: su horario todavía no terminó (EN3)."""
     autorizar(datos, datos["ana"], datos["cena"])
 
     respuesta = comedor.post(
@@ -262,8 +262,22 @@ def test_fuera_de_horario_responde_400(comedor, datos):
         json=cuerpo_entrega(datos, [datos["ana"]], comida=datos["cena"]),
     )
 
+    assert respuesta.status_code == 201
+    assert respuesta.get_json()["tipo_comida"]["nombre"] == "Cena"
+
+
+def test_comida_terminada_responde_400(comedor, datos, monkeypatch):
+    """A las 15:01 ya terminó el Almuerzo (11:30 a 15:00): responde 400 (EN3)."""
+    pasadas_las_tres = datetime(2026, 10, 13, 15, 1, tzinfo=ZONA_ARGENTINA)
+    monkeypatch.setattr("src.core.deliveries.hora_actual", lambda: pasadas_las_tres)
+    autorizar(datos, datos["ana"], datos["almuerzo"])
+
+    respuesta = comedor.post(URL, json=cuerpo_entrega(datos, [datos["ana"]]))
+
     assert respuesta.status_code == 400
-    assert respuesta.get_json() == {"error": "Fuera del horario de Cena"}
+    assert respuesta.get_json() == {
+        "error": "El horario de Almuerzo terminó a las 15:00",
+    }
     assert Entrega.query.count() == 0
 
 

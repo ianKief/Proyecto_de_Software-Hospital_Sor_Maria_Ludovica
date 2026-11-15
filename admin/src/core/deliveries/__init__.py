@@ -9,7 +9,9 @@ from src.core.db import db
 from src.core.deliveries.models import Entrega, EntregaDetalle
 from src.core.deliveries.turnos import (
     a_hora_argentina,
+    comida_terminada,
     hora_actual,
+    hora_de_fin,
     hoy,
     turno_actual,
 )
@@ -218,8 +220,9 @@ def registrar_entrega(datos, usuario_id):
     el mismo momento con el que se controla el turno.
 
     Antes de crear nada controla todo; si algo falla no se guarda ninguna persona:
-    - ``ValueError`` (400): comida o responsable inexistente, fuera del horario
-      de esa comida, o alguna persona sin autorización para hoy.
+    - ``ValueError`` (400): comida o responsable inexistente, el horario de
+      esa comida ya terminó (o no tiene horario), o alguna persona sin
+      autorización para hoy.
     - ``RuntimeError`` (409): alguna persona ya retiró esa comida hoy.
 
     Las personas inactivas con la comida autorizada se entregan igual.
@@ -230,7 +233,7 @@ def registrar_entrega(datos, usuario_id):
 
     tipo_comida = _buscar_tipo_comida(datos)
     _buscar_responsable(datos)
-    _controlar_turno(tipo_comida, momento)
+    _controlar_que_no_haya_terminado(tipo_comida, momento)
     autorizaciones = _buscar_autorizaciones(datos["personas"], fecha, tipo_comida)
     _controlar_que_no_hayan_retirado(datos["personas"], fecha, tipo_comida)
 
@@ -275,10 +278,21 @@ def _buscar_responsable(datos):
     return responsable
 
 
-def _controlar_turno(tipo_comida, momento):
-    """Lanza ``ValueError`` si en ``momento`` no se está sirviendo esa comida."""
-    if turno_actual(momento) != tipo_comida.nombre:
-        raise ValueError(f"Fuera del horario de {tipo_comida.nombre}")
+def _controlar_que_no_haya_terminado(tipo_comida, momento):
+    """Lanza ``ValueError`` si en ``momento`` ya terminó el horario de esa comida.
+
+    Se acepta una comida de hoy aunque no sea la del turno en curso, mientras
+    su horario no haya terminado (respuesta del ayudante, 10/11): por ejemplo,
+    la cena durante el almuerzo sí, pero el desayuno durante el almuerzo no.
+    """
+    fin = hora_de_fin(tipo_comida.nombre)
+    if fin is None:
+        raise ValueError(f"{tipo_comida.nombre} no tiene horario en la configuración")
+
+    if comida_terminada(fin, momento):
+        raise ValueError(
+            f"El horario de {tipo_comida.nombre} terminó a las {fin.strftime('%H:%M')}"
+        )
 
 
 def _buscar_autorizaciones(personas, fecha, tipo_comida):

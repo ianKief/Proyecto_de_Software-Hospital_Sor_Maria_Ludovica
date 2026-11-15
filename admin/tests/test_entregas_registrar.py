@@ -1,10 +1,11 @@
 """Tests de registrar_entrega (usan una base SQLite en memoria)."""
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 
 import pytest
 
 from src.web import create_app
 from src.core.db import db
+from src.core.configuration import obtener_configuracion
 from src.core.auth.models import Role
 from src.core.deliveries import registrar_entrega
 from src.core.deliveries.models import Entrega, EntregaDetalle
@@ -182,12 +183,68 @@ def test_entrega_valida_con_dos_personas(datos):
     assert entrega.created_at == datetime(2026, 10, 13, 15, 0)
 
 
-def test_fuera_de_horario(datos):
+# Horario de la comida (EN3). "Durante el horario" ya lo prueba
+# test_entrega_valida_con_dos_personas, que entrega el almuerzo a las 12:00.
+
+def fijar_hora(monkeypatch, hora, minuto, segundo=0):
+    """Fija la hora de Entregas en el 13/10/2026 a la hora indicada (Argentina)."""
+    momento = datetime(2026, 10, 13, hora, minuto, segundo, tzinfo=ZONA_ARGENTINA)
+    monkeypatch.setattr("src.core.deliveries.hora_actual", lambda: momento)
+
+
+def test_cena_antes_de_su_horario_se_registra(datos):
+    # Al mediodía la cena todavía no empezó (20:00 a 23:00), pero no terminó.
     autorizar(datos, datos["ana"], datos["guardia"], datos["cena"])
 
-    with pytest.raises(ValueError, match="Fuera del horario de Cena"):
+    entrega = registrar_entrega(
+        pedido_de_entrega(datos, [datos["ana"]], comida=datos["cena"]),
+        datos["usuario"].id,
+    )
+
+    assert entrega.tipo_comida_id == datos["cena"].id
+    assert Entrega.query.count() == 1
+
+
+def test_justo_en_el_fin_se_registra(datos, monkeypatch):
+    fijar_hora(monkeypatch, 15, 0, 45)
+    autorizar(datos, datos["ana"], datos["guardia"], datos["almuerzo"])
+
+    registrar_entrega(pedido_de_entrega(datos, [datos["ana"]]), datos["usuario"].id)
+
+    assert Entrega.query.count() == 1
+
+
+def test_un_minuto_despues_del_fin_no_crea_nada(datos, monkeypatch):
+    fijar_hora(monkeypatch, 15, 1)
+    autorizar(datos, datos["ana"], datos["guardia"], datos["almuerzo"])
+
+    with pytest.raises(ValueError, match="El horario de Almuerzo terminó a las 15:00"):
+        registrar_entrega(pedido_de_entrega(datos, [datos["ana"]]), datos["usuario"].id)
+
+    assert Entrega.query.count() == 0
+
+
+def test_fin_cambiado_en_la_configuracion(datos):
+    configuracion = obtener_configuracion()
+    configuracion.almuerzo_fin = time(11, 59)
+    db.session.commit()
+    autorizar(datos, datos["ana"], datos["guardia"], datos["almuerzo"])
+
+    with pytest.raises(ValueError, match="terminó a las 11:59"):
+        registrar_entrega(pedido_de_entrega(datos, [datos["ana"]]), datos["usuario"].id)
+
+    assert Entrega.query.count() == 0
+
+
+def test_comida_sin_horario_en_la_configuracion(datos):
+    colacion = FoodType(nombre="Colación")
+    db.session.add(colacion)
+    db.session.commit()
+    autorizar(datos, datos["ana"], datos["guardia"], colacion)
+
+    with pytest.raises(ValueError, match="Colación no tiene horario"):
         registrar_entrega(
-            pedido_de_entrega(datos, [datos["ana"]], comida=datos["cena"]),
+            pedido_de_entrega(datos, [datos["ana"]], comida=colacion),
             datos["usuario"].id,
         )
 
