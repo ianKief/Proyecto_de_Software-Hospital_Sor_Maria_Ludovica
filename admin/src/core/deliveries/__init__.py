@@ -7,7 +7,12 @@ from sqlalchemy.exc import IntegrityError
 
 from src.core.db import db
 from src.core.deliveries.models import Entrega, EntregaDetalle
-from src.core.deliveries.turnos import a_hora_argentina, ahora, hoy, turno_actual
+from src.core.deliveries.turnos import (
+    a_hora_argentina,
+    hora_actual,
+    hoy,
+    turno_actual,
+)
 from src.core.food_types.models import FoodType
 from src.core.menu_types.models import MenuType
 from src.core.pedidos.models import Autorizacion, Pedido, SolicitudPedido
@@ -217,23 +222,65 @@ def registrar_entrega(datos, usuario_id):
 
     Las personas inactivas con la comida autorizada se entregan igual.
     """
-    momento = ahora()
+    # Se toma la hora una sola vez: el turno se controla y se guarda con el mismo momento.
+    momento = hora_actual()
     fecha = momento.date()
 
+    tipo_comida = _buscar_tipo_comida(datos)
+    _buscar_responsable(datos)
+    _controlar_turno(tipo_comida, momento)
+    autorizaciones = _buscar_autorizaciones(datos["personas"], fecha, tipo_comida)
+    _controlar_que_no_hayan_retirado(datos["personas"], fecha, tipo_comida)
+
+    entrega = _guardar_entrega(
+        momento,
+        usuario_id,
+        datos["responsable_id"],
+        tipo_comida,
+        autorizaciones,
+    )
+
+    logger.info(
+        "Entrega %s registrada por el usuario %s: %s para %s personas",
+        entrega.id,
+        usuario_id,
+        tipo_comida.nombre,
+        len(autorizaciones),
+    )
+    return entrega
+
+
+def _buscar_tipo_comida(datos):
+    """Devuelve el tipo de comida de la entrega. Lanza ``ValueError`` si no existe."""
     tipo_comida = db.session.get(FoodType, datos["tipo_comida_id"])
     if tipo_comida is None:
         raise ValueError("El tipo de comida no existe")
+    return tipo_comida
 
-    if db.session.get(Personal, datos["responsable_id"]) is None:
+
+def _buscar_responsable(datos):
+    """Devuelve la persona que retira la entrega. Lanza ``ValueError`` si no existe."""
+    responsable = db.session.get(Personal, datos["responsable_id"])
+    if responsable is None:
         raise ValueError("El responsable del retiro no existe")
+    return responsable
 
+
+def _controlar_turno(tipo_comida, momento):
+    """Lanza ``ValueError`` si en ``momento`` no se está sirviendo esa comida."""
     if turno_actual(momento) != tipo_comida.nombre:
         raise ValueError(f"Fuera del horario de {tipo_comida.nombre}")
 
-    # Se busca la autorización de cada persona; las que no tienen se juntan para avisar todas juntas.
+
+def _buscar_autorizaciones(personas, fecha, tipo_comida):
+    """Devuelve la autorización de hoy de cada persona, en el mismo orden.
+
+    Las personas sin autorización se juntan para avisar de todas en un
+    solo error (``ValueError``), en vez de cortar en la primera.
+    """
     autorizaciones = []
     sin_autorizacion = []
-    for persona_id in datos["personas"]:
+    for persona_id in personas:
         autorizacion = _autorizacion_de_hoy(persona_id, fecha, tipo_comida.id)
         if autorizacion is None:
             sin_autorizacion.append(persona_id)
@@ -244,28 +291,50 @@ def registrar_entrega(datos, usuario_id):
         raise ValueError(
             f"Sin autorización de {tipo_comida.nombre} para hoy: personas {sin_autorizacion}"
         )
+    return autorizaciones
 
-    ya_retiraron = [
-        persona_id
-        for persona_id in datos["personas"]
-        if ya_entregada(persona_id, fecha, tipo_comida.id)
-    ]
+
+def _controlar_que_no_hayan_retirado(personas, fecha, tipo_comida):
+    """Lanza ``RuntimeError`` si alguna persona ya retiró esa comida hoy.
+
+    Igual que con las autorizaciones, se avisa de todas las personas juntas.
+    """
+    ya_retiraron = []
+    for persona_id in personas:
+        if ya_entregada(persona_id, fecha, tipo_comida.id):
+            ya_retiraron.append(persona_id)
+
     if ya_retiraron:
         raise RuntimeError(
             f"Ya retiraron {tipo_comida.nombre} hoy: personas {ya_retiraron}"
         )
+
+
+def _guardar_entrega(
+    momento,
+    usuario_id,
+    responsable_id,
+    tipo_comida,
+    autorizaciones,
+):
+    """Crea la entrega con un detalle por autorización, la guarda y la devuelve.
+
+    Si otra entrega de la misma autorización se guardó entre los controles y
+    el commit, el ``UNIQUE`` del detalle lo frena y se lanza ``RuntimeError``.
+    Ante cualquier otro error hace ``rollback`` y relanza la excepción.
+    """
+    detalles = []
+    for autorizacion in autorizaciones:
+        detalles.append(EntregaDetalle(autorizacion_id=autorizacion.id))
 
     entrega = Entrega(
         # Se guarda el mismo momento con el que se validó el turno, en UTC y
         # sin zona como el default del modelo (issue #18).
         created_at=momento.astimezone(timezone.utc).replace(tzinfo=None),
         usuario_id=usuario_id,
-        responsable_id=datos["responsable_id"],
+        responsable_id=responsable_id,
         tipo_comida_id=tipo_comida.id,
-        detalles=[
-            EntregaDetalle(autorizacion_id=autorizacion.id)
-            for autorizacion in autorizaciones
-        ],
+        detalles=detalles,
     )
 
     try:
@@ -281,13 +350,6 @@ def registrar_entrega(datos, usuario_id):
         logger.exception("No se pudo registrar la entrega (usuario %s)", usuario_id)
         raise
 
-    logger.info(
-        "Entrega %s registrada por el usuario %s: %s para %s personas",
-        entrega.id,
-        usuario_id,
-        tipo_comida.nombre,
-        len(autorizaciones),
-    )
     return entrega
 
 
@@ -334,9 +396,9 @@ def filtros_del_turno_actual():
     La fecha es la de hoy y la comida, la del turno en curso (E1b). Si en
     este momento no hay turno (o esa comida no está cargada en la base),
     ``tipo_comida_id`` queda en ``None`` y se listan todas las comidas de hoy.
-    Toma la hora de ``ahora()``, igual que ``registrar_entrega``.
+    Toma la hora de ``hora_actual()``, igual que ``registrar_entrega``.
     """
-    momento = ahora()
+    momento = hora_actual()
     tipo_comida_id = None
 
     nombre_turno = turno_actual(momento)

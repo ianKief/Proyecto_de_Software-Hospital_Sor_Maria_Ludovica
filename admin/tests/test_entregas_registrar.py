@@ -8,7 +8,7 @@ from src.core.db import db
 from src.core.auth.models import Role
 from src.core.deliveries import registrar_entrega
 from src.core.deliveries.models import Entrega, EntregaDetalle
-from src.core.deliveries.turnos import ZONA_ARGENTINA, ahora, hoy
+from src.core.deliveries.turnos import ZONA_ARGENTINA, hora_actual, hoy
 from src.core.food_types.models import FoodType
 from src.core.menu_types.models import MenuType
 from src.core.pedidos.models import Autorizacion, Carga, Pedido, SolicitudPedido
@@ -39,7 +39,7 @@ def app(monkeypatch):
 @pytest.fixture
 def al_mediodia(monkeypatch):
     """Fija la hora de Entregas en el 13/10/2026 a las 12:00 (turno de Almuerzo)."""
-    monkeypatch.setattr("src.core.deliveries.ahora", lambda: MEDIODIA)
+    monkeypatch.setattr("src.core.deliveries.hora_actual", lambda: MEDIODIA)
 
 
 @pytest.fixture
@@ -242,6 +242,6 @@ def test_dos_autorizaciones_usa_la_primera_y_no_entrega_dos_veces(datos):
     assert Entrega.query.count() == 1
 
 
-def test_ahora_da_hora_de_argentina():
-    assert ahora().utcoffset() == timedelta(hours=-3)
-    assert hoy() == ahora().date()
+def test_hora_actual_da_hora_de_argentina():
+    assert hora_actual().utcoffset() == timedelta(hours=-3)
+    assert hoy() == hora_actual().date()

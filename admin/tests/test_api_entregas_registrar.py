@@ -52,7 +52,7 @@ def app(monkeypatch):
 @pytest.fixture
 def al_mediodia(monkeypatch):
     """Fija la hora de Entregas en el 13/10/2026 a las 12:00 (turno de Almuerzo)."""
-    monkeypatch.setattr("src.core.deliveries.ahora", lambda: MEDIODIA)
+    monkeypatch.setattr("src.core.deliveries.hora_actual", lambda: MEDIODIA)
 
 
 @pytest.fixture

@@ -22,7 +22,7 @@ def horarios_de_comidas():
     }
 
 
-def ahora():
+def hora_actual():
     """Devuelve la fecha y hora actual en Argentina (UTC-3).
 
     Todo Entregas toma la hora de acá, así no depende de la zona horaria del servidor.
@@ -32,7 +32,7 @@ def ahora():
 
 def hoy():
     """Devuelve la fecha actual en Argentina que usa el módulo de Entregas."""
-    return ahora().date()
+    return hora_actual().date()
 
 
 def a_hora_argentina(dt):

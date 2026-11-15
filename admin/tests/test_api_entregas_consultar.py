@@ -200,7 +200,7 @@ def comedor(app, datos):
 
 def fijar_hora(monkeypatch, momento):
     """Fija la hora que usa el módulo de Entregas."""
-    monkeypatch.setattr("src.core.deliveries.ahora", lambda: momento)
+    monkeypatch.setattr("src.core.deliveries.hora_actual", lambda: momento)
 
 
 def ids_de_items(respuesta):
