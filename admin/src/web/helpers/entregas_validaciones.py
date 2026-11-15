@@ -11,10 +11,14 @@ CAMPOS_PERMITIDOS = {
     "responsable_id",
     "responsable_dni",
     "responsable_nombre",
+    # Etapa 2: el menú se toma de la solicitud autorizada de cada persona.
+    # Se acepta para no romper clientes que lo manden, pero se ignora:
+    # no se valida ni pasa a los datos limpios.
+    "tipo_menu",
 }
 
 # Lista (y no set) para que los faltantes salgan siempre en el mismo orden.
-# El responsable no es obligatorio: con una sola persona, es ella (Etapa 2).
+# El responsable no es obligatorio: con una sola persona, es ella.
 CAMPOS_OBLIGATORIOS = [
     "personas",
     "tipo_comida_id",

@@ -38,13 +38,13 @@ def test_cuerpo_que_no_es_objeto():
 
 def test_campo_extra_se_rechaza():
     data = entrega_base()
-    data["tipo_menu_id"] = 1
+    data["color"] = "rojo"
 
     es_valido, resultado = validar_entrega(data)
 
     assert es_valido is False
     assert resultado["error"] == "Se recibieron campos no permitidos"
-    assert resultado["campos"] == ["tipo_menu_id"]
+    assert resultado["campos"] == ["color"]
 
 
 def test_falta_campo_obligatorio():
@@ -278,3 +278,16 @@ def test_tercero_con_nombre_demasiado_largo():
 
     assert es_valido is False
     assert resultado["campos"] == ["responsable_nombre"]
+
+
+# Tipo de menú (EN2)
+
+def test_tipo_menu_se_acepta_y_se_ignora():
+    for valor in [1, "Vegetariano", None, {"id": 2}]:
+        data = entrega_base()
+        data["tipo_menu"] = valor
+
+        es_valido, resultado = validar_entrega(data)
+
+        assert es_valido is True
+        assert "tipo_menu" not in resultado

@@ -389,3 +389,18 @@ def test_tercero_con_dni_invalido_responde_400(comedor, datos):
     assert respuesta.status_code == 400
     assert respuesta.get_json()["campos"] == ["responsable_dni"]
     assert Entrega.query.count() == 0
+
+
+# Tipo de menú (EN2)
+
+def test_tipo_menu_en_el_cuerpo_se_ignora(comedor, datos):
+    """Si el cliente manda ``tipo_menu`` responde 201 y el menú sale de la solicitud."""
+    autorizar(datos, datos["ana"], datos["almuerzo"])
+    cuerpo = cuerpo_entrega(datos, [datos["ana"]])
+    cuerpo["tipo_menu"] = "Otro menú"
+
+    respuesta = comedor.post(URL, json=cuerpo)
+
+    assert respuesta.status_code == 201
+    persona = respuesta.get_json()["personas"][0]
+    assert persona["tipo_menu"]["nombre"] == "Vegetariano"
