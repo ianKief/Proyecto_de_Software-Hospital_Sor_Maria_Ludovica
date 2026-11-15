@@ -213,10 +213,10 @@ def comedor(app, datos):
 def fijar_hoy(monkeypatch, momento):
     """Fija la hora que usa ``hoy()``.
 
-    Se parchea en ``turnos`` porque ``hoy()`` llama al ``ahora`` de su
+    Se parchea en ``turnos`` porque ``hoy()`` llama a ``hora_actual`` de su
     propio módulo.
     """
-    monkeypatch.setattr("src.core.deliveries.turnos.ahora", lambda: momento)
+    monkeypatch.setattr("src.core.deliveries.turnos.hora_actual", lambda: momento)
 
 
 # Acceso

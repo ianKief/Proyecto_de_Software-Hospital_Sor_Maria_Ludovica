@@ -1,14 +1,15 @@
 """Tests de registrar_entrega (usan una base SQLite en memoria)."""
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 
 import pytest
 
 from src.web import create_app
 from src.core.db import db
+from src.core.configuration import obtener_configuracion
 from src.core.auth.models import Role
 from src.core.deliveries import registrar_entrega
 from src.core.deliveries.models import Entrega, EntregaDetalle
-from src.core.deliveries.turnos import ZONA_ARGENTINA, ahora, hoy
+from src.core.deliveries.turnos import ZONA_ARGENTINA, hora_actual, hoy
 from src.core.food_types.models import FoodType
 from src.core.menu_types.models import MenuType
 from src.core.pedidos.models import Autorizacion, Carga, Pedido, SolicitudPedido
@@ -39,7 +40,7 @@ def app(monkeypatch):
 @pytest.fixture
 def al_mediodia(monkeypatch):
     """Fija la hora de Entregas en el 13/10/2026 a las 12:00 (turno de Almuerzo)."""
-    monkeypatch.setattr("src.core.deliveries.ahora", lambda: MEDIODIA)
+    monkeypatch.setattr("src.core.deliveries.hora_actual", lambda: MEDIODIA)
 
 
 @pytest.fixture
@@ -149,11 +150,16 @@ def autorizar(datos, persona, sector, comida, fecha=FECHA):
 
 
 def pedido_de_entrega(datos, personas, comida=None, responsable=None):
-    """Arma el diccionario que devolvería el validador de E3."""
+    """Arma el diccionario que devolvería el validador de E3.
+
+    Sin ``responsable`` retira la primera persona, como pide EN1.
+    """
     return {
         "personas": [persona.id for persona in personas],
         "tipo_comida_id": (comida or datos["almuerzo"]).id,
-        "responsable_id": (responsable or datos["ana"]).id,
+        "responsable_id": (responsable or personas[0]).id,
+        "responsable_dni": None,
+        "responsable_nombre": None,
     }
 
 
@@ -177,12 +183,68 @@ def test_entrega_valida_con_dos_personas(datos):
     assert entrega.created_at == datetime(2026, 10, 13, 15, 0)
 
 
-def test_fuera_de_horario(datos):
+# Horario de la comida (EN3). "Durante el horario" ya lo prueba
+# test_entrega_valida_con_dos_personas, que entrega el almuerzo a las 12:00.
+
+def fijar_hora(monkeypatch, hora, minuto, segundo=0):
+    """Fija la hora de Entregas en el 13/10/2026 a la hora indicada (Argentina)."""
+    momento = datetime(2026, 10, 13, hora, minuto, segundo, tzinfo=ZONA_ARGENTINA)
+    monkeypatch.setattr("src.core.deliveries.hora_actual", lambda: momento)
+
+
+def test_cena_antes_de_su_horario_se_registra(datos):
+    # Al mediodía la cena todavía no empezó (20:00 a 23:00), pero no terminó.
     autorizar(datos, datos["ana"], datos["guardia"], datos["cena"])
 
-    with pytest.raises(ValueError, match="Fuera del horario de Cena"):
+    entrega = registrar_entrega(
+        pedido_de_entrega(datos, [datos["ana"]], comida=datos["cena"]),
+        datos["usuario"].id,
+    )
+
+    assert entrega.tipo_comida_id == datos["cena"].id
+    assert Entrega.query.count() == 1
+
+
+def test_justo_en_el_fin_se_registra(datos, monkeypatch):
+    fijar_hora(monkeypatch, 15, 0, 45)
+    autorizar(datos, datos["ana"], datos["guardia"], datos["almuerzo"])
+
+    registrar_entrega(pedido_de_entrega(datos, [datos["ana"]]), datos["usuario"].id)
+
+    assert Entrega.query.count() == 1
+
+
+def test_un_minuto_despues_del_fin_no_crea_nada(datos, monkeypatch):
+    fijar_hora(monkeypatch, 15, 1)
+    autorizar(datos, datos["ana"], datos["guardia"], datos["almuerzo"])
+
+    with pytest.raises(ValueError, match="El horario de Almuerzo terminó a las 15:00"):
+        registrar_entrega(pedido_de_entrega(datos, [datos["ana"]]), datos["usuario"].id)
+
+    assert Entrega.query.count() == 0
+
+
+def test_fin_cambiado_en_la_configuracion(datos):
+    configuracion = obtener_configuracion()
+    configuracion.almuerzo_fin = time(11, 59)
+    db.session.commit()
+    autorizar(datos, datos["ana"], datos["guardia"], datos["almuerzo"])
+
+    with pytest.raises(ValueError, match="terminó a las 11:59"):
+        registrar_entrega(pedido_de_entrega(datos, [datos["ana"]]), datos["usuario"].id)
+
+    assert Entrega.query.count() == 0
+
+
+def test_comida_sin_horario_en_la_configuracion(datos):
+    colacion = FoodType(nombre="Colación")
+    db.session.add(colacion)
+    db.session.commit()
+    autorizar(datos, datos["ana"], datos["guardia"], colacion)
+
+    with pytest.raises(ValueError, match="Colación no tiene horario"):
         registrar_entrega(
-            pedido_de_entrega(datos, [datos["ana"]], comida=datos["cena"]),
+            pedido_de_entrega(datos, [datos["ana"]], comida=colacion),
             datos["usuario"].id,
         )
 
@@ -203,6 +265,23 @@ def test_responsable_inexistente(datos):
 
     with pytest.raises(ValueError, match="responsable"):
         registrar_entrega(entrega, datos["usuario"].id)
+
+
+def test_tercero_guarda_dni_y_nombre(datos):
+    ana, luis = datos["ana"], datos["luis"]
+    autorizar(datos, ana, datos["guardia"], datos["almuerzo"])
+    autorizar(datos, luis, datos["pediatria"], datos["almuerzo"])
+    pedido = pedido_de_entrega(datos, [ana, luis])
+    pedido["responsable_id"] = None
+    pedido["responsable_dni"] = "30111222"
+    pedido["responsable_nombre"] = "Juan Pérez"
+
+    entrega = registrar_entrega(pedido, datos["usuario"].id)
+
+    assert entrega.responsable_id is None
+    assert entrega.responsable_dni == "30111222"
+    assert entrega.responsable_nombre == "Juan Pérez"
+    assert EntregaDetalle.query.count() == 2
 
 
 def test_persona_sin_autorizacion_no_crea_nada(datos):
@@ -242,6 +321,6 @@ def test_dos_autorizaciones_usa_la_primera_y_no_entrega_dos_veces(datos):
     assert Entrega.query.count() == 1
 
 
-def test_ahora_da_hora_de_argentina():
-    assert ahora().utcoffset() == timedelta(hours=-3)
-    assert hoy() == ahora().date()
+def test_hora_actual_da_hora_de_argentina():
+    assert hora_actual().utcoffset() == timedelta(hours=-3)
+    assert hoy() == hora_actual().date()

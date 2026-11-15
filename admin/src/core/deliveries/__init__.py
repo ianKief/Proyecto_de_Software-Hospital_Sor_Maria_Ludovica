@@ -7,7 +7,14 @@ from sqlalchemy.exc import IntegrityError
 
 from src.core.db import db
 from src.core.deliveries.models import Entrega, EntregaDetalle
-from src.core.deliveries.turnos import a_hora_argentina, ahora, hoy, turno_actual
+from src.core.deliveries.turnos import (
+    a_hora_argentina,
+    comida_terminada,
+    hora_actual,
+    hora_de_fin,
+    hoy,
+    turno_actual,
+)
 from src.core.food_types.models import FoodType
 from src.core.menu_types.models import MenuType
 from src.core.pedidos.models import Autorizacion, Pedido, SolicitudPedido
@@ -40,6 +47,7 @@ def buscar_comidas_autorizadas(
     nombre=None,
     sector_id=None,
     tipo_comida_id=None,
+    pendientes=False,
 ):
     """Arma la consulta de comidas autorizadas con los filtros que vengan.
 
@@ -48,6 +56,10 @@ def buscar_comidas_autorizadas(
     - ``nombre``: texto parcial, sin distinguir mayúsculas, sobre "nombre apellido".
     - ``sector_id``: sector que hizo el pedido (no el sector actual de la persona).
     - ``tipo_comida_id``: tipo de comida de la solicitud.
+    - ``pendientes``: si es True, solo las autorizaciones que todavía no se
+      entregaron. Se cuenta por autorización, como los totales: si una persona
+      tiene la misma comida autorizada por dos sectores y retiró una, la otra
+      aparece aunque su marca "entregada" (que es por persona) sea True.
 
     Las personas inactivas también aparecen. Devuelve la consulta sin
     ejecutar y con orden fijo, para pasarla a ``paginar()``.
@@ -72,6 +84,13 @@ def buscar_comidas_autorizadas(
         consulta = consulta.filter(
             SolicitudPedido.tipo_comida_id == tipo_comida_id
         )
+
+    if pendientes:
+        # NOT IN no trae ninguna fila si la subconsulta devuelve algún NULL.
+        # Acá no pasa: EntregaDetalle.autorizacion_id es NOT NULL. Si alguna
+        # vez se vuelve nullable, hay que filtrar los nulos en la subconsulta.
+        entregadas = db.session.query(EntregaDetalle.autorizacion_id)
+        consulta = consulta.filter(Autorizacion.id.not_in(entregadas))
 
     return consulta.order_by(
         Pedido.fecha,
@@ -206,34 +225,97 @@ def registrar_entrega(datos, usuario_id):
     """Registra la entrega de una comida a una o varias personas y devuelve la Entrega.
 
     Recibe los datos ya validados por ``validar_entrega`` (``personas``,
-    ``tipo_comida_id`` y ``responsable_id``) y el id del usuario del Comedor
+    ``tipo_comida_id`` y el responsable: ``responsable_id`` si es una de las
+    personas, o ``responsable_dni`` y ``responsable_nombre`` si es un
+    tercero) y el id del usuario del Comedor
     que la registra. La fecha y la hora las pone el servidor: ``created_at`` es
     el mismo momento con el que se controla el turno.
 
     Antes de crear nada controla todo; si algo falla no se guarda ninguna persona:
-    - ``ValueError`` (400): comida o responsable inexistente, fuera del horario
-      de esa comida, o alguna persona sin autorización para hoy.
+    - ``ValueError`` (400): comida o responsable inexistente, el horario de
+      esa comida ya terminó (o no tiene horario), o alguna persona sin
+      autorización para hoy.
     - ``RuntimeError`` (409): alguna persona ya retiró esa comida hoy.
 
     Las personas inactivas con la comida autorizada se entregan igual.
     """
-    momento = ahora()
+    # Se toma la hora una sola vez: el turno se controla y se guarda con el mismo momento.
+    momento = hora_actual()
     fecha = momento.date()
 
+    tipo_comida = _buscar_tipo_comida(datos)
+    _buscar_responsable(datos)
+    _controlar_que_no_haya_terminado(tipo_comida, momento)
+    autorizaciones = _buscar_autorizaciones(datos["personas"], fecha, tipo_comida)
+    _controlar_que_no_hayan_retirado(datos["personas"], fecha, tipo_comida)
+
+    entrega = _guardar_entrega(
+        momento,
+        usuario_id,
+        datos,
+        tipo_comida,
+        autorizaciones,
+    )
+
+    logger.info(
+        "Entrega %s registrada por el usuario %s: %s para %s personas",
+        entrega.id,
+        usuario_id,
+        tipo_comida.nombre,
+        len(autorizaciones),
+    )
+    return entrega
+
+
+def _buscar_tipo_comida(datos):
+    """Devuelve el tipo de comida de la entrega. Lanza ``ValueError`` si no existe."""
     tipo_comida = db.session.get(FoodType, datos["tipo_comida_id"])
     if tipo_comida is None:
         raise ValueError("El tipo de comida no existe")
+    return tipo_comida
 
-    if db.session.get(Personal, datos["responsable_id"]) is None:
+
+def _buscar_responsable(datos):
+    """Devuelve la persona que retira la entrega. Lanza ``ValueError`` si no existe.
+
+    Si retira un tercero (``responsable_id`` en ``None``) devuelve ``None``:
+    sus datos vienen en el cuerpo y no hay nada que buscar en la base.
+    """
+    if datos["responsable_id"] is None:
+        return None
+
+    responsable = db.session.get(Personal, datos["responsable_id"])
+    if responsable is None:
         raise ValueError("El responsable del retiro no existe")
+    return responsable
 
-    if turno_actual(momento) != tipo_comida.nombre:
-        raise ValueError(f"Fuera del horario de {tipo_comida.nombre}")
 
-    # Se busca la autorización de cada persona; las que no tienen se juntan para avisar todas juntas.
+def _controlar_que_no_haya_terminado(tipo_comida, momento):
+    """Lanza ``ValueError`` si en ``momento`` ya terminó el horario de esa comida.
+
+    Se acepta una comida de hoy aunque no sea la del turno en curso, mientras
+    su horario no haya terminado (respuesta del ayudante, 10/11): por ejemplo,
+    la cena durante el almuerzo sí, pero el desayuno durante el almuerzo no.
+    """
+    fin = hora_de_fin(tipo_comida.nombre)
+    if fin is None:
+        raise ValueError(f"{tipo_comida.nombre} no tiene horario en la configuración")
+
+    if comida_terminada(fin, momento):
+        raise ValueError(
+            f"El horario de {tipo_comida.nombre} terminó a las {fin.strftime('%H:%M')}"
+        )
+
+
+def _buscar_autorizaciones(personas, fecha, tipo_comida):
+    """Devuelve la autorización de hoy de cada persona, en el mismo orden.
+
+    Las personas sin autorización se juntan para avisar de todas en un
+    solo error (``ValueError``), en vez de cortar en la primera.
+    """
     autorizaciones = []
     sin_autorizacion = []
-    for persona_id in datos["personas"]:
+    for persona_id in personas:
         autorizacion = _autorizacion_de_hoy(persona_id, fecha, tipo_comida.id)
         if autorizacion is None:
             sin_autorizacion.append(persona_id)
@@ -244,16 +326,44 @@ def registrar_entrega(datos, usuario_id):
         raise ValueError(
             f"Sin autorización de {tipo_comida.nombre} para hoy: personas {sin_autorizacion}"
         )
+    return autorizaciones
 
-    ya_retiraron = [
-        persona_id
-        for persona_id in datos["personas"]
-        if ya_entregada(persona_id, fecha, tipo_comida.id)
-    ]
+
+def _controlar_que_no_hayan_retirado(personas, fecha, tipo_comida):
+    """Lanza ``RuntimeError`` si alguna persona ya retiró esa comida hoy.
+
+    Igual que con las autorizaciones, se avisa de todas las personas juntas.
+    """
+    ya_retiraron = []
+    for persona_id in personas:
+        if ya_entregada(persona_id, fecha, tipo_comida.id):
+            ya_retiraron.append(persona_id)
+
     if ya_retiraron:
         raise RuntimeError(
             f"Ya retiraron {tipo_comida.nombre} hoy: personas {ya_retiraron}"
         )
+
+
+def _guardar_entrega(
+    momento,
+    usuario_id,
+    datos,
+    tipo_comida,
+    autorizaciones,
+):
+    """Crea la entrega con un detalle por autorización, la guarda y la devuelve.
+
+    De ``datos`` (los validados) toma el responsable: ``responsable_id``, o
+    ``responsable_dni`` y ``responsable_nombre`` si es un tercero.
+
+    Si otra entrega de la misma autorización se guardó entre los controles y
+    el commit, el ``UNIQUE`` del detalle lo frena y se lanza ``RuntimeError``.
+    Ante cualquier otro error hace ``rollback`` y relanza la excepción.
+    """
+    detalles = []
+    for autorizacion in autorizaciones:
+        detalles.append(EntregaDetalle(autorizacion_id=autorizacion.id))
 
     entrega = Entrega(
         # Se guarda el mismo momento con el que se validó el turno, en UTC y
@@ -261,11 +371,10 @@ def registrar_entrega(datos, usuario_id):
         created_at=momento.astimezone(timezone.utc).replace(tzinfo=None),
         usuario_id=usuario_id,
         responsable_id=datos["responsable_id"],
+        responsable_dni=datos["responsable_dni"],
+        responsable_nombre=datos["responsable_nombre"],
         tipo_comida_id=tipo_comida.id,
-        detalles=[
-            EntregaDetalle(autorizacion_id=autorizacion.id)
-            for autorizacion in autorizaciones
-        ],
+        detalles=detalles,
     )
 
     try:
@@ -281,13 +390,6 @@ def registrar_entrega(datos, usuario_id):
         logger.exception("No se pudo registrar la entrega (usuario %s)", usuario_id)
         raise
 
-    logger.info(
-        "Entrega %s registrada por el usuario %s: %s para %s personas",
-        entrega.id,
-        usuario_id,
-        tipo_comida.nombre,
-        len(autorizaciones),
-    )
     return entrega
 
 
@@ -334,9 +436,9 @@ def filtros_del_turno_actual():
     La fecha es la de hoy y la comida, la del turno en curso (E1b). Si en
     este momento no hay turno (o esa comida no está cargada en la base),
     ``tipo_comida_id`` queda en ``None`` y se listan todas las comidas de hoy.
-    Toma la hora de ``ahora()``, igual que ``registrar_entrega``.
+    Toma la hora de ``hora_actual()``, igual que ``registrar_entrega``.
     """
-    momento = ahora()
+    momento = hora_actual()
     tipo_comida_id = None
 
     nombre_turno = turno_actual(momento)
@@ -358,6 +460,29 @@ def obtener_entrega(entrega_id):
     if entrega is None:
         raise LookupError("La entrega no existe")
     return entrega
+
+
+def _datos_responsable(entrega):
+    """Arma el diccionario de quién retiró la entrega.
+
+    Tiene la misma forma para una persona de la entrega y para un tercero,
+    así el cliente lo muestra igual. Un tercero se reconoce porque ``id`` es
+    ``None``; su nombre y apellido vienen juntos en ``nombre``.
+    """
+    if entrega.responsable is None:
+        return {
+            "id": None,
+            "dni": entrega.responsable_dni,
+            "nombre": entrega.responsable_nombre,
+            "apellido": None,
+        }
+
+    return {
+        "id": entrega.responsable.id,
+        "dni": entrega.responsable.dni,
+        "nombre": entrega.responsable.nombre,
+        "apellido": entrega.responsable.apellido,
+    }
 
 
 def datos_entrega(entrega):
@@ -395,12 +520,7 @@ def datos_entrega(entrega):
             "id": entrega.usuario.id,
             "email": entrega.usuario.email,
         },
-        "responsable": {
-            "id": entrega.responsable.id,
-            "dni": entrega.responsable.dni,
-            "nombre": entrega.responsable.nombre,
-            "apellido": entrega.responsable.apellido,
-        },
+        "responsable": _datos_responsable(entrega),
         "tipo_comida": {
             "id": entrega.tipo_comida.id,
             "nombre": entrega.tipo_comida.nombre,

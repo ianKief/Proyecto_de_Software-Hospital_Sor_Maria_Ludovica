@@ -52,7 +52,7 @@ def app(monkeypatch):
 @pytest.fixture
 def al_mediodia(monkeypatch):
     """Fija la hora de Entregas en el 13/10/2026 a las 12:00 (turno de Almuerzo)."""
-    monkeypatch.setattr("src.core.deliveries.ahora", lambda: MEDIODIA)
+    monkeypatch.setattr("src.core.deliveries.hora_actual", lambda: MEDIODIA)
 
 
 @pytest.fixture
@@ -174,12 +174,20 @@ def autorizar(datos, persona, comida):
 
 
 def cuerpo_entrega(datos, personas, comida=None, responsable=None):
-    """Arma el JSON que mandaría el Comedor."""
-    return {
+    """Arma el JSON que mandaría el Comedor.
+
+    Sin ``responsable`` retira la primera persona. Con la lista vacía no se
+    manda responsable, para que el error sea el de ``personas``.
+    """
+    cuerpo = {
         "personas": [persona.id for persona in personas],
         "tipo_comida_id": (comida or datos["almuerzo"]).id,
-        "responsable_id": (responsable or datos["ana"]).id,
     }
+    if responsable is None and personas:
+        responsable = personas[0]
+    if responsable is not None:
+        cuerpo["responsable_id"] = responsable.id
+    return cuerpo
 
 
 @pytest.fixture
@@ -245,8 +253,8 @@ def test_sin_personas_responde_400(comedor, datos):
 
 # Reglas de negocio
 
-def test_fuera_de_horario_responde_400(comedor, datos):
-    """Al mediodía no se puede entregar la Cena aunque esté autorizada."""
+def test_cena_antes_de_su_horario_responde_201(comedor, datos):
+    """Al mediodía se puede entregar la Cena: su horario todavía no terminó (EN3)."""
     autorizar(datos, datos["ana"], datos["cena"])
 
     respuesta = comedor.post(
@@ -254,8 +262,22 @@ def test_fuera_de_horario_responde_400(comedor, datos):
         json=cuerpo_entrega(datos, [datos["ana"]], comida=datos["cena"]),
     )
 
+    assert respuesta.status_code == 201
+    assert respuesta.get_json()["tipo_comida"]["nombre"] == "Cena"
+
+
+def test_comida_terminada_responde_400(comedor, datos, monkeypatch):
+    """A las 15:01 ya terminó el Almuerzo (11:30 a 15:00): responde 400 (EN3)."""
+    pasadas_las_tres = datetime(2026, 10, 13, 15, 1, tzinfo=ZONA_ARGENTINA)
+    monkeypatch.setattr("src.core.deliveries.hora_actual", lambda: pasadas_las_tres)
+    autorizar(datos, datos["ana"], datos["almuerzo"])
+
+    respuesta = comedor.post(URL, json=cuerpo_entrega(datos, [datos["ana"]]))
+
     assert respuesta.status_code == 400
-    assert respuesta.get_json() == {"error": "Fuera del horario de Cena"}
+    assert respuesta.get_json() == {
+        "error": "El horario de Almuerzo terminó a las 15:00",
+    }
     assert Entrega.query.count() == 0
 
 
@@ -316,3 +338,83 @@ def test_entrega_valida_responde_201(comedor, datos):
     assert cuerpo["personas"][0]["sector"]["nombre"] == "Guardia"
     assert Entrega.query.count() == 1
     assert cuerpo["id"] == Entrega.query.one().id
+
+
+# Responsable del retiro (EN1)
+
+def test_una_persona_sin_responsable_responde_201(comedor, datos):
+    """Con una sola persona y sin responsable, retira ella misma."""
+    autorizar(datos, datos["ana"], datos["almuerzo"])
+    cuerpo = {
+        "personas": [datos["ana"].id],
+        "tipo_comida_id": datos["almuerzo"].id,
+    }
+
+    respuesta = comedor.post(URL, json=cuerpo)
+
+    assert respuesta.status_code == 201
+    assert respuesta.get_json()["responsable"]["id"] == datos["ana"].id
+
+
+def test_varias_personas_sin_responsable_responde_400(comedor, datos):
+    """Con varias personas el responsable es obligatorio."""
+    autorizar(datos, datos["ana"], datos["almuerzo"])
+    autorizar(datos, datos["luis"], datos["almuerzo"])
+    cuerpo = cuerpo_entrega(datos, [datos["ana"], datos["luis"]])
+    del cuerpo["responsable_id"]
+
+    respuesta = comedor.post(URL, json=cuerpo)
+
+    assert respuesta.status_code == 400
+    assert respuesta.get_json()["campos"] == ["responsable_id"]
+    assert Entrega.query.count() == 0
+
+
+def test_tercero_responde_201(comedor, datos):
+    """Un tercero se registra con DNI y nombre, sin ``responsable_id``."""
+    autorizar(datos, datos["ana"], datos["almuerzo"])
+    autorizar(datos, datos["luis"], datos["almuerzo"])
+    cuerpo = cuerpo_entrega(datos, [datos["ana"], datos["luis"]])
+    del cuerpo["responsable_id"]
+    cuerpo["responsable_dni"] = "30111222"
+    cuerpo["responsable_nombre"] = "Juan Pérez"
+
+    respuesta = comedor.post(URL, json=cuerpo)
+
+    assert respuesta.status_code == 201
+    assert respuesta.get_json()["responsable"] == {
+        "id": None,
+        "dni": "30111222",
+        "nombre": "Juan Pérez",
+        "apellido": None,
+    }
+
+
+def test_tercero_con_dni_invalido_responde_400(comedor, datos):
+    """El DNI del tercero tiene que tener el formato de Personal."""
+    autorizar(datos, datos["ana"], datos["almuerzo"])
+    cuerpo = cuerpo_entrega(datos, [datos["ana"]])
+    del cuerpo["responsable_id"]
+    cuerpo["responsable_dni"] = "30.111.222"
+    cuerpo["responsable_nombre"] = "Juan Pérez"
+
+    respuesta = comedor.post(URL, json=cuerpo)
+
+    assert respuesta.status_code == 400
+    assert respuesta.get_json()["campos"] == ["responsable_dni"]
+    assert Entrega.query.count() == 0
+
+
+# Tipo de menú (EN2)
+
+def test_tipo_menu_en_el_cuerpo_se_ignora(comedor, datos):
+    """Si el cliente manda ``tipo_menu`` responde 201 y el menú sale de la solicitud."""
+    autorizar(datos, datos["ana"], datos["almuerzo"])
+    cuerpo = cuerpo_entrega(datos, [datos["ana"]])
+    cuerpo["tipo_menu"] = "Otro menú"
+
+    respuesta = comedor.post(URL, json=cuerpo)
+
+    assert respuesta.status_code == 201
+    persona = respuesta.get_json()["personas"][0]
+    assert persona["tipo_menu"]["nombre"] == "Vegetariano"

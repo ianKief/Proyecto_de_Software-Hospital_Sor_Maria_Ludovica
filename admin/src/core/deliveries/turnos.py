@@ -22,7 +22,7 @@ def horarios_de_comidas():
     }
 
 
-def ahora():
+def hora_actual():
     """Devuelve la fecha y hora actual en Argentina (UTC-3).
 
     Todo Entregas toma la hora de acá, así no depende de la zona horaria del servidor.
@@ -32,7 +32,7 @@ def ahora():
 
 def hoy():
     """Devuelve la fecha actual en Argentina que usa el módulo de Entregas."""
-    return ahora().date()
+    return hora_actual().date()
 
 
 def a_hora_argentina(dt):
@@ -47,6 +47,15 @@ def a_hora_argentina(dt):
     return dt.astimezone(ZONA_ARGENTINA)
 
 
+def _hora_sin_segundos(ahora):
+    """Devuelve la hora de ``ahora`` (un datetime) sin segundos ni microsegundos.
+
+    Los horarios de la configuración son de hora y minuto: así el minuto
+    del borde cuenta entero (10:00:45 todavía es las 10:00).
+    """
+    return ahora.time().replace(second=0, microsecond=0)
+
+
 def turno_actual(ahora):
     """Devuelve el nombre de la comida que se sirve en ``ahora`` (un datetime), o None si no hay ninguna.
 
@@ -55,8 +64,33 @@ def turno_actual(ahora):
     No llama a datetime.now(): quien la usa le pasa la hora, y así se puede testear.
     Los horarios salen de la configuración, así que necesita la app y la base.
     """
-    hora = ahora.time().replace(second=0, microsecond=0)
+    hora = _hora_sin_segundos(ahora)
     for comida, (inicio, fin) in horarios_de_comidas().items():
         if inicio <= hora <= fin:
             return comida
     return None
+
+
+def hora_de_fin(comida):
+    """Devuelve la hora de fin de ``comida`` (su nombre) según la configuración.
+
+    Devuelve ``None`` si esa comida no tiene horario en la configuración
+    (un tipo de comida con un nombre distinto a los cuatro del seed).
+    """
+    horario = horarios_de_comidas().get(comida)
+    if horario is None:
+        return None
+
+    inicio, fin = horario
+    return fin
+
+
+def comida_terminada(fin, ahora):
+    """Indica si en ``ahora`` (un datetime) ya pasó la hora de fin ``fin`` de una comida.
+
+    El borde cuenta como no terminado, igual que en ``turno_actual``: con
+    fin a las 15:00, a las 15:00:45 todavía se puede entregar y a las 15:01 no.
+    Recibe el ``fin`` (y no el nombre de la comida) para que quien la llama
+    use la misma hora en el mensaje de error.
+    """
+    return _hora_sin_segundos(ahora) > fin

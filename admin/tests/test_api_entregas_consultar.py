@@ -200,7 +200,7 @@ def comedor(app, datos):
 
 def fijar_hora(monkeypatch, momento):
     """Fija la hora que usa el módulo de Entregas."""
-    monkeypatch.setattr("src.core.deliveries.ahora", lambda: momento)
+    monkeypatch.setattr("src.core.deliveries.hora_actual", lambda: momento)
 
 
 def ids_de_items(respuesta):
@@ -320,3 +320,43 @@ def test_detalle_inexistente_responde_404(comedor):
 
     assert respuesta.status_code == 404
     assert respuesta.get_json() == {"error": "La entrega no existe"}
+
+
+# Responsable tercero (EN1)
+
+def convertir_en_tercero(entrega):
+    """Cambia el responsable de la entrega por un tercero con DNI y nombre."""
+    entrega.responsable_id = None
+    entrega.responsable_dni = "30111222"
+    entrega.responsable_nombre = "Juan Pérez"
+    db.session.commit()
+
+
+def test_detalle_con_tercero_devuelve_dni_y_nombre(comedor, datos):
+    """Si retiró un tercero, el responsable trae su DNI y nombre e ``id`` null."""
+    entrega = crear_entrega(datos, datos["ana"], datos["guardia"], FECHA, datos["almuerzo"])
+    convertir_en_tercero(entrega)
+
+    respuesta = comedor.get(f"{URL}/{entrega.id}")
+
+    assert respuesta.status_code == 200
+    assert respuesta.get_json()["responsable"] == {
+        "id": None,
+        "dni": "30111222",
+        "nombre": "Juan Pérez",
+        "apellido": None,
+    }
+
+
+def test_listado_con_tercero_devuelve_dni_y_nombre(comedor, datos):
+    """El listado muestra el responsable tercero igual que el detalle."""
+    entrega = crear_entrega(datos, datos["ana"], datos["guardia"], FECHA, datos["almuerzo"])
+    convertir_en_tercero(entrega)
+
+    respuesta = comedor.get(f"{URL}?fecha={FECHA.isoformat()}")
+
+    assert respuesta.status_code == 200
+    responsable = respuesta.get_json()["items"][0]["responsable"]
+    assert responsable["id"] is None
+    assert responsable["dni"] == "30111222"
+    assert responsable["nombre"] == "Juan Pérez"

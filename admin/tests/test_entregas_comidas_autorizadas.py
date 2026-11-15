@@ -252,6 +252,29 @@ def test_dos_autorizaciones_misma_persona_se_entrega_una(datos):
     assert [item["entregada"] for item in items] == [True, True]
 
 
+def test_pendientes_no_trae_las_entregadas(datos):
+    de_ana = crear_solicitud(datos, datos["ana"], datos["guardia"], FECHA, datos["almuerzo"])
+    crear_solicitud(datos, datos["luis"], datos["pediatria"], FECHA, datos["almuerzo"])
+    entregar(datos, de_ana)
+
+    pendientes = buscar_comidas_autorizadas(fecha=FECHA, pendientes=True).all()
+
+    assert [s.person_id for s in pendientes] == [datos["luis"].id]
+
+
+def test_pendientes_es_por_autorizacion(datos):
+    # Ana tiene el almuerzo autorizado por dos sectores y retiró el de Guardia:
+    # el de Pediatría sigue pendiente (aunque su marca "entregada" sea True).
+    ana = datos["ana"]
+    de_guardia = crear_solicitud(datos, ana, datos["guardia"], FECHA, datos["almuerzo"])
+    de_pediatria = crear_solicitud(datos, ana, datos["pediatria"], FECHA, datos["almuerzo"])
+    entregar(datos, de_guardia)
+
+    pendientes = buscar_comidas_autorizadas(dni=ana.dni, pendientes=True).all()
+
+    assert [s.id for s in pendientes] == [de_pediatria.id]
+
+
 def test_persona_inactiva_aparece(datos):
     ana = datos["ana"]
     crear_solicitud(datos, ana, datos["guardia"], FECHA, datos["almuerzo"])

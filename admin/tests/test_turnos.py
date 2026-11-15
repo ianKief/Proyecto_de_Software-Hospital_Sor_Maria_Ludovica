@@ -11,7 +11,12 @@ import pytest
 from src.web import create_app
 from src.core.db import db
 from src.core.configuration import obtener_configuracion
-from src.core.deliveries.turnos import a_hora_argentina, turno_actual
+from src.core.deliveries.turnos import (
+    a_hora_argentina,
+    comida_terminada,
+    hora_de_fin,
+    turno_actual,
+)
 
 
 @pytest.fixture
@@ -85,3 +90,42 @@ def test_adelantar_la_cena_cambia_la_comida_en_curso(app):
 
     assert turno_actual(_a_las(19, 30)) == "Cena"
     assert turno_actual(_a_las(22, 30)) is None
+
+
+# Hora de fin y comida terminada (EN3)
+
+def test_hora_de_fin_con_los_horarios_iniciales(app):
+    assert hora_de_fin("Desayuno") == time(10, 0)
+    assert hora_de_fin("Almuerzo") == time(15, 0)
+    assert hora_de_fin("Cena") == time(23, 0)
+
+
+def test_hora_de_fin_de_una_comida_sin_horario(app):
+    assert hora_de_fin("Colación") is None
+
+
+def test_comida_no_terminada_antes_del_inicio_y_durante():
+    # Almuerzo de 11:30 a 15:00: a las 9:00 todavía no empezó, a las 13:00 se sirve.
+    assert comida_terminada(time(15, 0), _a_las(9, 0)) is False
+    assert comida_terminada(time(15, 0), _a_las(13, 0)) is False
+
+
+def test_comida_no_terminada_justo_en_el_fin():
+    assert comida_terminada(time(15, 0), _a_las(15, 0)) is False
+    assert comida_terminada(time(15, 0), _a_las(15, 0, 45)) is False
+
+
+def test_comida_terminada_un_minuto_despues_del_fin():
+    assert comida_terminada(time(15, 0), _a_las(15, 1)) is True
+
+
+def test_cambiar_el_fin_del_almuerzo_cambia_cuando_termina(app):
+    configuracion = obtener_configuracion()
+    configuracion.almuerzo_fin = time(14, 0)
+    db.session.commit()
+
+    fin = hora_de_fin("Almuerzo")
+
+    assert fin == time(14, 0)
+    assert comida_terminada(fin, _a_las(14, 0)) is False
+    assert comida_terminada(fin, _a_las(14, 1)) is True

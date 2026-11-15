@@ -255,6 +255,57 @@ def test_con_filtro_devuelve_items_y_totales(comedor, datos):
     assert cuerpo["items"][0]["entregada"] is True
 
 
+# Filtro pendientes (EN4)
+
+def test_pendientes_true_trae_solo_las_no_entregadas(comedor, datos):
+    """Con ``pendientes=true`` no aparece la comida que Ana ya retiró."""
+    solicitud_ana = crear_solicitud_autorizada(datos, datos["ana"])
+    crear_solicitud_autorizada(datos, datos["luis"])
+    entregar(datos, solicitud_ana)
+
+    respuesta = comedor.get(f"{URL}?sector_id={datos['guardia'].id}&pendientes=true")
+
+    assert respuesta.status_code == 200
+    cuerpo = respuesta.get_json()
+    assert cuerpo["total"] == 1
+    assert cuerpo["items"][0]["persona"]["dni"] == "30000002"
+    assert cuerpo["items"][0]["entregada"] is False
+    assert cuerpo["totales"] == {"autorizadas": 1, "entregadas": 0}
+
+
+def test_pendientes_false_trae_todas(comedor, datos):
+    """Con ``pendientes=false`` responde igual que sin el parámetro."""
+    solicitud_ana = crear_solicitud_autorizada(datos, datos["ana"])
+    crear_solicitud_autorizada(datos, datos["luis"])
+    entregar(datos, solicitud_ana)
+
+    respuesta = comedor.get(f"{URL}?sector_id={datos['guardia'].id}&pendientes=false")
+
+    assert respuesta.status_code == 200
+    assert respuesta.get_json()["total"] == 2
+    assert respuesta.get_json()["totales"] == {"autorizadas": 2, "entregadas": 1}
+
+
+@pytest.mark.parametrize("valor", ["si", "True", "1"])
+def test_pendientes_invalido_responde_400(comedor, valor):
+    """Solo se acepta ``true`` o ``false`` en minúscula."""
+    respuesta = comedor.get(URL, query_string={"fecha": "2026-10-13", "pendientes": valor})
+
+    assert respuesta.status_code == 400
+    assert respuesta.get_json() == {
+        "error": "pendientes debe ser true o false",
+        "campos": ["pendientes"],
+    }
+
+
+def test_solo_pendientes_no_cuenta_como_filtro(comedor):
+    """``pendientes`` solo no alcanza: sigue el 400 de "al menos un filtro"."""
+    respuesta = comedor.get(f"{URL}?pendientes=true")
+
+    assert respuesta.status_code == 400
+    assert respuesta.get_json()["error"] == "Debe indicar al menos un filtro"
+
+
 # GET /api/authorized-meals/<person_id>
 
 def test_persona_con_fecha_devuelve_sus_comidas(comedor, datos):

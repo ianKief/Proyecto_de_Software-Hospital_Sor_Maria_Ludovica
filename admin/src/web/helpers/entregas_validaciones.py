@@ -1,19 +1,99 @@
 """Validaciones del lado del servidor del módulo de Entregas."""
+import re
 from datetime import date
 
+
+# --- Cuerpo de POST /api/deliveries ---
 
 CAMPOS_PERMITIDOS = {
     "personas",
     "tipo_comida_id",
     "responsable_id",
+    "responsable_dni",
+    "responsable_nombre",
+    # Etapa 2: el menú se toma de la solicitud autorizada de cada persona.
+    # Se acepta para no romper clientes que lo manden, pero se ignora:
+    # no se valida ni pasa a los datos limpios.
+    "tipo_menu",
 }
 
 # Lista (y no set) para que los faltantes salgan siempre en el mismo orden.
+# El responsable no es obligatorio: con una sola persona, es ella.
 CAMPOS_OBLIGATORIOS = [
     "personas",
     "tipo_comida_id",
-    "responsable_id",
 ]
+
+# Mismo formato de DNI que usa Personal (src/core/personnel/validators.py):
+# de 7 a 9 dígitos, sin puntos ni espacios.
+PATRON_DNI = re.compile(r"\d{7,9}")
+
+# Mismo largo que la columna responsable_nombre (y que Personal.nombre).
+LARGO_MAXIMO_NOMBRE = 255
+
+# --- Query string de GET /api/authorized-meals ---
+
+FILTROS_COMIDAS_AUTORIZADAS = [
+    "fecha",
+    "dni",
+    "nombre",
+    "sector_id",
+    "tipo_comida_id",
+]
+
+# Además de los filtros, el listado acepta el número de página.
+PARAMETROS_COMIDAS_AUTORIZADAS = set(FILTROS_COMIDAS_AUTORIZADAS) | {"page", "pendientes"}
+
+# "pendientes" no va en FILTROS_COMIDAS_AUTORIZADAS: no cuenta para "al menos
+# un filtro", porque solo traería todas las pendientes de todo el sistema.
+
+# --- Query string de GET /api/deliveries ---
+
+FILTROS_ENTREGAS = [
+    "fecha",
+    "sector_id",
+    "tipo_comida_id",
+]
+
+PARAMETROS_ENTREGAS = set(FILTROS_ENTREGAS) | {"page"}
+
+# --- Query string de GET /api/summaries/deliveries ---
+
+# Mismos nombres de parámetros que los otros /api/summaries/* (Julián),
+# para que el cliente los use igual. ``estado`` no va: acá solo cuentan
+# los pedidos autorizados.
+FILTROS_RESUMEN_PERIODO = [
+    "fecha_desde",
+    "fecha_hasta",
+    "sector_id",
+    "tipo_comida",
+    "tipo_menu",
+    "agrupamiento",
+]
+
+AGRUPAMIENTOS = ["dia", "semana", "mes", "sector", "comida", "menu"]
+
+
+# --- Funciones auxiliares ---
+
+def _error(mensaje, campos):
+    """Arma el diccionario de error con el formato común de la API."""
+    return {
+        "error": mensaje,
+        "campos": campos,
+    }
+
+
+def _parametros_no_permitidos(args, permitidos):
+    """Devuelve el error si en el query string vino algún parámetro fuera de ``permitidos``.
+
+    Si están todos permitidos devuelve ``None``. Los parámetros extra se
+    ordenan para que el mensaje salga siempre igual.
+    """
+    campos_extra = set(args) - set(permitidos)
+    if not campos_extra:
+        return None
+    return _error("Se recibieron parámetros no permitidos", sorted(campos_extra))
 
 
 def es_id_valido(valor):
@@ -25,105 +105,35 @@ def es_id_valido(valor):
     return isinstance(valor, int) and not isinstance(valor, bool) and valor > 0
 
 
-def validar_entrega(data):
-    """Valida el JSON recibido en ``POST /api/deliveries``.
-
-    Solo revisa el formato: no consulta la base. Que las personas,
-    el responsable y el tipo de comida existan, y que haya autorización
-    vigente, se controla al registrar la entrega.
-
-    No convierte textos a número: en JSON los ids llegan como números,
-    así que ``"3"`` se rechaza.
-
-    Devuelve ``(True, datos_limpios)`` si todo es válido, o
-    ``(False, {"error": mensaje, "campos": [...]})`` con el primer error encontrado.
-    """
-
-    if not isinstance(data, dict):
-        return False, {
-            "error": "El cuerpo debe ser un objeto JSON",
-            "campos": [],
-        }
-
-    campos_extra = set(data) - CAMPOS_PERMITIDOS
-
-    if campos_extra:
-        return False, {
-            "error": "Se recibieron campos no permitidos",
-            "campos": sorted(campos_extra),
-        }
-
-    faltantes = [campo for campo in CAMPOS_OBLIGATORIOS if campo not in data]
-
-    if faltantes:
-        return False, {
-            "error": "Faltan campos obligatorios",
-            "campos": faltantes,
-        }
-
-    personas = data["personas"]
-
-    if not isinstance(personas, list):
-        return False, {
-            "error": "personas debe ser una lista",
-            "campos": ["personas"],
-        }
-
-    if not personas:
-        return False, {
-            "error": "Debe incluir al menos una persona",
-            "campos": ["personas"],
-        }
-
-    if not all(es_id_valido(persona_id) for persona_id in personas):
-        return False, {
-            "error": "Los identificadores de personas deben ser enteros positivos",
-            "campos": ["personas"],
-        }
-
-    if len(personas) != len(set(personas)):
-        return False, {
-            "error": "No se puede repetir una persona",
-            "campos": ["personas"],
-        }
-
-    if not es_id_valido(data["tipo_comida_id"]):
-        return False, {
-            "error": "El tipo de comida debe ser un entero positivo",
-            "campos": ["tipo_comida_id"],
-        }
-
-    if not es_id_valido(data["responsable_id"]):
-        return False, {
-            "error": "El responsable debe ser un entero positivo",
-            "campos": ["responsable_id"],
-        }
-
-    return True, {
-        "personas": personas,
-        "tipo_comida_id": data["tipo_comida_id"],
-        "responsable_id": data["responsable_id"],
-    }
-
-
-FILTROS_COMIDAS_AUTORIZADAS = [
-    "fecha",
-    "dni",
-    "nombre",
-    "sector_id",
-    "tipo_comida_id",
-]
-
-# Además de los filtros, el listado acepta el número de página.
-PARAMETROS_COMIDAS_AUTORIZADAS = set(FILTROS_COMIDAS_AUTORIZADAS) | {"page"}
-
-
 def _leer_fecha(texto):
     """Convierte un texto ``AAAA-MM-DD`` en ``date``. Devuelve ``None`` si no es válido."""
     try:
         return date.fromisoformat(texto)
     except ValueError:
         return None
+
+
+def _leer_fecha_opcional(args, campo):
+    """Lee el parámetro ``campo`` del query string como fecha ``AAAA-MM-DD``.
+
+    Un texto vacío o con solo espacios cuenta como que no vino.
+    Devuelve ``(True, fecha)``, con ``fecha`` en ``None`` si no vino,
+    o ``(False, error)`` si el formato no es válido.
+    """
+    texto = args.get(campo, "").strip()
+    if not texto:
+        return True, None
+
+    fecha = _leer_fecha(texto)
+    if fecha is not None:
+        return True, fecha
+
+    # El parámetro "fecha" tiene un mensaje propio, que ya usa el cliente.
+    if campo == "fecha":
+        mensaje = "La fecha debe tener formato AAAA-MM-DD"
+    else:
+        mensaje = f"{campo} debe tener formato AAAA-MM-DD"
+    return False, _error(mensaje, [campo])
 
 
 def _leer_id(texto):
@@ -144,71 +154,363 @@ def _leer_id(texto):
     return valor
 
 
+# --- POST /api/deliveries ---
+
+def validar_entrega(data):
+    """Valida el JSON recibido en ``POST /api/deliveries``.
+
+    Solo revisa el formato: no consulta la base. Que las personas,
+    el responsable y el tipo de comida existan, y que haya autorización
+    vigente, se controla al registrar la entrega.
+
+    No convierte textos a número: en JSON los ids llegan como números,
+    así que ``"3"`` se rechaza.
+
+    Devuelve ``(True, datos_limpios)`` si todo es válido, o
+    ``(False, {"error": mensaje, "campos": [...]})`` con el primer error encontrado.
+    Los datos limpios traen siempre ``responsable_id``, ``responsable_dni`` y
+    ``responsable_nombre`` (los que no corresponden, en ``None``).
+    """
+    # Va primero: los otros controles necesitan que sea un diccionario.
+    if not isinstance(data, dict):
+        return False, _error("El cuerpo debe ser un objeto JSON", [])
+
+    error = _controlar_campos_entrega(data)
+    if error:
+        return False, error
+
+    error = _controlar_personas(data["personas"])
+    if error:
+        return False, error
+
+    error = _controlar_tipo_comida(data["tipo_comida_id"])
+    if error:
+        return False, error
+
+    error = _controlar_responsable(data)
+    if error:
+        return False, error
+
+    datos_limpios = {
+        "personas": data["personas"],
+        "tipo_comida_id": data["tipo_comida_id"],
+    }
+    datos_limpios.update(_datos_del_responsable(data))
+    return True, datos_limpios
+
+
+def _controlar_campos_entrega(data):
+    """Controla que el cuerpo no traiga campos de más ni le falte ninguno.
+
+    Devuelve el error o ``None`` si los campos están bien.
+    """
+    campos_extra = set(data) - CAMPOS_PERMITIDOS
+    if campos_extra:
+        return _error("Se recibieron campos no permitidos", sorted(campos_extra))
+
+    faltantes = []
+    for campo in CAMPOS_OBLIGATORIOS:
+        if campo not in data:
+            faltantes.append(campo)
+
+    if faltantes:
+        return _error("Faltan campos obligatorios", faltantes)
+
+    return None
+
+
+def _controlar_personas(personas):
+    """Controla que ``personas`` sea una lista no vacía de ids válidos y sin repetir.
+
+    Devuelve el error o ``None`` si la lista está bien.
+    """
+    if not isinstance(personas, list):
+        return _error("personas debe ser una lista", ["personas"])
+
+    if not personas:
+        return _error("Debe incluir al menos una persona", ["personas"])
+
+    for persona_id in personas:
+        if not es_id_valido(persona_id):
+            return _error(
+                "Los identificadores de personas deben ser enteros positivos",
+                ["personas"],
+            )
+
+    if len(personas) != len(set(personas)):
+        return _error("No se puede repetir una persona", ["personas"])
+
+    return None
+
+
+def _controlar_tipo_comida(tipo_comida_id):
+    """Controla que ``tipo_comida_id`` sea un entero positivo.
+
+    Devuelve el error o ``None`` si está bien.
+    """
+    if not es_id_valido(tipo_comida_id):
+        return _error(
+            "El tipo de comida debe ser un entero positivo",
+            ["tipo_comida_id"],
+        )
+    return None
+
+
+def _vino(data, campo):
+    """Indica si el cliente mandó ``campo`` con algún valor.
+
+    Un campo en ``null`` cuenta como que no vino: así el formulario puede
+    mandar los tres campos del responsable y dejar en ``null`` los que no usa.
+    """
+    return data.get(campo) is not None
+
+
+def _controlar_responsable(data):
+    """Controla quién retira la entrega.
+
+    Puede ser una de las personas de la entrega (``responsable_id``) o un
+    tercero (``responsable_dni`` y ``responsable_nombre``), pero no las dos
+    cosas. Si no viene ninguno, solo se acepta cuando la entrega es de una
+    sola persona (ella es el responsable). Devuelve el error o ``None``.
+    """
+    viene_id = _vino(data, "responsable_id")
+    viene_tercero = (
+        _vino(data, "responsable_dni") or _vino(data, "responsable_nombre")
+    )
+
+    if viene_id and viene_tercero:
+        return _error(
+            "Indique responsable_id o el DNI y nombre de un tercero, no ambos",
+            ["responsable_id", "responsable_dni", "responsable_nombre"],
+        )
+
+    if viene_id:
+        return _controlar_responsable_incluido(data)
+
+    if viene_tercero:
+        return _controlar_tercero(data)
+
+    if len(data["personas"]) > 1:
+        return _error(
+            "El responsable es obligatorio cuando el retiro incluye más de una persona",
+            ["responsable_id"],
+        )
+
+    return None
+
+
+def _controlar_responsable_incluido(data):
+    """Controla que ``responsable_id`` sea un id válido y una de las personas de la entrega.
+
+    Si retira alguien que no está en la entrega (aunque esté en Personal),
+    se registra como tercero con DNI y nombre.
+    Devuelve el error o ``None``.
+    """
+    responsable_id = data["responsable_id"]
+
+    if not es_id_valido(responsable_id):
+        return _error(
+            "El responsable debe ser un entero positivo",
+            ["responsable_id"],
+        )
+
+    if responsable_id not in data["personas"]:
+        return _error(
+            "El responsable debe ser una de las personas de la entrega; "
+            "si retira otra persona, envíe responsable_dni y responsable_nombre",
+            ["responsable_id"],
+        )
+
+    return None
+
+
+def _controlar_tercero(data):
+    """Controla el DNI y el nombre del tercero que retira.
+
+    Hacen falta los dos. El DNI va como texto, con el mismo formato que
+    Personal. Devuelve el error o ``None``.
+    """
+    faltantes = []
+    for campo in ["responsable_dni", "responsable_nombre"]:
+        if not _vino(data, campo):
+            faltantes.append(campo)
+
+    if faltantes:
+        return _error("Para un tercero se necesitan el DNI y el nombre", faltantes)
+
+    dni = data["responsable_dni"]
+    if not isinstance(dni, str) or not PATRON_DNI.fullmatch(dni.strip()):
+        return _error(
+            "El DNI del responsable debe tener entre 7 y 9 números, sin puntos ni espacios",
+            ["responsable_dni"],
+        )
+
+    nombre = data["responsable_nombre"]
+    if not isinstance(nombre, str) or not nombre.strip():
+        return _error(
+            "El nombre del responsable no puede estar vacío",
+            ["responsable_nombre"],
+        )
+
+    if len(nombre.strip()) > LARGO_MAXIMO_NOMBRE:
+        return _error(
+            f"El nombre del responsable no puede superar los {LARGO_MAXIMO_NOMBRE} caracteres",
+            ["responsable_nombre"],
+        )
+
+    return None
+
+
+def _datos_del_responsable(data):
+    """Arma las tres claves del responsable para los datos limpios.
+
+    Se llama después de ``_controlar_responsable``, así que los datos ya
+    son válidos. Las claves que no corresponden quedan en ``None``.
+    """
+    if _vino(data, "responsable_dni"):
+        return {
+            "responsable_id": None,
+            "responsable_dni": data["responsable_dni"].strip(),
+            "responsable_nombre": data["responsable_nombre"].strip(),
+        }
+
+    responsable_id = data.get("responsable_id")
+    if responsable_id is None:
+        # Con una sola persona y sin responsable, retira ella misma.
+        responsable_id = data["personas"][0]
+
+    return {
+        "responsable_id": responsable_id,
+        "responsable_dni": None,
+        "responsable_nombre": None,
+    }
+
+
+# --- GET /api/authorized-meals ---
+
 def validar_filtros_comidas_autorizadas(args):
     """Valida el query string de ``GET /api/authorized-meals``.
 
     ``args`` es ``request.args`` (o cualquier diccionario de textos).
     Los textos vacíos o con solo espacios cuentan como que no vinieron.
-    Exige al menos un filtro (``page`` no cuenta) para no traer todo el sistema.
+    Exige al menos un filtro (``page`` y ``pendientes`` no cuentan) para no
+    traer todo el sistema.
 
     Devuelve ``(True, filtros)``, con las cinco claves de filtro (las que no
-    vinieron en ``None``), o ``(False, {"error": mensaje, "campos": [...]})``.
+    vinieron en ``None``) más ``pendientes`` (bool), o
+    ``(False, {"error": mensaje, "campos": [...]})``.
     """
-    campos_extra = set(args) - PARAMETROS_COMIDAS_AUTORIZADAS
+    error = _parametros_no_permitidos(args, PARAMETROS_COMIDAS_AUTORIZADAS)
+    if error:
+        return False, error
 
-    if campos_extra:
-        return False, {
-            "error": "Se recibieron parámetros no permitidos",
-            "campos": sorted(campos_extra),
-        }
+    textos = _leer_textos(args, FILTROS_COMIDAS_AUTORIZADAS)
+    if _ninguno_vino(textos):
+        return False, _error(
+            "Debe indicar al menos un filtro",
+            FILTROS_COMIDAS_AUTORIZADAS,
+        )
 
-    textos = {}
-    for campo in FILTROS_COMIDAS_AUTORIZADAS:
-        texto = args.get(campo, "").strip()
-        textos[campo] = texto or None
+    valida, fecha = _leer_fecha_opcional(args, "fecha")
+    if not valida:
+        return False, fecha
 
-    if all(texto is None for texto in textos.values()):
-        return False, {
-            "error": "Debe indicar al menos un filtro",
-            "campos": FILTROS_COMIDAS_AUTORIZADAS,
-        }
+    validos, ids = _leer_ids_opcionales(textos, ["sector_id", "tipo_comida_id"])
+    if not validos:
+        return False, ids
 
-    filtros = {
-        "fecha": None,
+    valido, pendientes = _leer_booleano_opcional(args, "pendientes")
+    if not valido:
+        return False, pendientes
+
+    return True, {
+        "fecha": fecha,
         "dni": textos["dni"],
         "nombre": textos["nombre"],
-        "sector_id": None,
-        "tipo_comida_id": None,
+        "sector_id": ids["sector_id"],
+        "tipo_comida_id": ids["tipo_comida_id"],
+        "pendientes": pendientes,
     }
 
-    if textos["fecha"] is not None:
-        filtros["fecha"] = _leer_fecha(textos["fecha"])
-        if filtros["fecha"] is None:
-            return False, {
-                "error": "La fecha debe tener formato AAAA-MM-DD",
-                "campos": ["fecha"],
-            }
 
-    for campo in ["sector_id", "tipo_comida_id"]:
-        if textos[campo] is not None:
-            filtros[campo] = _leer_id(textos[campo])
-            if filtros[campo] is None:
-                return False, {
-                    "error": f"{campo} debe ser un entero positivo",
-                    "campos": [campo],
-                }
+def _leer_booleano_opcional(args, campo):
+    """Lee el parámetro ``campo`` del query string como ``true`` o ``false``.
 
-    return True, filtros
+    Si no vino (o vino vacío) vale ``False``. Solo se aceptan las dos
+    palabras en minúscula, como en JSON. Devuelve ``(True, valor)`` o
+    ``(False, error)``.
+    """
+    texto = args.get(campo, "").strip()
+
+    if texto == "true":
+        return True, True
+
+    if texto == "false" or texto == "":
+        return True, False
+
+    return False, _error(f"{campo} debe ser true o false", [campo])
 
 
-FILTROS_ENTREGAS = [
-    "fecha",
-    "sector_id",
-    "tipo_comida_id",
-]
+def _leer_textos(args, campos):
+    """Lee cada campo del query string, sin espacios en los bordes.
 
-PARAMETROS_ENTREGAS = set(FILTROS_ENTREGAS) | {"page"}
+    Devuelve un diccionario ``campo -> texto``. Un texto vacío (o con solo
+    espacios) queda en ``None``, como si no hubiera venido.
+    """
+    textos = {}
+    for campo in campos:
+        texto = args.get(campo, "").strip()
+        if texto:
+            textos[campo] = texto
+        else:
+            textos[campo] = None
+    return textos
 
+
+def _ninguno_vino(textos):
+    """Indica si todos los textos están en ``None`` (no vino ningún filtro)."""
+    for texto in textos.values():
+        if texto is not None:
+            return False
+    return True
+
+
+def _leer_ids_opcionales(textos, campos):
+    """Convierte en entero positivo cada campo de ``textos`` que haya venido.
+
+    Devuelve ``(True, ids)``, con los que no vinieron en ``None``, o
+    ``(False, error)`` con el primer campo que no es un entero positivo.
+    """
+    ids = {}
+    for campo in campos:
+        ids[campo] = None
+        if textos[campo] is None:
+            continue
+
+        ids[campo] = _leer_id(textos[campo])
+        if ids[campo] is None:
+            return False, _error(f"{campo} debe ser un entero positivo", [campo])
+
+    return True, ids
+
+
+# --- GET /api/authorized-meals/<person_id> ---
+
+def validar_fecha_opcional(args):
+    """Valida el query string de ``GET /api/authorized-meals/<person_id>``.
+
+    Solo acepta ``fecha`` (``AAAA-MM-DD``) y es opcional.
+    Devuelve ``(True, fecha)``, con ``fecha`` en ``None`` si no vino,
+    o ``(False, {"error": mensaje, "campos": [...]})``.
+    """
+    error = _parametros_no_permitidos(args, {"fecha"})
+    if error:
+        return False, error
+
+    return _leer_fecha_opcional(args, "fecha")
+
+
+# --- GET /api/deliveries y GET /api/deliveries/summary ---
 
 def validar_filtros_entregas(args):
     """Valida el query string de ``GET /api/deliveries``.
@@ -221,13 +523,9 @@ def validar_filtros_entregas(args):
     Devuelve ``(True, filtros)``, con las tres claves de filtro (las que no
     vinieron en ``None``), o ``(False, {"error": mensaje, "campos": [...]})``.
     """
-    campos_extra = set(args) - PARAMETROS_ENTREGAS
-
-    if campos_extra:
-        return False, {
-            "error": "Se recibieron parámetros no permitidos",
-            "campos": sorted(campos_extra),
-        }
+    error = _parametros_no_permitidos(args, PARAMETROS_ENTREGAS)
+    if error:
+        return False, error
 
     filtros = {
         "fecha": None,
@@ -235,24 +533,20 @@ def validar_filtros_entregas(args):
         "tipo_comida_id": None,
     }
 
-    texto_fecha = args.get("fecha", "").strip()
-    if texto_fecha:
-        filtros["fecha"] = _leer_fecha(texto_fecha)
-        if filtros["fecha"] is None:
-            return False, {
-                "error": "La fecha debe tener formato AAAA-MM-DD",
-                "campos": ["fecha"],
-            }
+    valida, resultado = _leer_fecha_opcional(args, "fecha")
+    if not valida:
+        return False, resultado
+    filtros["fecha"] = resultado
 
     for campo in ["sector_id", "tipo_comida_id"]:
         texto = args.get(campo, "").strip()
         if texto:
             filtros[campo] = _leer_id(texto)
             if filtros[campo] is None:
-                return False, {
-                    "error": f"{campo} debe ser un entero positivo",
-                    "campos": [campo],
-                }
+                return False, _error(
+                    f"{campo} debe ser un entero positivo",
+                    [campo],
+                )
 
     return True, filtros
 
@@ -264,60 +558,15 @@ def validar_filtros_resumen_entregas(args):
     porque el resumen no se pagina. Devuelve lo mismo que
     ``validar_filtros_entregas``.
     """
+    # Se controla solo "page": los demás parámetros extra los rechaza
+    # validar_filtros_entregas, con su propio mensaje.
     if "page" in args:
-        return False, {
-            "error": "Se recibieron parámetros no permitidos",
-            "campos": ["page"],
-        }
+        return False, _error("Se recibieron parámetros no permitidos", ["page"])
 
     return validar_filtros_entregas(args)
 
 
-def validar_fecha_opcional(args):
-    """Valida el query string de ``GET /api/authorized-meals/<person_id>``.
-
-    Solo acepta ``fecha`` (``AAAA-MM-DD``) y es opcional.
-    Devuelve ``(True, fecha)``, con ``fecha`` en ``None`` si no vino,
-    o ``(False, {"error": mensaje, "campos": [...]})``.
-    """
-    campos_extra = set(args) - {"fecha"}
-
-    if campos_extra:
-        return False, {
-            "error": "Se recibieron parámetros no permitidos",
-            "campos": sorted(campos_extra),
-        }
-
-    texto = args.get("fecha", "").strip()
-
-    if not texto:
-        return True, None
-
-    fecha = _leer_fecha(texto)
-
-    if fecha is None:
-        return False, {
-            "error": "La fecha debe tener formato AAAA-MM-DD",
-            "campos": ["fecha"],
-        }
-
-    return True, fecha
-
-
-# Mismos nombres de parámetros que los otros /api/summaries/* (Julián),
-# para que el cliente los use igual. ``estado`` no va: acá solo cuentan
-# los pedidos autorizados.
-FILTROS_RESUMEN_PERIODO = [
-    "fecha_desde",
-    "fecha_hasta",
-    "sector_id",
-    "tipo_comida",
-    "tipo_menu",
-    "agrupamiento",
-]
-
-AGRUPAMIENTOS = ["dia", "semana", "mes", "sector", "comida", "menu"]
-
+# --- GET /api/summaries/deliveries ---
 
 def validar_filtros_resumen_periodo(args):
     """Valida el query string de ``GET /api/summaries/deliveries``.
@@ -331,13 +580,9 @@ def validar_filtros_resumen_periodo(args):
     Devuelve ``(True, filtros)``, con las seis claves (las que no vinieron
     en ``None``), o ``(False, {"error": mensaje, "campos": [...]})``.
     """
-    campos_extra = set(args) - set(FILTROS_RESUMEN_PERIODO)
-
-    if campos_extra:
-        return False, {
-            "error": "Se recibieron parámetros no permitidos",
-            "campos": sorted(campos_extra),
-        }
+    error = _parametros_no_permitidos(args, FILTROS_RESUMEN_PERIODO)
+    if error:
+        return False, error
 
     textos = {}
     for campo in FILTROS_RESUMEN_PERIODO:
@@ -354,39 +599,36 @@ def validar_filtros_resumen_periodo(args):
     }
 
     for campo in ["fecha_desde", "fecha_hasta"]:
-        if textos[campo] is not None:
-            filtros[campo] = _leer_fecha(textos[campo])
-            if filtros[campo] is None:
-                return False, {
-                    "error": f"{campo} debe tener formato AAAA-MM-DD",
-                    "campos": [campo],
-                }
+        valida, resultado = _leer_fecha_opcional(args, campo)
+        if not valida:
+            return False, resultado
+        filtros[campo] = resultado
 
     if (
         filtros["fecha_desde"] is not None
         and filtros["fecha_hasta"] is not None
         and filtros["fecha_desde"] > filtros["fecha_hasta"]
     ):
-        return False, {
-            "error": "fecha_hasta no puede ser anterior a fecha_desde",
-            "campos": ["fecha_desde", "fecha_hasta"],
-        }
+        return False, _error(
+            "fecha_hasta no puede ser anterior a fecha_desde",
+            ["fecha_desde", "fecha_hasta"],
+        )
 
     if textos["sector_id"] is not None:
         filtros["sector_id"] = _leer_id(textos["sector_id"])
         if filtros["sector_id"] is None:
-            return False, {
-                "error": "sector_id debe ser un entero positivo",
-                "campos": ["sector_id"],
-            }
+            return False, _error(
+                "sector_id debe ser un entero positivo",
+                ["sector_id"],
+            )
 
     if (
         filtros["agrupamiento"] is not None
         and filtros["agrupamiento"] not in AGRUPAMIENTOS
     ):
-        return False, {
-            "error": f"agrupamiento debe ser uno de: {', '.join(AGRUPAMIENTOS)}",
-            "campos": ["agrupamiento"],
-        }
+        return False, _error(
+            f"agrupamiento debe ser uno de: {', '.join(AGRUPAMIENTOS)}",
+            ["agrupamiento"],
+        )
 
     return True, filtros
