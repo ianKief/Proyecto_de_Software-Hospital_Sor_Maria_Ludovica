@@ -52,7 +52,7 @@
             
             <!-- Cuerpo con detalles -->
             <div class="px-6 py-5">
-                <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-6">
+                <dl class="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-6">
                     <div class="sm:col-span-1">
                         <dt class="text-sm font-medium text-gray-500">Documento (DNI)</dt>
                         <dd class="mt-1 text-sm text-gray-900 font-semibold">{{ user.dni }}</dd>
@@ -64,17 +64,6 @@
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
                                 {{ user.role.name }}
                             </span>
-                        </dd>
-                    </div>
-                    
-                    <div class="sm:col-span-1">
-                        <dt class="text-sm font-medium text-gray-500">Sector Asignado</dt>
-                        <dd class="mt-1 text-sm text-gray-900 font-semibold">
-                            {% if user.sector %}
-                                {{ user.sector.nombre }}
-                            {% else %}
-                                <span class="text-gray-400 italic">No asignado</span>
-                            {% endif %}
                         </dd>
                     </div>
 
@@ -95,4 +84,3 @@
     </div>
 </main>
 {% endblock %}
-

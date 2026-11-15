@@ -1,7 +1,7 @@
 import logging
 import os
 from dotenv import load_dotenv
-from flask import Flask
+from flask import Flask, request, make_response
 from flask_session import Session
 
 from src.core.db import db
@@ -39,6 +39,36 @@ def _get_static_path():
     current_dir = os.path.dirname(os.path.abspath(__file__))  # src/web
     admin_dir = os.path.abspath(os.path.join(current_dir, "..", ".."))  # admin/
     return os.path.join(admin_dir, "static")
+
+
+def _configurar_cors_api(app):
+    """Habilita cabeceras CORS en las rutas /api/* para permitir llamadas desde el portal Vue."""
+    @app.before_request
+    def responder_preflight_cors():
+        if request.method == "OPTIONS" and request.path.startswith("/api/"):
+            return make_response("", 204)
+        return None
+
+    @app.after_request
+    def agregar_headers_cors(response):
+        if not request.path.startswith("/api/"):
+            return response
+
+        origenes_raw = app.config.get("CORS_ORIGINS", "")
+        origenes_permitidos = [o.strip() for o in origenes_raw.split(",") if o.strip()]
+        origen_peticion = request.headers.get("Origin")
+
+        if "*" in origenes_permitidos:
+            response.headers["Access-Control-Allow-Origin"] = "*"
+        elif origen_peticion and origen_peticion in origenes_permitidos:
+            response.headers["Access-Control-Allow-Origin"] = origen_peticion
+            response.headers["Vary"] = "Origin"
+        elif origenes_permitidos:
+            response.headers["Access-Control-Allow-Origin"] = origenes_permitidos[0]
+
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+        return response
 
 
 def create_app(env="development", static_folder=None):
@@ -84,6 +114,7 @@ def create_app(env="development", static_folder=None):
     # Helpers y Middlewares
     app.jinja_env.globals["check_permission"] = check_permission
     app.jinja_env.globals["current_user"] = get_current_user
+    _configurar_cors_api(app)
     app.before_request(verificar_mantenimiento)
     app.before_request(verificar_timeout_sesion)
 

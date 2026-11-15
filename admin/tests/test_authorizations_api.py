@@ -1,12 +1,11 @@
+
 from types import SimpleNamespace
 
-from src.web import create_app
 from src.web.controllers import authorizations as controller
 from src.web.helpers import api_auth
 
 
-def preparar_cliente(monkeypatch):
-    app = create_app()
+def preparar_cliente(monkeypatch, app):
     app.config.update(TESTING=True, SECRET_KEY="test-secret")
     client = app.test_client()
 
@@ -30,7 +29,8 @@ def preparar_cliente(monkeypatch):
 
     return client
 
-def test_rechazar_pedido_correctamente(monkeypatch):
+
+def test_rechazar_pedido_correctamente(monkeypatch, app):
     pedido = SimpleNamespace(id=3)
 
     monkeypatch.setattr(
@@ -39,7 +39,7 @@ def test_rechazar_pedido_correctamente(monkeypatch):
         lambda **kwargs: pedido,
     )
 
-    response = preparar_cliente(monkeypatch).post(
+    response = preparar_cliente(monkeypatch, app).post(
         "/api/authorizations/3/reject",
     )
 
@@ -51,7 +51,7 @@ def test_rechazar_pedido_correctamente(monkeypatch):
     assert response.json["usuario_id"] == 9
 
 
-def test_rechazar_pedido_ya_autorizado_devuelve_409(monkeypatch):
+def test_rechazar_pedido_ya_autorizado_devuelve_409(monkeypatch, app):
     def rechazar_con_conflicto(**kwargs):
         raise RuntimeError("El pedido ya fue autorizado")
 
@@ -61,7 +61,7 @@ def test_rechazar_pedido_ya_autorizado_devuelve_409(monkeypatch):
         rechazar_con_conflicto,
     )
 
-    response = preparar_cliente(monkeypatch).post(
+    response = preparar_cliente(monkeypatch, app).post(
         "/api/authorizations/3/reject",
     )
 
@@ -71,7 +71,7 @@ def test_rechazar_pedido_ya_autorizado_devuelve_409(monkeypatch):
     )
 
 
-def test_rechazar_pedido_inexistente_devuelve_404(monkeypatch):
+def test_rechazar_pedido_inexistente_devuelve_404(monkeypatch, app):
     def rechazar_inexistente(**kwargs):
         raise LookupError("Pedido no encontrado")
 
@@ -81,7 +81,7 @@ def test_rechazar_pedido_inexistente_devuelve_404(monkeypatch):
         rechazar_inexistente,
     )
 
-    response = preparar_cliente(monkeypatch).post(
+    response = preparar_cliente(monkeypatch, app).post(
         "/api/authorizations/999/reject",
     )
 
@@ -89,7 +89,7 @@ def test_rechazar_pedido_inexistente_devuelve_404(monkeypatch):
     assert response.json["error"] == "Pedido no encontrado"
 
 
-def test_autorizar_pedido_correctamente(monkeypatch):
+def test_autorizar_pedido_correctamente(monkeypatch, app):
     pedido = SimpleNamespace(id=3, estado="autorizado")
 
     monkeypatch.setattr(
@@ -103,7 +103,7 @@ def test_autorizar_pedido_correctamente(monkeypatch):
         lambda pedido: {"id": pedido.id, "estado": pedido.estado},
     )
 
-    response = preparar_cliente(monkeypatch).put(
+    response = preparar_cliente(monkeypatch, app).put(
         "/api/authorizations/3",
         json={
             "solicitudes": [
@@ -120,9 +120,9 @@ def test_autorizar_pedido_correctamente(monkeypatch):
 
 
 def test_autorizar_sin_lista_de_solicitudes_devuelve_400(
-    monkeypatch,
+    monkeypatch, app
 ):
-    response = preparar_cliente(monkeypatch).put(
+    response = preparar_cliente(monkeypatch, app).put(
         "/api/authorizations/3",
         json={},
     )
@@ -133,7 +133,7 @@ def test_autorizar_sin_lista_de_solicitudes_devuelve_400(
     )
 
 
-def test_autorizar_pedido_inexistente_devuelve_404(monkeypatch):
+def test_autorizar_pedido_inexistente_devuelve_404(monkeypatch, app):
     def autorizar_inexistente(**kwargs):
         raise LookupError("Pedido no encontrado")
 
@@ -143,7 +143,7 @@ def test_autorizar_pedido_inexistente_devuelve_404(monkeypatch):
         autorizar_inexistente,
     )
 
-    response = preparar_cliente(monkeypatch).put(
+    response = preparar_cliente(monkeypatch, app).put(
         "/api/authorizations/999",
         json={
             "solicitudes": [
@@ -156,7 +156,7 @@ def test_autorizar_pedido_inexistente_devuelve_404(monkeypatch):
     assert response.json["error"] == "Pedido no encontrado"
 
 
-def test_autorizar_pedido_procesado_devuelve_409(monkeypatch):
+def test_autorizar_pedido_procesado_devuelve_409(monkeypatch, app):
     def autorizar_con_conflicto(**kwargs):
         raise RuntimeError(
             "El pedido ya fue autorizado o rechazado"
@@ -168,7 +168,7 @@ def test_autorizar_pedido_procesado_devuelve_409(monkeypatch):
         autorizar_con_conflicto,
     )
 
-    response = preparar_cliente(monkeypatch).put(
+    response = preparar_cliente(monkeypatch, app).put(
         "/api/authorizations/3",
         json={
             "solicitudes": [
@@ -183,7 +183,7 @@ def test_autorizar_pedido_procesado_devuelve_409(monkeypatch):
     )
 
 
-def test_autorizar_solicitud_invalida_devuelve_400(monkeypatch):
+def test_autorizar_solicitud_invalida_devuelve_400(monkeypatch, app):
     def autorizar_solicitud_invalida(**kwargs):
         raise ValueError("La solicitud no pertenece al pedido")
 
@@ -193,7 +193,7 @@ def test_autorizar_solicitud_invalida_devuelve_400(monkeypatch):
         autorizar_solicitud_invalida,
     )
 
-    response = preparar_cliente(monkeypatch).put(
+    response = preparar_cliente(monkeypatch, app).put(
         "/api/authorizations/3",
         json={
             "solicitudes": [

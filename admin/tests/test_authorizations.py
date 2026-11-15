@@ -1,12 +1,12 @@
-﻿from types import SimpleNamespace
+﻿
+from types import SimpleNamespace
+
 from src.web.helpers import api_auth
-from src.web import create_app
 from src.web.controllers import authorizations as controller
 from src.core import authorizations as authorizations_core
 
 
-def preparar_cliente(monkeypatch):
-    app = create_app()
+def preparar_cliente(monkeypatch, app):
     app.config.update(TESTING=True, SECRET_KEY="test-secret")
     client = app.test_client()
 
@@ -28,7 +28,8 @@ def preparar_cliente(monkeypatch):
 
     return client
 
-def test_detalle_autorizacion_devuelve_200(monkeypatch):
+
+def test_detalle_autorizacion_devuelve_200(monkeypatch, app):
     pedido = SimpleNamespace(id=7)
 
     monkeypatch.setattr(
@@ -42,15 +43,15 @@ def test_detalle_autorizacion_devuelve_200(monkeypatch):
         lambda pedido: {"id": pedido.id},
     )
 
-    response = preparar_cliente(monkeypatch).get(
+    response = preparar_cliente(monkeypatch, app).get(
         "/api/authorizations/7"
     )
+
     assert response.status_code == 200
     assert response.json["id"] == 7
 
 
-def test_autorizar_pedido_crea_autorizacion(monkeypatch):
-    app = create_app()
+def test_autorizar_pedido_crea_autorizacion(app, monkeypatch):
     pedido = SimpleNamespace(id=3, estado="confirmado")
     solicitud = SimpleNamespace(id=7, autorizacion=None)
     usuario = SimpleNamespace(id=9)

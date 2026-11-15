@@ -1,13 +1,12 @@
-﻿from datetime import date
+﻿
+from datetime import date
 from types import SimpleNamespace
 
-from src.web import create_app
 from src.web.controllers import pedidos as pedidos_controller
 from src.web.helpers import api_auth
 
 
-def preparar_cliente(monkeypatch):
-    app = create_app()
+def preparar_cliente(monkeypatch, app):
     app.config.update(TESTING=True, SECRET_KEY="test-secret")
     client = app.test_client()
 
@@ -30,7 +29,8 @@ def preparar_cliente(monkeypatch):
 
     return client
 
-def test_modificar_pedido_correctamente(monkeypatch):
+
+def test_modificar_pedido_correctamente(monkeypatch, app):
     pedido = SimpleNamespace(
         id=3,
         sector_id=1,
@@ -59,7 +59,7 @@ def test_modificar_pedido_correctamente(monkeypatch):
         lambda **kwargs: pedido,
     )
 
-    response = preparar_cliente(monkeypatch).put(
+    response = preparar_cliente(monkeypatch, app).put(
         "/api/requests/3",
         json={"periodicidad": "diaria"},
     )
@@ -72,7 +72,7 @@ def test_modificar_pedido_correctamente(monkeypatch):
     assert response.json["pedido"]["solicitudes"][0]["person_id"] == 2
 
 
-def test_modificar_pedido_en_conflicto_devuelve_409(monkeypatch):
+def test_modificar_pedido_en_conflicto_devuelve_409(monkeypatch, app):
     monkeypatch.setattr(
         pedidos_controller,
         "validar_pedido",
@@ -88,7 +88,7 @@ def test_modificar_pedido_en_conflicto_devuelve_409(monkeypatch):
         modificar_con_conflicto,
     )
 
-    response = preparar_cliente(monkeypatch).put(
+    response = preparar_cliente(monkeypatch, app).put(
         "/api/requests/3",
         json={"periodicidad": "diaria"},
     )
@@ -99,14 +99,14 @@ def test_modificar_pedido_en_conflicto_devuelve_409(monkeypatch):
     )
 
 
-def test_eliminar_pedido_correctamente(monkeypatch):
+def test_eliminar_pedido_correctamente(monkeypatch, app):
     monkeypatch.setattr(
         pedidos_controller,
         "eliminar_pedido_core",
         lambda **kwargs: None,
     )
 
-    response = preparar_cliente(monkeypatch).delete(
+    response = preparar_cliente(monkeypatch, app).delete(
         "/api/requests/3",
     )
 
@@ -117,7 +117,7 @@ def test_eliminar_pedido_correctamente(monkeypatch):
     assert response.json["request_id"] == 3
 
 
-def test_eliminar_pedido_en_conflicto_devuelve_409(monkeypatch):
+def test_eliminar_pedido_en_conflicto_devuelve_409(monkeypatch, app):
     def eliminar_con_conflicto(**kwargs):
         raise RuntimeError("El pedido ya no se puede eliminar")
 
@@ -127,7 +127,7 @@ def test_eliminar_pedido_en_conflicto_devuelve_409(monkeypatch):
         eliminar_con_conflicto,
     )
 
-    response = preparar_cliente(monkeypatch).delete(
+    response = preparar_cliente(monkeypatch, app).delete(
         "/api/requests/3",
     )
 

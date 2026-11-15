@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, request, flash, redirect, url_for,
 from src.core.users.models import User
 from src.core.auth.models import Role
 from src.core.sectors.models import Sector
-from src.web.helpers.auth import permission_required, login_required
+from src.web.helpers.auth import permission_required, admin_required
 from src.core.paginacion import paginar
 from src.web.helpers.paginacion import validar_pagina
 from src.core.users import (
@@ -97,17 +97,17 @@ def user_index():
 
 
 @users_bp.route('/perfil', methods=['GET'])
-@login_required
+@admin_required
 def profile_show():
-    """Muestra el perfil del usuario actualmente autenticado."""
+    """Muestra el perfil del administrador actualmente autenticado."""
     user = User.query.get_or_404(session.get('user_id'))
     return render_template('users/profile_show.html', user=user)
 
 
 @users_bp.route('/perfil/editar', methods=['GET', 'POST'])
-@login_required
+@admin_required
 def profile_edit():
-    """Permite a cualquier usuario autenticado editar sus propios datos personales y contraseña."""
+    """Permite al administrador autenticado editar sus propios datos personales y contraseña."""
     user = User.query.get_or_404(session.get('user_id'))
 
     if request.method == 'POST':
@@ -387,4 +387,3 @@ def change_role(id):
     except (UserNotFoundError, RoleNotFoundError) as e:
         flash(str(e), "error")
         return user_index(), 400
-
