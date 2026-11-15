@@ -79,7 +79,8 @@ def authorized_meals_index():
     """Lista paginada de comidas autorizadas según los filtros del query string.
 
     Filtros: ``fecha`` (AAAA-MM-DD), ``dni``, ``nombre``, ``sector_id`` y
-    ``tipo_comida_id``; hace falta al menos uno. Cada ítem trae la marca
+    ``tipo_comida_id``; hace falta al menos uno. Con ``pendientes=true`` trae
+    solo las que no se entregaron (no cuenta como filtro). Cada ítem trae la marca
     ``entregada`` y la respuesta suma ``totales`` (autorizadas y entregadas)
     calculados sobre todo el filtro, no solo sobre la página.
     Responde 400 si la página o algún filtro no es válido.
@@ -99,6 +100,7 @@ def authorized_meals_index():
         nombre=filtros["nombre"],
         sector_id=filtros["sector_id"],
         tipo_comida_id=filtros["tipo_comida_id"],
+        pendientes=filtros["pendientes"],
     )
     pagina = paginar(consulta, numero_pagina)
     items = _items_de_comidas_autorizadas(pagina.items)

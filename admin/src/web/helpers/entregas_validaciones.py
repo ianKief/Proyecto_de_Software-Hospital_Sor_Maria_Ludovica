@@ -42,7 +42,10 @@ FILTROS_COMIDAS_AUTORIZADAS = [
 ]
 
 # Además de los filtros, el listado acepta el número de página.
-PARAMETROS_COMIDAS_AUTORIZADAS = set(FILTROS_COMIDAS_AUTORIZADAS) | {"page"}
+PARAMETROS_COMIDAS_AUTORIZADAS = set(FILTROS_COMIDAS_AUTORIZADAS) | {"page", "pendientes"}
+
+# "pendientes" no va en FILTROS_COMIDAS_AUTORIZADAS: no cuenta para "al menos
+# un filtro", porque solo traería todas las pendientes de todo el sistema.
 
 # --- Query string de GET /api/deliveries ---
 
@@ -390,10 +393,12 @@ def validar_filtros_comidas_autorizadas(args):
 
     ``args`` es ``request.args`` (o cualquier diccionario de textos).
     Los textos vacíos o con solo espacios cuentan como que no vinieron.
-    Exige al menos un filtro (``page`` no cuenta) para no traer todo el sistema.
+    Exige al menos un filtro (``page`` y ``pendientes`` no cuentan) para no
+    traer todo el sistema.
 
     Devuelve ``(True, filtros)``, con las cinco claves de filtro (las que no
-    vinieron en ``None``), o ``(False, {"error": mensaje, "campos": [...]})``.
+    vinieron en ``None``) más ``pendientes`` (bool), o
+    ``(False, {"error": mensaje, "campos": [...]})``.
     """
     error = _parametros_no_permitidos(args, PARAMETROS_COMIDAS_AUTORIZADAS)
     if error:
@@ -414,13 +419,36 @@ def validar_filtros_comidas_autorizadas(args):
     if not validos:
         return False, ids
 
+    valido, pendientes = _leer_booleano_opcional(args, "pendientes")
+    if not valido:
+        return False, pendientes
+
     return True, {
         "fecha": fecha,
         "dni": textos["dni"],
         "nombre": textos["nombre"],
         "sector_id": ids["sector_id"],
         "tipo_comida_id": ids["tipo_comida_id"],
+        "pendientes": pendientes,
     }
+
+
+def _leer_booleano_opcional(args, campo):
+    """Lee el parámetro ``campo`` del query string como ``true`` o ``false``.
+
+    Si no vino (o vino vacío) vale ``False``. Solo se aceptan las dos
+    palabras en minúscula, como en JSON. Devuelve ``(True, valor)`` o
+    ``(False, error)``.
+    """
+    texto = args.get(campo, "").strip()
+
+    if texto == "true":
+        return True, True
+
+    if texto == "false" or texto == "":
+        return True, False
+
+    return False, _error(f"{campo} debe ser true o false", [campo])
 
 
 def _leer_textos(args, campos):

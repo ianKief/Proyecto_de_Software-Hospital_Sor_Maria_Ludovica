@@ -1,5 +1,8 @@
 """Tests del validador de entregas."""
-from src.web.helpers.entregas_validaciones import validar_entrega
+from src.web.helpers.entregas_validaciones import (
+    validar_entrega,
+    validar_filtros_comidas_autorizadas,
+)
 
 
 def entrega_base():
@@ -291,3 +294,23 @@ def test_tipo_menu_se_acepta_y_se_ignora():
 
         assert es_valido is True
         assert "tipo_menu" not in resultado
+
+
+# Filtro pendientes de GET /api/authorized-meals (EN4)
+
+def test_pendientes_ausente_o_vacio_vale_false():
+    for args in [{"fecha": "2026-10-13"}, {"fecha": "2026-10-13", "pendientes": "  "}]:
+        es_valido, filtros = validar_filtros_comidas_autorizadas(args)
+
+        assert es_valido is True
+        assert filtros["pendientes"] is False
+
+
+def test_pendientes_true_y_false():
+    for texto, esperado in [("true", True), ("false", False)]:
+        args = {"sector_id": "3", "pendientes": texto}
+
+        es_valido, filtros = validar_filtros_comidas_autorizadas(args)
+
+        assert es_valido is True
+        assert filtros["pendientes"] is esperado

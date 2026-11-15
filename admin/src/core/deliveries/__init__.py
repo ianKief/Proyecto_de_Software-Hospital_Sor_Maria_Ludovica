@@ -47,6 +47,7 @@ def buscar_comidas_autorizadas(
     nombre=None,
     sector_id=None,
     tipo_comida_id=None,
+    pendientes=False,
 ):
     """Arma la consulta de comidas autorizadas con los filtros que vengan.
 
@@ -55,6 +56,10 @@ def buscar_comidas_autorizadas(
     - ``nombre``: texto parcial, sin distinguir mayúsculas, sobre "nombre apellido".
     - ``sector_id``: sector que hizo el pedido (no el sector actual de la persona).
     - ``tipo_comida_id``: tipo de comida de la solicitud.
+    - ``pendientes``: si es True, solo las autorizaciones que todavía no se
+      entregaron. Se cuenta por autorización, como los totales: si una persona
+      tiene la misma comida autorizada por dos sectores y retiró una, la otra
+      aparece aunque su marca "entregada" (que es por persona) sea True.
 
     Las personas inactivas también aparecen. Devuelve la consulta sin
     ejecutar y con orden fijo, para pasarla a ``paginar()``.
@@ -79,6 +84,13 @@ def buscar_comidas_autorizadas(
         consulta = consulta.filter(
             SolicitudPedido.tipo_comida_id == tipo_comida_id
         )
+
+    if pendientes:
+        # NOT IN no trae ninguna fila si la subconsulta devuelve algún NULL.
+        # Acá no pasa: EntregaDetalle.autorizacion_id es NOT NULL. Si alguna
+        # vez se vuelve nullable, hay que filtrar los nulos en la subconsulta.
+        entregadas = db.session.query(EntregaDetalle.autorizacion_id)
+        consulta = consulta.filter(Autorizacion.id.not_in(entregadas))
 
     return consulta.order_by(
         Pedido.fecha,
