@@ -1,4 +1,9 @@
 <script setup>
+/**
+ * Componente raíz de la aplicación pública.
+ * Coordina la estructura general (barra superior o modo kiosco a pantalla completa),
+ * la pila de notificaciones globales, la pantalla de mantenimiento y la vista activa.
+ */
 import { computed } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
@@ -14,10 +19,16 @@ const route = useRoute()
 const authStore = useAuthStore()
 const uiStore = useUiStore()
 
+/**
+ * Indica si la ruta actual debe renderizarse en Modo Kiosco (sin barra de navegación superior).
+ */
 const isKioskMode = computed(
   () => authStore.isAuthenticated && Boolean(route.meta?.kioskMode),
 )
 
+/**
+ * Determina si corresponde mostrar la cabecera estándar y el menú de navegación por rol.
+ */
 const showStandardChrome = computed(
   () => authStore.isAuthenticated && !isKioskMode.value && route.name !== 'login',
 )

@@ -1,4 +1,9 @@
 <script setup>
+/**
+ * Vista de inicio de sesión del portal público.
+ * Permite autenticarse con correo y contraseña o mediante Google Identity Services,
+ * validando los campos en el cliente y redirigiendo a la pantalla inicial según el rol.
+ */
 import { ref, reactive, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
@@ -28,6 +33,9 @@ const isRetryableError = ref(false)
 
 const isSubmitting = computed(() => authStore.loading)
 
+/**
+ * Limpia los mensajes de error tanto de los campos individuales como del banner general.
+ */
 function clearErrors() {
   fieldErrors.email = ''
   fieldErrors.password = ''
@@ -35,6 +43,10 @@ function clearErrors() {
   isRetryableError.value = false
 }
 
+/**
+ * Traduce un error devuelto por el cliente HTTP (ApiError) en mensajes visibles
+ * junto a los campos correspondientes o en la alerta principal del formulario.
+ */
 function applyApiError(error) {
   if (error?.fieldErrors) {
     if (error.fieldErrors.email) fieldErrors.email = error.fieldErrors.email
@@ -59,6 +71,9 @@ function redirectAfterLogin() {
   router.push(authStore.homeRouteByRole)
 }
 
+/**
+ * Valida el formulario de email y contraseña y ejecuta el inicio de sesión contra la API.
+ */
 async function handleSubmit() {
   clearErrors()
 
@@ -81,6 +96,9 @@ async function handleSubmit() {
   }
 }
 
+/**
+ * Procesa el ID token entregado por el botón de Google y autentica la sesión contra el backend.
+ */
 async function handleGoogleCredential(idToken) {
   clearErrors()
   try {
@@ -95,6 +113,9 @@ async function handleGoogleCredential(idToken) {
   }
 }
 
+/**
+ * Muestra un mensaje de error cuando falla la obtención del token desde el botón de Google.
+ */
 function handleGoogleError(message) {
   clearErrors()
   generalError.value = message

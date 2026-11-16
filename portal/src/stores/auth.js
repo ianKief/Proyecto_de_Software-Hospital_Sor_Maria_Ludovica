@@ -22,6 +22,9 @@ export const RUTA_INICIAL_POR_ROL = Object.freeze({
   [ROLES_OPERATIVOS.SECTOR_COMEDOR]: '/comedor',
 })
 
+/**
+ * Recupera del almacenamiento local los últimos datos serializados del usuario autenticado.
+ */
 function loadStoredUser() {
   try {
     const raw = localStorage.getItem(STORAGE_USER_KEY)
@@ -31,6 +34,9 @@ function loadStoredUser() {
   }
 }
 
+/**
+ * Persiste o elimina en localStorage los datos básicos del usuario autenticado.
+ */
 function saveStoredUser(user) {
   if (user) {
     localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(user))
@@ -61,6 +67,7 @@ export const useAuthStore = defineStore('auth', () => {
   const loading = ref(false)
   const initialized = ref(false)
 
+  // Propiedades computadas para consultar el estado de sesión, rol y sector desde cualquier vista
   const isAuthenticated = computed(() => Boolean(token.value && user.value))
   const userRole = computed(() => user.value?.rol || null)
   const userFullName = computed(() => {
@@ -83,6 +90,9 @@ export const useAuthStore = defineStore('auth', () => {
     return RUTA_INICIAL_POR_ROL[userRole.value] || '/login'
   })
 
+  /**
+   * Guarda el token JWT y los datos del usuario tanto en el estado reactivo como en localStorage.
+   */
   function setSession(newToken, newUser) {
     token.value = newToken
     user.value = newUser
@@ -90,6 +100,9 @@ export const useAuthStore = defineStore('auth', () => {
     saveStoredUser(newUser)
   }
 
+  /**
+   * Limpia completamente la sesión local del usuario (estado en memoria y localStorage).
+   */
   function clearSession() {
     token.value = null
     user.value = null
@@ -123,6 +136,8 @@ export const useAuthStore = defineStore('auth', () => {
   /**
    * Se ejecuta al iniciar la aplicación para validar si hay un token guardado
    * y refrescar los datos del usuario desde GET /api/auth/me.
+   * Si la API responde 503 (mantenimiento) o hay un fallo de red temporal, conserva
+   * el token para no perder la sesión cuando el servidor vuelva a estar operativo.
    */
   async function initializeAuth() {
     if (initialized.value) return
@@ -134,8 +149,10 @@ export const useAuthStore = defineStore('auth', () => {
 
     try {
       await fetchCurrentUser()
-    } catch {
-      clearSession()
+    } catch (error) {
+      if (error?.status === 401 || error?.status === 403) {
+        clearSession()
+      }
     } finally {
       initialized.value = true
     }

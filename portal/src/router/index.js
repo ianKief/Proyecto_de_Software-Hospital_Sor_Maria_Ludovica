@@ -1,3 +1,12 @@
+/**
+ * Configuración de rutas y guards de navegación del portal público.
+ *
+ * Cada ruta define en su objeto `meta`:
+ * - `requiresAuth`: indica si exige una sesión activa.
+ * - `guestOnly`: indica si es exclusiva para usuarios no autenticados (como /login).
+ * - `roles`: lista de roles operativos autorizados a visitar la ruta.
+ * - `kioskMode`: activa el diseño a pantalla completa para las tablets del Sector Comedor.
+ */
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore, ROLES_OPERATIVOS } from '@/stores/auth'
 import { useUiStore } from '@/stores/ui'
@@ -209,6 +218,9 @@ router.beforeEach(async (to) => {
   return true
 })
 
+/**
+ * Actualiza el título de la pestaña del navegador según la sección visitada.
+ */
 router.afterEach((to) => {
   const baseTitle = 'Portal de Alimentación — Hospital Sor María Ludovica'
   document.title = to.meta?.title ? `${to.meta.title} | ${baseTitle}` : baseTitle

@@ -1,4 +1,8 @@
 <script setup>
+/**
+ * Vista contenedora inicial para las secciones operativas del portal
+ * mientras se integran las pantallas específicas de cada módulo.
+ */
 import { useRoute } from 'vue-router'
 
 const route = useRoute()

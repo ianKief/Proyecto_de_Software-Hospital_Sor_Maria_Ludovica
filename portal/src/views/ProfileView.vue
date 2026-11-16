@@ -1,4 +1,9 @@
 <script setup>
+/**
+ * Vista de consulta y edición del perfil del usuario operativo autenticado.
+ * Permite revisar rol y sector asignados (solo lectura) y actualizar nombre,
+ * apellido, correo electrónico, DNI y contraseña mediante PUT /api/auth/me.
+ */
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
@@ -34,18 +39,28 @@ const fieldErrors = reactive({
 
 const isSaving = computed(() => authStore.loading || loadingProfile.value)
 
+/**
+ * Calcula las iniciales del nombre y apellido para mostrar en el avatar del resumen.
+ */
 const userInitials = computed(() => {
   const n = (authStore.user?.nombre || '')[0] || ''
   const a = (authStore.user?.apellido || '')[0] || ''
   return `${n}${a}`.toUpperCase() || 'U'
 })
 
+/**
+ * Formatea el nombre del sector asignado al usuario para mostrarlo en la tarjeta lateral.
+ */
 const sectorDisplay = computed(() => {
   const s = authStore.userSector
   if (!s) return 'No asignado / Aplica a todo el hospital'
   return typeof s === 'object' ? s.nombre || 'Sin nombre' : String(s)
 })
 
+/**
+ * Copia los datos actuales del usuario en sesión hacia los campos del formulario
+ * y limpia los campos de nueva contraseña.
+ */
 function syncFormFromStore() {
   const u = authStore.user
   if (!u) return
@@ -57,6 +72,9 @@ function syncFormFromStore() {
   form.passwordConfirm = ''
 }
 
+/**
+ * Reinicia todos los mensajes de error de validación del formulario.
+ */
 function clearErrors() {
   generalError.value = ''
   for (const key of Object.keys(fieldErrors)) {
@@ -64,6 +82,9 @@ function clearErrors() {
   }
 }
 
+/**
+ * Solicita los datos actualizados del usuario desde GET /api/auth/me al abrir la vista.
+ */
 async function refreshProfile() {
   loadingProfile.value = true
   clearErrors()
@@ -78,6 +99,9 @@ async function refreshProfile() {
   }
 }
 
+/**
+ * Valida los datos ingresados en el cliente y envía la actualización a PUT /api/auth/me.
+ */
 async function handleSaveProfile() {
   clearErrors()
 
@@ -123,6 +147,9 @@ async function handleSaveProfile() {
   }
 }
 
+/**
+ * Regresa a la pantalla principal correspondiente al rol del usuario autenticado.
+ */
 function goBackHome() {
   router.push(authStore.homeRouteByRole)
 }

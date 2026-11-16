@@ -1,4 +1,8 @@
 <script setup>
+/**
+ * Componente reutilizable de campo de contraseña con etiqueta accesible,
+ * botón interno con ícono de ojo para alternar visibilidad y mensaje de error asociado.
+ */
 import { ref, computed } from 'vue'
 
 const props = defineProps({
@@ -45,6 +49,9 @@ const emit = defineEmits(['update:modelValue'])
 const showPassword = ref(false)
 const errorId = computed(() => `${props.id}-error`)
 
+/**
+ * Propaga el nuevo valor escrito en el input hacia el componente padre (v-model).
+ */
 function onInput(event) {
   emit('update:modelValue', event.target.value)
 }

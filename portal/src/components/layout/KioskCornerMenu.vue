@@ -1,4 +1,8 @@
 <script setup>
+/**
+ * Menú desplegable discreto ubicado en la esquina superior derecha para el Modo Kiosco
+ * del Sector Comedor, donde se oculta la barra de navegación convencional.
+ */
 import { ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
@@ -11,6 +15,7 @@ const uiStore = useUiStore()
 
 const kioskMenuOpen = ref(false)
 
+// Cierra el menú desplegable cuando el operador navega a otra vista
 watch(
   () => route.fullPath,
   () => {
@@ -18,6 +23,9 @@ watch(
   },
 )
 
+/**
+ * Cierra la sesión del operador del comedor y redirige al login.
+ */
 async function handleLogout() {
   await authStore.logout()
   uiStore.notify({

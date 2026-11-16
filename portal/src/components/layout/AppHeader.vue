@@ -1,4 +1,9 @@
 <script setup>
+/**
+ * Barra superior y menú de navegación principal del portal público.
+ * Muestra la identidad del hospital, el nombre/rol/sector del usuario autenticado
+ * y las pestañas habilitadas según su rol, colapsándose en dispositivos móviles.
+ */
 import { ref, computed, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useAuthStore, ROLES_OPERATIVOS } from '@/stores/auth'
@@ -19,6 +24,9 @@ watch(
   },
 )
 
+/**
+ * Obtiene el nombre legible del sector asignado al usuario (cuando es Jefe de Servicio).
+ */
 const sectorNombre = computed(() => {
   const s = authStore.userSector
   if (!s) return ''
@@ -68,6 +76,9 @@ const navItems = computed(() => {
   return allItems.filter((item) => item.roles.includes(role))
 })
 
+/**
+ * Cierra la sesión actual en el backend y en el store local, y redirige a la vista de login.
+ */
 async function handleLogout() {
   await authStore.logout()
   uiStore.notify({

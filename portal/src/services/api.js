@@ -13,6 +13,10 @@ const STORAGE_TOKEN_KEY = 'portal_auth_token'
 let unauthorizedHandler = null
 let maintenanceHandler = null
 
+/**
+ * Registra las funciones que se ejecutarán automáticamente cuando la API responda
+ * con 401 (sesión inválida/expirada) o 503 (sitio en modo mantenimiento).
+ */
 export function registerApiHandlers({ onUnauthorized, onMaintenance } = {}) {
   if (typeof onUnauthorized === 'function') {
     unauthorizedHandler = onUnauthorized
@@ -22,10 +26,16 @@ export function registerApiHandlers({ onUnauthorized, onMaintenance } = {}) {
   }
 }
 
+/**
+ * Obtiene el token JWT almacenado localmente en el navegador, o null si no existe.
+ */
 export function getStoredToken() {
   return localStorage.getItem(STORAGE_TOKEN_KEY)
 }
 
+/**
+ * Guarda o elimina el token JWT en el almacenamiento local del navegador.
+ */
 export function setStoredToken(token) {
   if (token) {
     localStorage.setItem(STORAGE_TOKEN_KEY, token)
@@ -61,16 +71,24 @@ export class ApiError extends Error {
 }
 
 /**
- * Convierte el arreglo `details: [{ field, message }]` devuelto por el backend en un objeto
- * indexado por nombre de campo para mostrar los errores debajo de cada input del formulario.
+ * Unifica los errores por campo que devuelve el backend (ya sea en un objeto `fields`
+ * o en una lista `details: [{ field, message }]`) para mostrarlos junto a cada input.
  */
-function buildFieldErrorsMap(details) {
+function buildFieldErrorsMap(details, fieldsObj) {
   const map = {}
-  if (!Array.isArray(details)) return map
+  if (fieldsObj && typeof fieldsObj === 'object' && !Array.isArray(fieldsObj)) {
+    for (const [key, msg] of Object.entries(fieldsObj)) {
+      if (key && msg) {
+        map[key] = String(msg)
+      }
+    }
+  }
 
-  for (const item of details) {
-    if (item && item.field && item.message && !map[item.field]) {
-      map[item.field] = item.message
+  if (Array.isArray(details)) {
+    for (const item of details) {
+      if (item && item.field && item.message && !map[item.field]) {
+        map[item.field] = item.message
+      }
     }
   }
   return map
@@ -177,20 +195,31 @@ export async function apiRequest(endpoint, options = {}) {
     return payload
   }
 
-  // Extracción uniforme del objeto error devuelto por nuestra API Flask
-  const apiErrorObj = payload && typeof payload === 'object' ? payload.error || payload : null
+  // Extracción uniforme del mensaje y detalle de error devuelto por nuestra API Flask
+  const rawError = payload && typeof payload === 'object' ? payload.error : null
+  const apiErrorObj =
+    rawError && typeof rawError === 'object'
+      ? rawError
+      : payload && typeof payload === 'object'
+        ? payload
+        : null
+
   const backendMessage =
-    (apiErrorObj && (apiErrorObj.message || apiErrorObj.mensaje)) || ''
+    typeof rawError === 'string'
+      ? rawError
+      : (apiErrorObj && (apiErrorObj.message || apiErrorObj.mensaje)) || ''
   const backendCode = (apiErrorObj && apiErrorObj.code) || 'http_error'
   const details = (apiErrorObj && Array.isArray(apiErrorObj.details) && apiErrorObj.details) || []
-  const fieldErrors = buildFieldErrorsMap(details)
+  const fieldsObj = (payload && typeof payload === 'object' && payload.fields) || null
+  const fieldErrors = buildFieldErrorsMap(details, fieldsObj)
 
   switch (response.status) {
     case 400:
       throw new ApiError({
         status: 400,
         code: backendCode,
-        message: backendMessage || 'Los datos ingresados contienen errores. Revisá los campos marcados.',
+        message:
+          backendMessage || 'Los datos ingresados contienen errores. Revisá los campos marcados.',
         details,
         fieldErrors,
       })
@@ -203,7 +232,9 @@ export async function apiRequest(endpoint, options = {}) {
       throw new ApiError({
         status: 401,
         code: backendCode,
-        message: backendMessage || 'Tu sesión expiró o las credenciales son inválidas. Iniciá sesión nuevamente.',
+        message:
+          backendMessage ||
+          'Tu sesión expiró o las credenciales son inválidas. Iniciá sesión nuevamente.',
         details,
         fieldErrors,
       })
@@ -263,6 +294,9 @@ export async function apiRequest(endpoint, options = {}) {
   }
 }
 
+/**
+ * Métodos abreviados para invocar peticiones GET, POST, PUT y DELETE contra la API.
+ */
 export const api = {
   get: (endpoint, params, options = {}) =>
     apiRequest(endpoint, { ...options, method: 'GET', params }),

@@ -1,4 +1,8 @@
 <script setup>
+/**
+ * Región global de alertas y notificaciones flotantes (información, éxito, advertencia y error).
+ * Se alimenta del estado reactivo de `useUiStore()`.
+ */
 import { useUiStore } from '@/stores/ui'
 
 const uiStore = useUiStore()

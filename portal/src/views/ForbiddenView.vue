@@ -1,10 +1,17 @@
 <script setup>
+/**
+ * Vista de acceso denegado (403) cuando un usuario autenticado intenta ingresar
+ * a una ruta para la cual su rol operativo no tiene permisos.
+ */
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
 const authStore = useAuthStore()
 
+/**
+ * Redirige al usuario a la pantalla principal que le corresponde según su rol.
+ */
 function irAlInicio() {
   router.push(authStore.homeRouteByRole)
 }

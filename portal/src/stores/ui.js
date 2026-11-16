@@ -32,10 +32,16 @@ export const useUiStore = defineStore('ui', () => {
     return id
   }
 
+  /**
+   * Elimina una notificación puntual de la pila según su identificador.
+   */
   function dismissNotification(id) {
     notifications.value = notifications.value.filter((item) => item.id !== id)
   }
 
+  /**
+   * Limpia todas las notificaciones visibles en pantalla.
+   */
   function clearNotifications() {
     notifications.value = []
   }

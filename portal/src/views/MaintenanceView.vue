@@ -1,16 +1,35 @@
 <script setup>
+/**
+ * Vista de sitio en mantenimiento (503).
+ * Muestra el mensaje configurado por el Administrador y permite comprobar
+ * si el mantenimiento ya finalizó sin perder la sesión activa.
+ */
 import { ref } from 'vue'
 import { useUiStore } from '@/stores/ui'
+import { useAuthStore } from '@/stores/auth'
 import { api } from '@/services/api'
 
 const uiStore = useUiStore()
+const authStore = useAuthStore()
 const checking = ref(false)
 
+/**
+ * Consulta GET /api/configuration para verificar si el modo mantenimiento fue desactivado.
+ * Si el sitio volvió a estar operativo y hay un token guardado, sincroniza la sesión del usuario.
+ */
 async function reintentarConexion() {
   checking.value = true
   try {
-    await api.get('/configuration', undefined, { skipAuthRedirect: true })
+    const config = await api.get('/configuration', undefined, { skipAuthRedirect: true })
+    if (config && config.mantenimiento_activo) {
+      uiStore.setMaintenance(true, config.mensaje_mantenimiento || '')
+      return
+    }
+
     uiStore.setMaintenance(false, '')
+    if (authStore.token) {
+      await authStore.fetchCurrentUser()
+    }
   } catch (error) {
     if (error.status !== 503) {
       uiStore.setMaintenance(false, '')

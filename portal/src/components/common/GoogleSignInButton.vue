@@ -1,4 +1,9 @@
 <script setup>
+/**
+ * Botón reutilizable de inicio de sesión con Google Identity Services (GIS).
+ * Carga el script oficial de Google cuando VITE_GOOGLE_CLIENT_ID está configurado
+ * y emite el ID token recibido hacia la vista padre.
+ */
 import { ref, onMounted } from 'vue'
 
 defineProps({
@@ -14,6 +19,10 @@ const googleClientId = (import.meta.env.VITE_GOOGLE_CLIENT_ID || '').trim()
 const googleButtonContainer = ref(null)
 const googleSdkReady = ref(false)
 
+/**
+ * Callback invocado por Google Identity Services luego de que el usuario selecciona su cuenta.
+ * Extrae el token JWT (`credential`) y lo emite al componente padre para validarlo en el backend.
+ */
 function handleGoogleResponse(response) {
   const idToken = response?.credential
   if (!idToken) {
@@ -23,6 +32,10 @@ function handleGoogleResponse(response) {
   emit('credential', idToken)
 }
 
+/**
+ * Informa cómo configurar el Client ID cuando se presiona el botón alternativo en desarrollo
+ * sin haber definido VITE_GOOGLE_CLIENT_ID en el archivo .env.
+ */
 function handleFallbackClick() {
   emit(
     'error',
@@ -30,6 +43,10 @@ function handleFallbackClick() {
   )
 }
 
+/**
+ * Inserta dinámicamente el script de Google Identity Services en el documento
+ * y dibuja el botón oficial dentro del contenedor.
+ */
 function initGoogleIdentityServices() {
   if (!googleClientId) return
 

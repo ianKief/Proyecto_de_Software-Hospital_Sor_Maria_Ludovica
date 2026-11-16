@@ -1,3 +1,10 @@
+<script setup>
+/**
+ * Insignia institucional con el logo del Hospital Sor María Ludovica que permanece
+ * visible en la esquina inferior derecha a lo largo de todas las pantallas.
+ */
+</script>
+
 <template>
   <aside class="persistent-corner-logo" aria-label="Identidad institucional del hospital">
     <img
