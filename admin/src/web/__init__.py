@@ -1,3 +1,4 @@
+"""Inicialización de la aplicación Flask, registro de blueprints y configuración de middlewares."""
 import logging
 import os
 from dotenv import load_dotenv
@@ -35,22 +36,29 @@ session_ext = Session()
 
 
 def _get_static_path():
-    # Encuentra la carpeta static relativa a la raíz de admin
+    """Calcula la ruta absoluta de la carpeta ``static`` ubicada en la raíz de ``admin/``."""
     current_dir = os.path.dirname(os.path.abspath(__file__))  # src/web
     admin_dir = os.path.abspath(os.path.join(current_dir, "..", ".."))  # admin/
     return os.path.join(admin_dir, "static")
 
 
 def _configurar_cors_api(app):
-    """Habilita cabeceras CORS en las rutas /api/* para permitir llamadas desde el portal Vue."""
+    """Configura las cabeceras CORS en los endpoints ``/api/*`` para permitir peticiones desde Vue.
+
+    Atiende las consultas preflight (``OPTIONS``) devolviendo 204 sin pasar por la autenticación
+    y adjunta las cabeceras ``Access-Control-Allow-*`` en todas las respuestas de la API según
+    los orígenes declarados en ``CORS_ORIGINS``.
+    """
     @app.before_request
     def responder_preflight_cors():
+        """Responde de forma inmediata a las peticiones OPTIONS de preflight en rutas de la API."""
         if request.method == "OPTIONS" and request.path.startswith("/api/"):
             return make_response("", 204)
         return None
 
     @app.after_request
     def agregar_headers_cors(response):
+        """Agrega los encabezados de orígenes, métodos y headers permitidos en respuestas de /api/*."""
         if not request.path.startswith("/api/"):
             return response
 
@@ -72,9 +80,15 @@ def _configurar_cors_api(app):
 
 
 def create_app(env="development", static_folder=None):
+    """Crea, configura y devuelve la instancia principal de la aplicación Flask.
+
+    Inicializa la base de datos, el manejo de sesiones y el envío de correos; registra
+    los blueprints de la interfaz privada y de la API REST; y engancha los controles
+    globales de CORS, modo mantenimiento y expiración de sesión por inactividad.
+    """
     logging.basicConfig(
         level=logging.INFO,
-        format="%(asctime)s %(levelname)s %(name)s: %(message)s"
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
 
     if static_folder is None:

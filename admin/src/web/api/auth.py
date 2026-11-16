@@ -24,7 +24,11 @@ api_auth_bp = Blueprint("api_auth", __name__, url_prefix="/api/auth")
 
 
 def _serializar_usuario(user):
-    """Arma el diccionario con los datos públicos del usuario autenticado."""
+    """Arma el diccionario con los datos públicos del usuario autenticado.
+
+    Incluye su identificador, datos personales, nombre del rol y sector asociado
+    para que el frontend pueda configurar la sesión y el menú sin exponer hashes.
+    """
     return {
         "id": user.id,
         "nombre": user.nombre,
@@ -38,7 +42,11 @@ def _serializar_usuario(user):
 
 
 def _generar_token_acceso(user):
-    """Emite un token JWT firmado con una duración pensada para cubrir un turno completo."""
+    """Emite un token JWT firmado con una duración pensada para cubrir un turno completo.
+
+    Guarda el ID del usuario en el claim ``sub`` y calcula la fecha de vencimiento (``exp``)
+    según la variable ``JWT_EXPIRATION_HOURS`` definida en la configuración.
+    """
     horas_expiracion = current_app.config.get("JWT_EXPIRATION_HOURS", 12)
     payload = {
         "sub": user.id,
@@ -52,7 +60,15 @@ def _generar_token_acceso(user):
 
 @api_auth_bp.route("/login", methods=["POST"])
 def login():
-    """Autentica a un usuario operativo con email y contraseña y devuelve un token JWT."""
+    """Autentica a un usuario operativo con email y contraseña y devuelve un token JWT.
+
+    Flujo:
+    1. Valida el formato del JSON de entrada (400 si faltan datos o el email es inválido).
+    2. Verifica que el usuario exista y que la contraseña coincida con su hash bcrypt (401 si falla).
+    3. Comprueba que la cuenta esté activa y tenga un rol operativo del portal (403 si es
+       Administrador o está bloqueado).
+    4. Devuelve el token JWT junto con los datos del usuario (200).
+    """
     data = request.get_json(silent=True)
     datos, error_validacion = validar_datos_login_api(data)
     if error_validacion:
@@ -88,7 +104,15 @@ def login():
 
 @api_auth_bp.route("/google", methods=["POST"])
 def login_google():
-    """Autentica a un usuario operativo validando el ID token de Google Identity Services."""
+    """Autentica a un usuario operativo validando el ID token de Google Identity Services.
+
+    Flujo:
+    1. Verifica que se haya enviado el campo ``id_token`` en el cuerpo JSON (400 si falta).
+    2. Valida firma, emisor, audiencia (``GOOGLE_CLIENT_ID``) y expiración del token (401 si es inválido).
+    3. Busca el correo verificado en la base de datos local sin crear usuarios nuevos (403 si no existe,
+       está bloqueado o tiene rol Administrador).
+    4. Devuelve el mismo formato de token JWT y datos de usuario que el login tradicional (200).
+    """
     data = request.get_json(silent=True)
     token_google, error_datos = validar_datos_google_login_api(data)
     if error_datos:
@@ -121,14 +145,19 @@ def login_google():
 @api_auth_bp.route("/me", methods=["GET"])
 @token_required
 def me(current_user):
-    """Retorna los datos del usuario autenticado a partir del token Bearer."""
+    """Retorna los datos del usuario autenticado a partir del token Bearer enviado en el header."""
     return jsonify(_serializar_usuario(current_user)), 200
 
 
 @api_auth_bp.route("/me", methods=["PUT"])
 @token_required
 def update_me(current_user):
-    """Permite al usuario autenticado del portal editar sus datos personales y su contraseña."""
+    """Permite al usuario autenticado del portal editar sus datos personales y su contraseña.
+
+    Valida que el usuario pertenezca a uno de los roles operativos (403 si no), comprueba
+    el formato de nombre, apellido, email, DNI y contraseña opcional (400 si hay errores),
+    verifica que el email y DNI no estén ocupados por otro usuario (409) y persiste los cambios.
+    """
     if not es_rol_operativo_portal(current_user):
         return jsonify({
             "error": "Solo los roles operativos del portal pueden editar su perfil por esta vía."
@@ -168,7 +197,7 @@ def update_me(current_user):
 @api_auth_bp.route("/logout", methods=["POST"])
 @token_required
 def logout(current_user=None):
-    """Cierra la sesión del usuario autenticado."""
+    """Confirma el cierre de sesión del usuario autenticado para que el cliente descarte su token."""
     return jsonify({
         "message": "Sesión cerrada correctamente"
     }), 200
