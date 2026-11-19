@@ -94,3 +94,29 @@ export function validateProfileForm({
   }
 }
 
+/**
+ * Valida los campos del formulario de activación de cuenta y configuración inicial de contraseña.
+ */
+export function validateActivationForm({ password = '', passwordConfirm = '' }) {
+  const errors = {}
+  const cleanPassword = String(password || '')
+  const cleanConfirm = String(passwordConfirm || '')
+
+  if (!cleanPassword.trim()) {
+    errors.password = 'La contraseña es obligatoria.'
+  } else if (cleanPassword.trim().length < 6) {
+    errors.password = 'La contraseña debe tener al menos 6 caracteres.'
+  }
+
+  if (!cleanConfirm.trim()) {
+    errors.password_confirm = 'Debe confirmar la contraseña.'
+  } else if (cleanPassword && cleanPassword !== cleanConfirm) {
+    errors.password_confirm = 'Las contraseñas ingresadas no coinciden.'
+  }
+
+  return {
+    isValid: Object.keys(errors).length === 0,
+    errors,
+  }
+}
+

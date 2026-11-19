@@ -13,6 +13,7 @@ import { useUiStore } from '@/stores/ui'
 import { registerApiHandlers } from '@/services/api'
 
 import LoginView from '@/views/LoginView.vue'
+import ActivateAccountView from '@/views/ActivateAccountView.vue'
 import ProfileView from '@/views/ProfileView.vue'
 import ForbiddenView from '@/views/ForbiddenView.vue'
 import MaintenanceView from '@/views/MaintenanceView.vue'
@@ -33,6 +34,15 @@ const routes = [
       requiresAuth: false,
       guestOnly: true,
       title: 'Iniciar sesión',
+    },
+  },
+  {
+    path: '/activar-cuenta',
+    name: 'activate-account',
+    component: ActivateAccountView,
+    meta: {
+      requiresAuth: false,
+      title: 'Activá tu cuenta',
     },
   },
   {

@@ -8,6 +8,7 @@ from src.core.auth.models import Role
 from src.core.sectors.models import Sector
 from src.core.users.models import User
 from src.core.configuration.models import Configuration, ID_CONFIGURACION
+from src.core.tokens import generar_token_activacion
 from src.web.helpers import auth_validaciones
 from tests.helpers_token import cliente_con_token, headers_con_token
 
@@ -295,3 +296,47 @@ def test_api_logout_y_cors_headers(app):
     resp_logout = cliente_con_token(app, jefe).post("/api/auth/logout")
     assert resp_logout.status_code == 200
     assert app.test_client().post("/api/auth/logout").status_code == 401
+
+
+def test_api_activate_verifica_token_y_activa_cuenta_operativa(app):
+    client = app.test_client()
+    inactivo = User.query.filter_by(email="bloqueado@hospital.com").first()
+    admin = User.query.filter_by(email="admin@hospital.com").first()
+
+    token_operativo = generar_token_activacion(inactivo.id)
+    token_admin = generar_token_activacion(admin.id)
+
+    # GET /api/auth/activate devuelve los datos del usuario operativo a activar
+    resp_verify = client.get(f"/api/auth/activate?token={token_operativo}")
+    assert resp_verify.status_code == 200
+    assert resp_verify.get_json()["user"]["email"] == "bloqueado@hospital.com"
+
+    # Un token de Administrador no se activa por el portal público (403)
+    assert client.get(f"/api/auth/activate?token={token_admin}").status_code == 403
+
+    # Token inválido devuelve 400
+    assert client.get("/api/auth/activate?token=token-invalido").status_code == 400
+
+    # POST /api/auth/activate valida coincidencia de contraseñas
+    resp_mismatch = client.post("/api/auth/activate", json={
+        "token": token_operativo,
+        "password": "nuevaclave123",
+        "password_confirm": "otraclave123",
+    })
+    assert resp_mismatch.status_code == 400
+    assert "password_confirm" in resp_mismatch.get_json()["fields"]
+
+    # POST /api/auth/activate activa la cuenta, actualiza la contraseña y devuelve el JWT
+    resp_activate = client.post("/api/auth/activate", json={
+        "token": token_operativo,
+        "password": "nuevaclave123",
+        "password_confirm": "nuevaclave123",
+    })
+    assert resp_activate.status_code == 200
+    body = resp_activate.get_json()
+    assert "token" in body and isinstance(body["token"], str)
+    assert body["user"]["email"] == "bloqueado@hospital.com"
+
+    db.session.refresh(inactivo)
+    assert inactivo.activo is True
+    assert bcrypt.checkpw(b"nuevaclave123", inactivo.password.encode("utf-8"))

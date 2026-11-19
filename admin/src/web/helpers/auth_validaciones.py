@@ -174,3 +174,44 @@ def validar_datos_perfil_api(data):
         "dni": dni,
         "password": password if password.strip() else None,
     }, None, None
+
+
+def validar_datos_activacion_api(data):
+    """Valida el cuerpo JSON recibido en POST /api/auth/activate para activar una cuenta nueva.
+
+    Verifica que se incluya el token de activación y que la contraseña nueva y su
+    confirmación tengan al menos 6 caracteres y coincidan entre sí.
+    Retorna ``(datos_limpios, errores_campos, mensaje_error)``.
+    """
+    if data is None or not isinstance(data, dict):
+        return None, {}, "Formato JSON inválido o faltante."
+
+    errores = {}
+    token = (data.get("token") or "").strip() if isinstance(data.get("token"), str) else ""
+    password_raw = data.get("password")
+    password_confirm_raw = data.get("password_confirm")
+
+    password = password_raw if isinstance(password_raw, str) else ""
+    password_confirm = password_confirm_raw if isinstance(password_confirm_raw, str) else ""
+
+    if not token:
+        errores["token"] = "El enlace de activación no es válido."
+
+    if not password or not password.strip():
+        errores["password"] = "La contraseña es obligatoria."
+    elif len(password.strip()) < 6:
+        errores["password"] = "La contraseña debe tener al menos 6 caracteres."
+
+    if not password_confirm or not password_confirm.strip():
+        errores["password_confirm"] = "Debe confirmar la contraseña."
+    elif password and password != password_confirm:
+        errores["password_confirm"] = "Las contraseñas ingresadas no coinciden."
+
+    if errores:
+        primer_error = next(iter(errores.values()))
+        return None, errores, primer_error
+
+    return {
+        "token": token,
+        "password": password,
+    }, None, None

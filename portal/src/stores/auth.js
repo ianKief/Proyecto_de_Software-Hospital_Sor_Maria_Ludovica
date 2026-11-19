@@ -216,6 +216,30 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   /**
+   * Activa la cuenta del usuario operativo definiendo su contraseña inicial
+   * contra POST /api/auth/activate e inicia su sesión automáticamente.
+   */
+  async function activateAccount({ token: activationToken, password, passwordConfirm }) {
+    loading.value = true
+    try {
+      const data = await authService.activateAccount({
+        token: activationToken,
+        password,
+        passwordConfirm,
+      })
+      setSession(data.token, data.user || null)
+      const currentUser = await fetchCurrentUser()
+      initialized.value = true
+      return currentUser
+    } catch (error) {
+      clearSession()
+      throw error
+    } finally {
+      loading.value = false
+    }
+  }
+
+  /**
    * Cierra la sesión invocando POST /api/auth/logout y limpiando el almacenamiento local.
    */
   async function logout() {
@@ -251,6 +275,7 @@ export const useAuthStore = defineStore('auth', () => {
     initializeAuth,
     login,
     loginWithGoogle,
+    activateAccount,
     updateProfile,
     logout,
   }

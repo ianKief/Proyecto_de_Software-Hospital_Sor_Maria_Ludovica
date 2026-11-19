@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, flash, redirect, url_for, session
+from flask import Blueprint, render_template, request, flash, redirect, url_for, session, current_app
 from src.core.users.models import User
 from src.core.auth.models import Role
 from src.core.sectors.models import Sector
@@ -226,9 +226,15 @@ def user_new():
             activo=False
         )
 
-        # Generar token y enviar correo de activación
+        # Generar token y enviar correo de activación.
+        # Los Administradores activan su cuenta en la aplicación privada;
+        # los roles operativos reciben el enlace directo a la aplicación pública (portal).
         token = generar_token_activacion(nuevo_usuario.id)
-        url_activacion = url_for('auth.set_password', token=token, _external=True)
+        if role.name == "Administrador":
+            url_activacion = url_for('auth.set_password', token=token, _external=True)
+        else:
+            portal_base = (current_app.config.get("PORTAL_URL") or "http://localhost:5173").rstrip("/")
+            url_activacion = f"{portal_base}/activar-cuenta?token={token}"
         enviar_email_activacion(nuevo_usuario, url_activacion)
 
         flash(f"Usuario {nuevo_usuario.nombre} {nuevo_usuario.apellido} creado con éxito. Se ha enviado un correo a {nuevo_usuario.email} para que active su cuenta y configure su contraseña.", "success")

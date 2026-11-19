@@ -30,7 +30,11 @@ const isKioskMode = computed(
  * Determina si corresponde mostrar la cabecera estándar y el menú de navegación por rol.
  */
 const showStandardChrome = computed(
-  () => authStore.isAuthenticated && !isKioskMode.value && route.name !== 'login',
+  () =>
+    authStore.isAuthenticated &&
+    !isKioskMode.value &&
+    route.name !== 'login' &&
+    route.name !== 'activate-account',
 )
 </script>
 

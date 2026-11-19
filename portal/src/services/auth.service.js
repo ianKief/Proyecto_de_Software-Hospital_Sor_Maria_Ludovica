@@ -46,4 +46,26 @@ export const authService = {
   logoutSession() {
     return api.post('/auth/logout', {}, { skipAuthRedirect: true })
   },
+
+  /**
+   * Verifica la validez del token de activación enviado por correo (GET /api/auth/activate).
+   */
+  verifyActivationToken(token) {
+    return api.get('/auth/activate', { token }, { skipAuthRedirect: true })
+  },
+
+  /**
+   * Activa la cuenta del usuario operativo definiendo su contraseña inicial (POST /api/auth/activate).
+   */
+  activateAccount({ token, password, passwordConfirm }) {
+    return api.post(
+      '/auth/activate',
+      {
+        token,
+        password,
+        password_confirm: passwordConfirm,
+      },
+      { skipAuthRedirect: true },
+    )
+  },
 }

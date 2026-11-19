@@ -1,6 +1,6 @@
 """Controlador de autenticación y activación de cuenta para la aplicación privada."""
 from datetime import datetime, timezone
-from flask import Blueprint, render_template, request, session, redirect, url_for, flash
+from flask import Blueprint, render_template, request, session, redirect, url_for, flash, current_app
 from src.core.auth import autenticar_usuario
 from src.core.users import obtener_usuario, actualizar_contrasena
 from src.core.tokens import (
@@ -155,6 +155,12 @@ def set_password():
     if not user:
         flash("Usuario no encontrado.", "error")
         return redirect(url_for("auth.login"))
+
+    # Si el usuario aún no está activo, es_administrador(user) devolvería False,
+    # por lo que verificamos el nombre del rol directamente.
+    if not (user.role and user.role.name == "Administrador"):
+        portal_base = (current_app.config.get("PORTAL_URL") or "http://localhost:5173").rstrip("/")
+        return redirect(f"{portal_base}/activar-cuenta?token={token}")
 
     if request.method == "POST":
         password = request.form.get("password")

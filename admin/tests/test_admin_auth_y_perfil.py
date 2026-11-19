@@ -113,25 +113,16 @@ def test_magic_login_rechaza_roles_operativos(app):
         assert sess.get("user") is None
 
 
-def test_set_password_activa_rol_operativo_sin_iniciar_sesion_en_admin(app):
+def test_set_password_redirige_rol_operativo_al_portal_publico(app):
     client = app.test_client()
     jefe_nuevo = User.query.filter_by(email="nuevo_jefe@hospital.com").first()
     token = generar_token_activacion(jefe_nuevo.id)
 
-    resp = client.post("/auth/set-password", data={
-        "token": token,
-        "password": "nuevaclave123",
-        "password_confirm": "nuevaclave123",
-    }, follow_redirects=True)
-
-    assert resp.status_code == 200
-    assert "portal" in resp.get_data(as_text=True)
+    resp = client.get(f"/auth/set-password?token={token}", follow_redirects=False)
+    assert resp.status_code in (301, 302)
+    assert resp.headers["Location"] == f"http://localhost:5173/activar-cuenta?token={token}"
     with client.session_transaction() as sess:
         assert sess.get("user") is None
-
-    jefe_actualizado = User.query.filter_by(email="nuevo_jefe@hospital.com").first()
-    assert jefe_actualizado.activo is True
-    assert bcrypt.checkpw(b"nuevaclave123", jefe_actualizado.password.encode("utf-8"))
 
 
 def test_perfil_accesible_y_editable_solo_por_administrador(app):

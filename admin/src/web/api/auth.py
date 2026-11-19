@@ -6,10 +6,13 @@ from flask import Blueprint, request, jsonify, current_app
 
 from src.core.users.models import User
 from src.core.users import (
+    obtener_usuario,
+    actualizar_contrasena,
     actualizar_perfil_usuario,
     existe_usuario_con_email,
     existe_usuario_con_dni,
 )
+from src.core.tokens import verificar_token_activacion
 from src.web.helpers.api_auth import token_required
 from src.web.helpers.auth_validaciones import (
     es_rol_operativo_portal,
@@ -18,6 +21,7 @@ from src.web.helpers.auth_validaciones import (
     verificar_id_token_google,
     validar_acceso_usuario_portal,
     validar_datos_perfil_api,
+    validar_datos_activacion_api,
 )
 
 api_auth_bp = Blueprint("api_auth", __name__, url_prefix="/api/auth")
@@ -191,6 +195,82 @@ def update_me(current_user):
     return jsonify({
         "message": "Perfil actualizado correctamente.",
         "user": _serializar_usuario(current_user),
+    }), 200
+
+
+@api_auth_bp.route("/activate", methods=["GET"])
+def verify_activation_token():
+    """Verifica la validez de un token de activación de cuenta enviado por correo.
+
+    Permite que la vista de activación en el portal público muestre los datos del
+    usuario (nombre, apellido, email y rol) antes de que defina su contraseña, o
+    informe de inmediato si el enlace es inválido o expiró.
+    """
+    token = (request.args.get("token") or "").strip()
+    if not token:
+        return jsonify({"error": "Enlace de activación no provisto."}), 400
+
+    user_id = verificar_token_activacion(token)
+    if not user_id:
+        return jsonify({
+            "error": "El enlace de activación es inválido o ha expirado (validez: 24 hs). Contactá al Administrador."
+        }), 400
+
+    user = obtener_usuario(id=user_id)
+    if not user:
+        return jsonify({"error": "El usuario asociado al enlace no existe."}), 404
+
+    if not es_rol_operativo_portal(user):
+        return jsonify({
+            "error": "Las cuentas con rol Administrador deben activarse desde el panel de administración."
+        }), 403
+
+    return jsonify({
+        "user": _serializar_usuario(user),
+    }), 200
+
+
+@api_auth_bp.route("/activate", methods=["POST"])
+def activate_account():
+    """Activa la cuenta de un usuario operativo configurando su contraseña inicial.
+
+    Flujo:
+    1. Valida el token y que las contraseñas coincidan y tengan al menos 6 caracteres (400).
+    2. Verifica que el token de activación sea válido y no haya superado las 24 horas (400).
+    3. Comprueba que el usuario exista (404) y tenga un rol operativo del portal (403).
+    4. Guarda el hash de la contraseña, marca al usuario como activo y emite el token JWT
+       para que ingrese directamente al portal (200).
+    """
+    data = request.get_json(silent=True)
+    datos, errores_campos, error_validacion = validar_datos_activacion_api(data)
+    if error_validacion:
+        return jsonify({"error": error_validacion, "fields": errores_campos}), 400
+
+    user_id = verificar_token_activacion(datos["token"])
+    if not user_id:
+        return jsonify({
+            "error": "El enlace de activación es inválido o ha expirado (validez: 24 hs). Contactá al Administrador."
+        }), 400
+
+    user = obtener_usuario(id=user_id)
+    if not user:
+        return jsonify({"error": "El usuario asociado al enlace no existe."}), 404
+
+    if not es_rol_operativo_portal(user):
+        return jsonify({
+            "error": "Las cuentas con rol Administrador deben activarse desde el panel de administración."
+        }), 403
+
+    try:
+        actualizar_contrasena(user, datos["password"])
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    token = _generar_token_acceso(user)
+    return jsonify({
+        "message": "Cuenta activada y contraseña configurada correctamente.",
+        "token": token,
+        "user": _serializar_usuario(user),
     }), 200
 
 

@@ -20,6 +20,9 @@ class Config:
         "http://localhost:5173,http://127.0.0.1:5173",
     )
 
+    # URL base de la aplicación pública (portal en Vue) para enlaces de activación de roles operativos
+    PORTAL_URL = os.environ.get("PORTAL_URL", "http://localhost:5173").rstrip("/")
+
     # Client ID de Google Identity Services para verificar el inicio de sesión con Google
     GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
 
